@@ -1,0 +1,201 @@
+[
+  {
+    "name": "reported_char_center_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 53,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Field block is centered but does not end with a line separator (\\&), which is likely to cause text layout issues"
+      },
+      {
+        "byte_index": 54,
+        "byte_size": 53,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 2 lines; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "reported_word_center_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 50,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Field block is centered but does not end with a line separator (\\&), which is likely to cause text layout issues"
+      }
+    ]
+  },
+  {
+    "name": "char_left_m1",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 1,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 53,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 1 line; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "char_left_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 53,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 2 lines; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "char_left_m3",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 3,
+    "warnings": []
+  },
+  {
+    "name": "char_right_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 53,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 2 lines; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "word_left_m1",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 1,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 64,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 1 line; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "word_left_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 64,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 2 lines; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "word_left_m3",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 3,
+    "warnings": []
+  },
+  {
+    "name": "truncate_word_m2",
+    "fit": "truncate",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "shrink_word_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 55,
+        "byte_size": 63,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Field block is centered but does not end with a line separator (\\&), which is likely to cause text layout issues"
+      }
+    ]
+  },
+  {
+    "name": "shrink_char_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 55,
+        "byte_size": 50,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Field block is centered but does not end with a line separator (\\&), which is likely to cause text layout issues"
+      }
+    ]
+  },
+  {
+    "name": "explicit_wrap_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": [
+      {
+        "byte_index": 54,
+        "byte_size": 35,
+        "command": "^FD",
+        "param_index": 1,
+        "message": "Text does not fit on 2 lines; last line contains overlapping text"
+      }
+    ]
+  },
+  {
+    "name": "explicit_truncate_m2",
+    "fit": "truncate",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "explicit_shrink_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "overflow_long",
+    "fit": "overflow",
+    "wrap": "none",
+    "max_lines": 1,
+    "warnings": []
+  }
+]

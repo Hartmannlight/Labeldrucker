@@ -1,0 +1,34 @@
+config_version: 1
+printers:
+  - id: virtual-zebra
+    name: Virtueller Zebra
+    model: ZPL-II-Printer-Emulator
+    vendor: Local
+    driver: zpl
+    connection:
+      protocol: raw9100
+      host: virtual-zebra
+      port: 9100
+      timeout_ms: 3000
+    media:
+      loaded:
+        width_mm: 50
+        height_mm: 25
+        color: white
+        type: virtual
+    alignment:
+      dpi: 203
+      offset_x_mm: 0
+      offset_y_mm: 0
+    zpl:
+      darkness: 10
+      print_speed: 3
+      print_mode: tear_off
+    defaults:
+      copies: 1
+      rotation: 0
+    capabilities:
+      supports_status: false
+      supports_graphics: true
+      supports_cut: false
+    enabled: true

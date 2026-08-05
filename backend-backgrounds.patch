@@ -1,0 +1,321 @@
+diff --git a/zplgrid/model.py b/zplgrid/model.py
+--- a/zplgrid/model.py
++++ b/zplgrid/model.py
+@@ -143,10 +143,25 @@ class ImageElement(Element):
+     invert: Optional[bool] = None
+ 
+ 
++@dataclass(frozen=True)
++class ImageBackground:
++    source: ImageSource
++    fit: Optional[str] = None
++    align_h: Optional[str] = None
++    align_v: Optional[str] = None
++    input_dpi: Optional[int] = None
++    threshold: Optional[int] = None
++    dither: Optional[str] = None
++    invert: Optional[bool] = None
++    extensions: dict[str, Any] = field(default_factory=dict)
++
++
+ @dataclass(frozen=True)
+ class Node:
+     kind: str
+     alias: Optional[str] = None
++    background: Optional[ImageBackground] = None
+     extensions: dict[str, Any] = field(default_factory=dict)
+diff --git a/zplgrid/parser.py b/zplgrid/parser.py
+--- a/zplgrid/parser.py
++++ b/zplgrid/parser.py
+@@ -9,6 +9,7 @@ from .model import (
+     DataMatrixElement,
+     Divider,
++    ImageBackground,
+     ImageElement,
+@@ -63,6 +64,7 @@ def _parse_node(raw: Mapping[str, Any], *, defaults: TemplateDefaults, path: str
+     kind = str(raw['kind'])
+     alias = raw.get('alias')
+     extensions = dict(raw.get('extensions') or {})
++    background = _parse_background(raw.get('background'), defaults=defaults)
+@@ -80,6 +82,7 @@ def _parse_node(raw: Mapping[str, Any], *, defaults: TemplateDefaults, path: str
+             divider=divider,
+             children=(child0, child1),
++            background=background,
+             extensions=extensions,
+@@ -93,12 +96,35 @@ def _parse_node(raw: Mapping[str, Any], *, defaults: TemplateDefaults, path: str
+             debug_border=bool(raw.get('debug_border', False)),
+             elements=elements,
++            background=background,
+             extensions=extensions,
+@@ -106,6 +132,27 @@ def _parse_node(raw: Mapping[str, Any], *, defaults: TemplateDefaults, path: str
+     raise ValueError(f'unsupported node kind: {kind}')
+ 
+ 
++def _parse_background(raw: Any, *, defaults: TemplateDefaults) -> Optional[ImageBackground]:
++    if raw is None:
++        return None
++    merged = {**defaults.image_defaults, **dict(raw)}
++    source_raw = merged.get('source') or {}
++    return ImageBackground(
++        source=ImageSource(kind=str(source_raw.get('kind', 'base64')), data=str(source_raw.get('data', ''))),
++        fit=merged.get('fit'),
++        align_h=merged.get('align_h'),
++        align_v=merged.get('align_v'),
++        input_dpi=merged.get('input_dpi'),
++        threshold=merged.get('threshold'),
++        dither=merged.get('dither'),
++        invert=merged.get('invert'),
++        extensions=dict(raw.get('extensions') or {}),
++    )
++
++
+ def _parse_padding_optional(raw: Optional[list[Any]]) -> PaddingMm:
+diff --git a/zplgrid/layout.py b/zplgrid/layout.py
+--- a/zplgrid/layout.py
++++ b/zplgrid/layout.py
+@@ -5,10 +5,17 @@ from typing import Iterable, Mapping
+ 
+ from .exceptions import LayoutError
+-from .model import LeafNode, Node, Rect, SplitNode
++from .model import ImageBackground, LeafNode, Node, Rect, SplitNode
+ from .units import mm_to_dots
+ 
+ 
++@dataclass(frozen=True)
++class NodeBackgroundLayout:
++    node_id: str
++    background: ImageBackground
++    rect: Rect
++
++
+ @dataclass(frozen=True)
+ class SplitDividerLayout:
+@@ -29,6 +36,7 @@ class LeafLayout:
+ @dataclass(frozen=True)
+ class LayoutResult:
+     node_rects: Mapping[str, Rect]
++    backgrounds: tuple[NodeBackgroundLayout, ...]
+     leaves: tuple[LeafLayout, ...]
+@@ -39,6 +47,7 @@ def compute_layout(root: Node, *, width_dots: int, height_dots: int, dpi: int) -
+     node_rects: dict[str, Rect] = {}
++    backgrounds: list[NodeBackgroundLayout] = []
+     leaves: list[LeafLayout] = []
+@@ -55,6 +64,7 @@ def compute_layout(root: Node, *, width_dots: int, height_dots: int, dpi: int) -
+         dpi=dpi,
+         node_rects=node_rects,
++        backgrounds=backgrounds,
+         leaves=leaves,
+@@ -65,6 +75,7 @@ def compute_layout(root: Node, *, width_dots: int, height_dots: int, dpi: int) -
+     return LayoutResult(
+         node_rects=node_rects,
++        backgrounds=tuple(backgrounds),
+         leaves=tuple(leaves),
+@@ -82,6 +93,7 @@ def _walk(
+     dpi: int,
+     node_rects: dict[str, Rect],
++    backgrounds: list[NodeBackgroundLayout],
+     leaves: list[LeafLayout],
+@@ -92,6 +104,8 @@ def _walk(
+ ) -> None:
+     node_rects[node_id] = rect
++    if node.background is not None:
++        backgrounds.append(NodeBackgroundLayout(node_id=node_id, background=node.background, rect=rect))
+     if node.alias:
+@@ -128,8 +142,8 @@ def _walk(
+-        _walk(node.children[0], node_id=f'{node_id}/0', rect=child0, dpi=dpi, node_rects=node_rects, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
+-        _walk(node.children[1], node_id=f'{node_id}/1', rect=child1, dpi=dpi, node_rects=node_rects, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
++        _walk(node.children[0], node_id=f'{node_id}/0', rect=child0, dpi=dpi, node_rects=node_rects, backgrounds=backgrounds, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
++        _walk(node.children[1], node_id=f'{node_id}/1', rect=child1, dpi=dpi, node_rects=node_rects, backgrounds=backgrounds, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
+@@ -147,8 +161,8 @@ def _walk(
+-        _walk(node.children[0], node_id=f'{node_id}/0', rect=child0, dpi=dpi, node_rects=node_rects, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
+-        _walk(node.children[1], node_id=f'{node_id}/1', rect=child1, dpi=dpi, node_rects=node_rects, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
++        _walk(node.children[0], node_id=f'{node_id}/0', rect=child0, dpi=dpi, node_rects=node_rects, backgrounds=backgrounds, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
++        _walk(node.children[1], node_id=f'{node_id}/1', rect=child1, dpi=dpi, node_rects=node_rects, backgrounds=backgrounds, leaves=leaves, dividers=dividers, gutters=gutters, alias_to_id=alias_to_id)
+diff --git a/zplgrid/compiler.py b/zplgrid/compiler.py
+--- a/zplgrid/compiler.py
++++ b/zplgrid/compiler.py
+@@ -9,7 +9,7 @@ from typing import Any, Mapping, Optional
+ from .exceptions import CompilationError
+ from .layout import compute_layout
+ from .measure import TextMeasurer, ZplMeasuredTextMeasurer
+-from .model import DataMatrixElement, ImageElement, LeafNode, LabelTarget, LineElement, QrElement, Template, TextElement
++from .model import DataMatrixElement, ImageBackground, ImageElement, LeafNode, LabelTarget, LineElement, QrElement, Template, TextElement
+@@ -44,20 +44,16 @@ class Compiler:
+         z = ZplBuilder(options=zpl_opts)
+         z.start_label(width_dots=width_dots, height_dots=height_dots, origin_x=origin_x, origin_y=origin_y)
+ 
+-        for divider in layout.dividers:
+-            if divider.rect.w <= 0 or divider.rect.h <= 0:
+-                continue
+-            thickness = max(1, divider.thickness)
+-            z.field_origin(divider.rect.x, divider.rect.y)
+-            z.graphic_box(width=divider.rect.w, height=divider.rect.h, thickness=thickness, color='B', rounding=0)
+-            z.field_separator()
+-
+-        if debug_gutter_guides:
+-            for gutter in layout.gutters:
+-                self._emit_gutter_guide(z, rect=gutter.rect, direction=gutter.direction)
++        for background in layout.backgrounds:
++            self._emit_image(
++                z, element=background.background, rect=background.rect,
++                variables=variables, render_opts=render_opts, dpi=target.dpi,
++            )
+ 
+         for leaf in layout.leaves:
+@@ -80,6 +76,20 @@ class Compiler:
+             else:
+                 raise CompilationError(f'unsupported element type: {element.type!r}')
+ 
++        for divider in layout.dividers:
++            if divider.rect.w <= 0 or divider.rect.h <= 0:
++                continue
++            thickness = max(1, divider.thickness)
++            z.field_origin(divider.rect.x, divider.rect.y)
++            z.graphic_box(width=divider.rect.w, height=divider.rect.h, thickness=thickness, color='B', rounding=0)
++            z.field_separator()
++
++        if debug_gutter_guides:
++            for gutter in layout.gutters:
++                self._emit_gutter_guide(z, rect=gutter.rect, direction=gutter.direction)
++
+         z.end_label()
+@@ -654,7 +664,7 @@ class Compiler:
+         z: ZplBuilder,
+         *,
+-        element: ImageElement,
++        element: ImageElement | ImageBackground,
+         rect,
+diff --git a/zplgrid/validation.py b/zplgrid/validation.py
+--- a/zplgrid/validation.py
++++ b/zplgrid/validation.py
+@@ -49,6 +49,11 @@ def _validate_node(node: Mapping[str, Any], *, issues: list[TemplateIssue], path:
+     kind = node['kind']
+ 
++    background = node.get('background')
++    if isinstance(background, Mapping):
++        background_element = {'type': 'image', **background}
++        _validate_element(background_element, issues=issues, path=f'{path}.background')
++
+     alias = node.get('alias')
+diff --git a/zplgrid/schemas/zplgrid_template_v1.schema.json b/zplgrid/schemas/zplgrid_template_v1.schema.json
+--- a/zplgrid/schemas/zplgrid_template_v1.schema.json
++++ b/zplgrid/schemas/zplgrid_template_v1.schema.json
+@@ -323,6 +323,9 @@
+         "divider": {
+           "$ref": "#/$defs/divider"
+         },
++        "background": {
++          "$ref": "#/$defs/image_background"
++        },
+         "children": {
+@@ -362,6 +365,9 @@
+         "debug_border": {
+           "type": "boolean"
+         },
++        "background": {
++          "$ref": "#/$defs/image_background"
++        },
+         "elements": {
+@@ -902,6 +908,72 @@
+         }
+       }
+     },
++    "image_background": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["source"],
++      "properties": {
++        "source": { "$ref": "#/$defs/image_source" },
++        "fit": { "enum": ["none", "contain", "cover", "stretch"] },
++        "align_h": { "enum": ["left", "center", "right"] },
++        "align_v": { "enum": ["top", "center", "bottom"] },
++        "input_dpi": { "type": "integer", "minimum": 1 },
++        "threshold": { "type": "integer", "minimum": 0, "maximum": 255 },
++        "dither": { "enum": ["none", "floyd_steinberg", "bayer"] },
++        "invert": { "type": "boolean" },
++        "extensions": { "type": "object" }
++      }
++    },
+     "image_element": {
+diff --git a/tests/test_image_background.py b/tests/test_image_background.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_image_background.py
+@@ -0,0 +1,69 @@
++import base64
++import io
++
++from PIL import Image
++
++from zplgrid.compiler import compile_zpl
++from zplgrid.model import LabelTarget
++from zplgrid.parser import load_template
++
++
++def _black_png_base64() -> str:
++    image = Image.new('RGB', (1, 1), color='black')
++    buffer = io.BytesIO()
++    image.save(buffer, format='PNG')
++    return base64.b64encode(buffer.getvalue()).decode('ascii')
++
++
++def _background(data: str) -> dict:
++    return {'source': {'kind': 'base64', 'data': data}, 'fit': 'stretch', 'threshold': 128, 'dither': 'none'}
++
++
++def test_background_is_supported_on_root_split_and_leaf_and_precedes_content():
++    image_data = _black_png_base64()
++    template = {
++        'schema_version': 1,
++        'name': 'node_backgrounds',
++        'defaults': {'leaf_padding_mm': [0, 0, 0, 0]},
++        'layout': {
++            'kind': 'split', 'direction': 'v', 'ratio': 0.5,
++            'background': _background(image_data),
++            'children': [
++                {'kind': 'leaf', 'background': _background(image_data), 'elements': [{'type': 'text', 'text': 'Hello'}]},
++                {'kind': 'leaf', 'elements': [{'type': 'qr', 'data': 'world'}]},
++            ],
++        },
++    }
++
++    parsed = load_template(template)
++    assert parsed.layout.background is not None
++    assert parsed.layout.children[0].background is not None
++    assert parsed.layout.children[1].background is None
++
++    zpl = compile_zpl(template, target=LabelTarget(width_mm=20.0, height_mm=10.0, dpi=203))
++    assert zpl.count('^GFA') == 2
++    assert zpl.rfind('^GFA') < zpl.index('^FDHello')
++
++
++def test_background_uses_image_defaults():
++    image_data = _black_png_base64()
++    parsed = load_template({
++        'schema_version': 1,
++        'defaults': {'image': {'fit': 'cover', 'invert': True}},
++        'layout': {
++            'kind': 'leaf',
++            'background': {'source': {'kind': 'base64', 'data': image_data}},
++            'elements': [{'type': 'text', 'text': 'foreground'}],
++        },
++    })
++    assert parsed.layout.background is not None
++    assert parsed.layout.background.fit == 'cover'
++    assert parsed.layout.background.invert is True
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -73,6 +73,9 @@ The system is split into three independently deployable repositories:
+ 
+ ### 2) Nodes
+ 
++Every node may define an optional `background` image. Ancestor backgrounds are rendered first,
++followed by descendant backgrounds and the leaf foreground elements.
++
+ - `split` node: divides a rectangle into two children.
+@@ -84,6 +87,8 @@ The system is split into three independently deployable repositories:
+   - `padding_mm`: [top, right, bottom, left] in mm
+   - `debug_border`: draw a border when debugging
++- `background` accepts the image fields `source`, `fit`, `align_h`, `align_v`,
++  `input_dpi`, `threshold`, `dither`, and `invert` on split and leaf nodes, including root.

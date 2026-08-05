@@ -1,0 +1,121 @@
+[
+  {
+    "name": "reported_char_center_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "reported_word_center_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "char_left_m1",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 1,
+    "warnings": []
+  },
+  {
+    "name": "char_left_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "char_left_m3",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 3,
+    "warnings": []
+  },
+  {
+    "name": "char_right_m2",
+    "fit": "wrap",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "word_left_m1",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 1,
+    "warnings": []
+  },
+  {
+    "name": "word_left_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "word_left_m3",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 3,
+    "warnings": []
+  },
+  {
+    "name": "truncate_word_m2",
+    "fit": "truncate",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "shrink_word_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "shrink_char_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "char",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "explicit_wrap_m2",
+    "fit": "wrap",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "explicit_truncate_m2",
+    "fit": "truncate",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "explicit_shrink_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  },
+  {
+    "name": "overflow_long",
+    "fit": "overflow",
+    "wrap": "none",
+    "max_lines": 1,
+    "warnings": []
+  },
+  {
+    "name": "reported_center_shrink_m2",
+    "fit": "shrink_to_fit",
+    "wrap": "word",
+    "max_lines": 2,
+    "warnings": []
+  }
+]
