@@ -9,7 +9,7 @@ services:
       ZPL_EMULATOR_HOST: 0.0.0.0
       ZPL_EMULATOR_TCP_HOST: 0.0.0.0
       ZPL_EMULATOR_LABEL_WIDTH_IN: "1.9685"
-      ZPL_EMULATOR_LABEL_HEIGHT_IN: "0.9843"
+      ZPL_EMULATOR_LABEL_HEIGHT_IN: "1.9685"
       ZPL_EMULATOR_DPMM: "8"
       ZPL_EMULATOR_MAX_JOBS: "50"
     ports:
@@ -35,7 +35,9 @@ services:
       ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
       ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs
       ZPLGRID_COUNTERS_PATH: /data/counters.json
-      ZPLGRID_PRINTER_OVERRIDES_PATH: /data/printer-overrides.yml
+      ZPLGRID_PRINTER_REGISTRY_PATH: /data/printers.sqlite3
+      ZPLGRID_PRINTER_SEED_PATH: /app/configs/printers.yml
+      ZPLGRID_DISCOVERY_INTERVAL_SECONDS: ${ZPLGRID_DISCOVERY_INTERVAL_SECONDS:-30}
       ZPLGRID_ZEBRA_TAMER_AGENTS: ${ZPLGRID_ZEBRA_TAMER_AGENTS:-}
       ZPLGRID_DEFAULT_PRINTER_ID: ${ZPLGRID_DEFAULT_PRINTER_ID:-virtual-zebra}
       ZPLGRID_ENABLE_LABELARY_API: ${ZPLGRID_ENABLE_LABELARY_API:-0}
@@ -46,7 +48,7 @@ services:
       - "127.0.0.1:${PRINTHUB_API_PORT:-8001}:8000"
     volumes:
       - printhub_data:/data
-      - ./config/printers.yml:/app/configs/printers.yml
+      - ./config/printers.yml:/app/configs/printers.yml:ro
     depends_on:
       virtual-zebra:
         condition: service_healthy
@@ -68,7 +70,7 @@ services:
       APP_BACKEND_API_BASE: /api
       APP_RENDER_API_BASE: /api
       APP_API_UPSTREAM: http://printhub:8000
-      APP_LABEL_SIZE_PRESETS: 40x30,20x10,50x50,50x30,30x20,72x26
+      APP_LABEL_SIZE_PRESETS: 50x25,40x30,20x10,50x50,50x30,30x20,72x26
     ports:
       - "${PRINTHUB_STUDIO_PORT:-8088}:80"
     depends_on:

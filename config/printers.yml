@@ -13,9 +13,13 @@ printers:
     media:
       loaded:
         width_mm: 50
-        height_mm: 25
+        height_mm: 50
         color: white
         type: virtual
+      dynamic_source:
+        kind: zpl_emulator_settings
+        url: http://virtual-zebra:9191/api/settings
+        timeout_ms: 1000
     alignment:
       dpi: 203
       offset_x_mm: 0

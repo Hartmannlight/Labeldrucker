@@ -1,1 +1,3 @@
 .env
+artifacts/printhub-before-registry-*.tar.gz
+artifacts/printers-before-registry-*.yml
