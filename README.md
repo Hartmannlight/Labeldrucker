@@ -69,6 +69,63 @@ Danach sind erreichbar:
 - PrintHub/OpenAPI: `http://localhost:8001/docs`
 - Virtueller Zebra: `http://localhost:9191`
 
+## Schnittstellen: Was kann wie angesprochen werden?
+
+Der Compose-Stack bindet Studio, API und Emulator-Webansicht standardmäßig nur
+an den lokalen Rechner. Für Aufrufe aus dem LAN müssen die `127.0.0.1:`-Bindings
+in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
+
+| Zweck | Adresse / Endpunkt | Unterstützt? | Hinweise |
+| --- | --- | --- | --- |
+| Studio im Browser | `http://localhost:8088` | Ja | Vorlagen auswählen, ausfüllen und drucken; Designer unter `/#/designer`. |
+| Interaktive API-Dokumentation | `http://localhost:8001/docs` | Ja | OpenAPI/Swagger ist die vollständige, laufzeitaktuelle Referenz. |
+| Healthcheck | `GET http://localhost:8001/health` | Ja | Antwortet mit `{"status":"ok"}`. |
+| Vorlagen auflisten / laden | `GET /v1/templates`, `GET /v1/templates/{id}` | Ja | Die Startseite zeigt genau diese direkt nutzbaren Vorlagen. |
+| Vorlage anlegen / ändern | `POST /v1/templates`, `PUT /v1/templates/{id}` | Ja | Enthält Template-JSON, Felddefinitionen, Beispieldaten und Vorschauziel. |
+| Template rendern | `POST /v1/renders/zpl`, `POST /v1/renders/png` | Ja | Rendert ohne zu drucken; Variablen dürfen auch Zeilenumbrüche enthalten. |
+| Gespeichertes Template drucken | `POST /v1/print-jobs` | Ja | Langlebiger Job mit `printer_id`, `template_id` und `variables`; Status über `GET /v1/print-jobs/{id}`. |
+| Ungespeichertes Template drucken | `POST /v1/printers/{printer_id}/prints/template` | Ja | Template und Variablen werden direkt im Request mitgegeben. |
+| RAW ZPL II drucken | `POST /v1/printers/{printer_id}/prints/zpl` | Ja | Body: `{"zpl":"^XA...^XZ"}`. Bei `raw9100` ergänzt PrintHub konfigurierte Gerätewerte, behält die Befehle des Payloads aber bei; an ZebraTamer geht RAW-ZPL unverändert. |
+| Drucker und Status | `GET /v1/printers`, `GET /v1/printers/{id}/status` | Ja | Status nur, wenn der registrierte Drucker ihn unterstützt. |
+| RAW-TCP/JetDirect Port 9100 | PrintHub → Drucker | Ja | Drucker mit `connection.protocol: raw9100` werden auf dem konfigurierten Host/Port angesprochen, üblicherweise `9100`. PrintHub selbst lauscht **nicht** auf Port 9100. |
+| Virtueller Zebra auf Port 9100 | nur im Docker-Netz: `virtual-zebra:9100` | Ja, intern | In der mitgelieferten Compose-Datei wird 9100 nicht auf den Host veröffentlicht; von außen wird über die PrintHub-API gedruckt. |
+| CUPS/IPP-Queue als PrintHub-Ziel | – | Nein | Derzeit gibt es keinen `cups`-/`ipp`-Backend-Treiber. Ein Netzwerkdrucker kann unabhängig direkt in CUPS und parallel in PrintHub als `raw9100` eingerichtet werden; PrintHub sendet jedoch nicht über die CUPS-Queue. |
+| PrintHub selbst zu CUPS hinzufügen | – | Nein | PrintHub stellt weder IPP noch eine CUPS-kompatible Port-9100-Queue bereit. |
+
+Mehrzeilige Werte bleiben im API- und Render-Layer normale JSON-Strings mit
+Zeilenumbrüchen. Die Felddefinition `{"type":"textarea","rows":4}` steuert nur
+die Darstellung des Formulars in Studio. Dadurch braucht ein Template wie
+`briefadresse` genau eine Variable und dieselbe Vorlage funktioniert unverändert
+über Weboberfläche und API.
+
+In **Quick print** gilt die gewählte Ausgabegröße immer gemeinsam für Vorschau
+und Druckauftrag. Zur Wahl stehen die im Template gespeicherte Originalgröße,
+die vom ausgewählten Drucker gemeldete eingelegte Rolle, weitere konfigurierte
+Standardgrößen und frei eingebbare Maße. Bei einer Abweichung erklärt Studio, ob das Layout angepasst
+wird oder auf dem eingelegten Medium abgeschnitten werden könnte. Virtuelle
+Drucker werden in der Auswahl ausdrücklich als solche markiert. Studio startet
+bei neuen Browserprofilen im Light Theme; eine anschließend gewählte Darstellung
+wird lokal im Browser gespeichert.
+
+Beispiel für eine dreizeilige Adresse über ein gespeichertes Template:
+
+```powershell
+$body = @{
+  printer_id = 'virtual-zebra'
+  template_id = 'briefadresse'
+  variables = @{ address = "Erika Mustermann`nMusterstrasse 17`n51147 Koeln" }
+  origin = 'powershell'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8001/v1/print-jobs -ContentType application/json -Body $body
+```
+
+Beispiel für unverarbeitetes ZPL II:
+
+```powershell
+$body = @{ zpl = '^XA^FO30,30^A0N,40,40^FDHallo^FS^XZ' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8001/v1/printers/virtual-zebra/prints/zpl -ContentType application/json -Body $body
+```
+
 Der virtuelle Drucker wird beim ersten Start aus `config/printers.yml` direkt
 per `raw9100` in PrintHub registriert. Eine separate ZebraTamer-API wird nur für
 reale Drucker benötigt. Die YAML-Datei ist danach kein Laufzeitspeicher mehr.
