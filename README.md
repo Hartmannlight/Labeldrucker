@@ -1,36 +1,38 @@
 # PrintHub ohne Thingdex-Inventar
 
-Stand: 27. August 2026
+Stand: 4. September 2026
 
 Diese Variante betreibt nur die Etiketten- und Druckfunktionen. Sie enthält
 keine Thingdex-API, keine Inventardatenbank und kein PostgreSQL.
 
-## Benötigte Repositories und Branches
+## Repository-Aufteilung und Submodule
 
-### Ist `Labeldrucker` ein neues Repository?
+### Was ist das neue Repository?
 
-Nein. Der Ordner `Labeldrucker` ist das bereits vorhandene lokale Git-Repository
-für den Compose-Stack, die Betriebsdokumentation und das IPP-Gateway. Für die
-CUPS-Erweiterung wurde darin lediglich der neue Unterordner `ipp-gateway/`
-angelegt; es wurde kein weiteres `.git`-Repository erzeugt.
+Der Ordner `Labeldrucker` ist das Git-Repository für den Compose-Stack, die
+Betriebsdokumentation und das IPP-Gateway. Dieses bislang lokale Repository wird
+unter `Hartmannlight/Labeldrucker` veröffentlicht. Der Unterordner
+`ipp-gateway/` ist weiterhin kein eigenes Repository.
 
-Die Gesamtanwendung bleibt bewusst auf vier bestehende Repositories verteilt:
+Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
 
 - `Labeldrucker`: Docker Compose, IPP-Eingang und Betriebsdokumentation
 - `PrintHub-ZPL-ll`: Druckjob-API, Rasterpipeline, Vorschau und Druckertreiber
 - `printhub-sdk`: generierter und kuratierter TypeScript-Client
 - `LabelArchitect`: Studio-Oberfläche für Vorschau und Jobfreigabe
+- `ZPL-II-Printer-Emulator`: virtueller Drucker für Entwicklung und Tests
 
-Darum müssen Änderungen an dieser Funktion in diesen vier Repositories jeweils
-separat committed werden. Ein Commit im Ordner `Labeldrucker` kann Dateien in
-den drei Nachbar-Repositories weder enthalten noch versionieren.
+Die vier ausführbaren bzw. gebauten Abhängigkeiten sind unter `components/` als
+Git-Submodule eingebunden. Ein `Labeldrucker`-Commit speichert ihre exakten
+Commit-IDs, während ihre Quelldateien und Historien in den jeweiligen
+Repositories bleiben.
 
 | Repository | Branch | Zweck | geprüfter Commit |
 | --- | --- | --- | --- |
-| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer, Quick Print und Druckerübersicht | `28b909c` |
-| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `406eac0` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | API, Vorlagen, langlebige Druckjobs und Drucker-Registry | `5b902a7` |
-| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `6afb22a` |
+| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer, Quick Print und Druckerübersicht | `4d4c62f` |
+| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `c1a634f` |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | API, Vorlagen, langlebige Druckjobs und Drucker-Registry | `8024b56` |
+| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `d6df4d6` |
 | [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler Agent für reale Zebra-Drucker | `8f7fb62` |
 
 Die Änderungen des Studio-Rewrites sind auf `main` zusammengeführt. Die
@@ -43,38 +45,40 @@ aufgegangen.
 
 ## Verzeichnisstruktur und Checkout
 
-Alle Repositories und dieser Ordner müssen nebeneinander liegen:
+Ein vollständiger Checkout hat diese Struktur:
 
 ```text
-printhub-only/
-├── LabelArchitect/
-├── printhub-sdk/
-├── PrintHub-ZPL-ll/
-├── ZebraTamer/
-├── ZPL-II-Printer-Emulator/
-└── printer-only-stack/
+Labeldrucker/
+├── components/
+│   ├── LabelArchitect/             # Git-Submodule
+│   ├── printhub-sdk/               # Git-Submodule
+│   ├── PrintHub-ZPL-ll/            # Git-Submodule
+│   └── ZPL-II-Printer-Emulator/     # Git-Submodule
+├── ipp-gateway/
+└── compose.yaml
 ```
 
-Checkout in PowerShell:
+Checkout einschließlich Submodule:
 
 ```powershell
-mkdir printhub-only
-cd printhub-only
-git clone -b main https://github.com/Hartmannlight/LabelArchitect.git
-git clone -b main https://github.com/Hartmannlight/printhub-sdk.git
-git clone -b main https://github.com/Hartmannlight/PrintHub-ZPL-ll.git
-git clone -b main https://github.com/Hartmannlight/ZPL-II-Printer-Emulator.git
-git clone -b main https://github.com/Hartmannlight/ZebraTamer.git
+git clone --recurse-submodules https://github.com/Hartmannlight/Labeldrucker.git
+cd Labeldrucker
 ```
 
-Danach den Ordner `printer-only-stack` aus diesem Workspace daneben kopieren.
+Bei einem bereits vorhandenen Checkout werden fehlende Submodule so geladen:
+
+```powershell
+git submodule update --init --recursive
+```
+
+`ZebraTamer` bleibt optional und wird nicht in den Stack eingebettet. Reale
+ZebraTamer-Instanzen werden über `ZPLGRID_ZEBRA_TAMER_AGENTS` angebunden.
 
 ## Konfiguration und Start
 
 Voraussetzung ist Docker mit Compose v2.
 
 ```powershell
-cd printer-only-stack
 Copy-Item .env.example .env
 docker compose config
 docker compose up --build -d

@@ -1,0 +1,16 @@
+[submodule "PrintHub-ZPL-ll"]
+	path = components/PrintHub-ZPL-ll
+	url = https://github.com/Hartmannlight/PrintHub-ZPL-ll.git
+	branch = main
+[submodule "printhub-sdk"]
+	path = components/printhub-sdk
+	url = https://github.com/Hartmannlight/printhub-sdk.git
+	branch = main
+[submodule "LabelArchitect"]
+	path = components/LabelArchitect
+	url = https://github.com/Hartmannlight/LabelArchitect.git
+	branch = main
+[submodule "ZPL-II-Printer-Emulator"]
+	path = components/ZPL-II-Printer-Emulator
+	url = https://github.com/Hartmannlight/ZPL-II-Printer-Emulator.git
+	branch = main

@@ -6,8 +6,8 @@ Konvertierungsfunktionen.
 
 ## Voraussetzungen
 
-Alle vier Repositories liegen wie in der Haupt-README beschrieben nebeneinander.
-Docker Compose v2 ist verfügbar und Port 8631 ist frei.
+Die vier Submodule unter `components/` sind wie in der Haupt-README beschrieben
+initialisiert. Docker Compose v2 ist verfügbar und Port 8631 ist frei.
 
 ## Stack bauen und starten
 

@@ -3,7 +3,7 @@ name: printhub-only
 services:
   virtual-zebra:
     build:
-      context: ../ZPL-II-Printer-Emulator
+      context: ./components/ZPL-II-Printer-Emulator
       dockerfile: Dockerfile
     environment:
       ZPL_EMULATOR_HOST: 0.0.0.0
@@ -28,7 +28,7 @@ services:
 
   printhub:
     build:
-      context: ../PrintHub-ZPL-ll
+      context: ./components/PrintHub-ZPL-ll
       dockerfile: Dockerfile
     environment:
       ZPLGRID_TEMPLATES_DIR: /data/templates
@@ -95,7 +95,7 @@ services:
 
   studio:
     build:
-      context: ..
+      context: ./components
       dockerfile: LabelArchitect/Dockerfile
     environment:
       APP_BACKEND_API_BASE: /api
