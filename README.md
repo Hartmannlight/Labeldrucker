@@ -7,6 +7,24 @@ keine Thingdex-API, keine Inventardatenbank und kein PostgreSQL.
 
 ## Benötigte Repositories und Branches
 
+### Ist `Labeldrucker` ein neues Repository?
+
+Nein. Der Ordner `Labeldrucker` ist das bereits vorhandene lokale Git-Repository
+für den Compose-Stack, die Betriebsdokumentation und das IPP-Gateway. Für die
+CUPS-Erweiterung wurde darin lediglich der neue Unterordner `ipp-gateway/`
+angelegt; es wurde kein weiteres `.git`-Repository erzeugt.
+
+Die Gesamtanwendung bleibt bewusst auf vier bestehende Repositories verteilt:
+
+- `Labeldrucker`: Docker Compose, IPP-Eingang und Betriebsdokumentation
+- `PrintHub-ZPL-ll`: Druckjob-API, Rasterpipeline, Vorschau und Druckertreiber
+- `printhub-sdk`: generierter und kuratierter TypeScript-Client
+- `LabelArchitect`: Studio-Oberfläche für Vorschau und Jobfreigabe
+
+Darum müssen Änderungen an dieser Funktion in diesen vier Repositories jeweils
+separat committed werden. Ein Commit im Ordner `Labeldrucker` kann Dateien in
+den drei Nachbar-Repositories weder enthalten noch versionieren.
+
 | Repository | Branch | Zweck | geprüfter Commit |
 | --- | --- | --- | --- |
 | [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer, Quick Print und Druckerübersicht | `28b909c` |
@@ -68,10 +86,11 @@ Danach sind erreichbar:
 - PrintHub Studio: `http://localhost:8088`
 - PrintHub/OpenAPI: `http://localhost:8001/docs`
 - Virtueller Zebra: `http://localhost:9191`
+- IPP-/CUPS-Drucker: `ipp://localhost:8631/ipp/print`
 
 ## Schnittstellen: Was kann wie angesprochen werden?
 
-Der Compose-Stack bindet Studio, API und Emulator-Webansicht standardmäßig nur
+Der Compose-Stack bindet Studio, API, IPP und Emulator-Webansicht standardmäßig nur
 an den lokalen Rechner. Für Aufrufe aus dem LAN müssen die `127.0.0.1:`-Bindings
 in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
 
@@ -89,8 +108,71 @@ in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
 | Drucker und Status | `GET /v1/printers`, `GET /v1/printers/{id}/status` | Ja | Status nur, wenn der registrierte Drucker ihn unterstützt. |
 | RAW-TCP/JetDirect Port 9100 | PrintHub → Drucker | Ja | Drucker mit `connection.protocol: raw9100` werden auf dem konfigurierten Host/Port angesprochen, üblicherweise `9100`. PrintHub selbst lauscht **nicht** auf Port 9100. |
 | Virtueller Zebra auf Port 9100 | nur im Docker-Netz: `virtual-zebra:9100` | Ja, intern | In der mitgelieferten Compose-Datei wird 9100 nicht auf den Host veröffentlicht; von außen wird über die PrintHub-API gedruckt. |
-| CUPS/IPP-Queue als PrintHub-Ziel | – | Nein | Derzeit gibt es keinen `cups`-/`ipp`-Backend-Treiber. Ein Netzwerkdrucker kann unabhängig direkt in CUPS und parallel in PrintHub als `raw9100` eingerichtet werden; PrintHub sendet jedoch nicht über die CUPS-Queue. |
-| PrintHub selbst zu CUPS hinzufügen | – | Nein | PrintHub stellt weder IPP noch eine CUPS-kompatible Port-9100-Queue bereit. |
+| PrintHub selbst zu CUPS hinzufügen | `ipp://localhost:8631/ipp/print` | Ja | Driverless IPP-Queue für den mit `PRINTHUB_IPP_PRINTER_ID` ausgewählten PrintHub-Drucker. Akzeptiert PWG Raster, Apple Raster, PDF, PostScript und JPEG. |
+| Bestehende CUPS-Queue als PrintHub-Ausgabegerät | – | Nein | Das Gateway ist ein Eingang für Anwendungen und CUPS. PrintHub sendet weiterhin über seine Geräte-Backends wie `raw9100` oder ZebraTamer. |
+
+## Aus Chrome und CUPS drucken
+
+Das optionale `ipp-gateway` bildet genau einen PrintHub-Drucker als
+driverless IPP-Drucker ab. CUPS handelt das Dokumentformat mit dem Gateway aus.
+PWG Raster ist der bevorzugte gemeinsame Weg; das von AirPrint-Clients genutzte
+Apple Raster sowie PDF-, PostScript- und JPEG-Dokumente werden ebenfalls
+angenommen. PNG und JPEG stehen außerdem direkt über die Raster-API zur
+Verfügung. Alle Eingaben durchlaufen dieselbe Schwarz-Weiß-Rasterpipeline und
+werden für einen Zebra-Drucker als `^GF`-Grafik ausgegeben. Damit ist dieselbe
+Zwischendarstellung später auch für einen Niimbot-Bitmaptreiber nutzbar.
+
+Eine reproduzierbare Prüfung der IPP-Fähigkeiten, eines echten PDF-Druckjobs und
+des A4-Sicherheitsfalls ist unter
+[`ipp-gateway/tests/README.md`](ipp-gateway/tests/README.md) beschrieben.
+
+Unter Linux kann die Queue so hinzugefügt werden:
+
+```sh
+sudo lpadmin -p printhub-label -E \
+  -v ipp://localhost:8631/ipp/print \
+  -m everywhere
+lpstat -p printhub-label
+```
+
+Danach erscheint `printhub-label` im Systemdruckdialog von Chrome. Das Gateway
+meldet die in PrintHub konfigurierte bzw. von ZebraTamer gelesene Rollenbreite,
+Rollenhöhe, Auflösung und den monochromen Farbraum an CUPS. Bei einer Änderung
+des eingelegten Mediums das Gateway neu starten, damit bereits geöffnete
+Druckdialoge die neuen Fähigkeiten abfragen:
+
+```sh
+docker compose restart ipp-gateway
+```
+
+Die sichere Standardrichtlinie ist `hold`: Eine A4-Seite für ein 50 × 50-mm-
+Label wird als langlebiger Job gespeichert und erhält eine exakte Fit-Vorschau,
+aber nicht automatisch gedruckt. Die Freigabe erfolgt bewusst mit
+`{"scaling":"fit"}` oder `{"scaling":"fill"}`:
+
+```sh
+curl -X POST http://localhost:8001/v1/print-jobs/JOB_ID/release \
+  -H 'Content-Type: application/json' \
+  -d '{"scaling":"fit"}'
+```
+
+Jede Dokumentseite wird zu einem Label. Farbige Inhalte werden auf Graustufen
+und anschließend auf die Schwarz-Weiß-Ausgabe des Druckers reduziert. Fotos
+können über `print-content-optimize=photo` mit Floyd-Steinberg-Dithering
+ausgegeben werden; Text, Linien und Barcodes bleiben ohne Dithering scharf.
+Die gespeicherte Vorschau zeigt schwarze Druckpunkte auf der in PrintHub
+gemeldeten Label-Farbe. Sie entspricht bei angehaltenen Jobs der sicheren
+`fit`-Variante; `fill` kann sichtbar Randinhalte abschneiden.
+
+Standardmäßig veröffentlicht Docker IPP nur auf `127.0.0.1` des Hosts. Das
+Gateway selbst ist innerhalb des Compose-Netzes ebenfalls erreichbar. Für CUPS auf einem anderen
+Rechner müssen `PRINTHUB_IPP_BIND=0.0.0.0` und
+`PRINTHUB_IPP_HOSTNAME=<vom-client-auflösbarer-hostname>` gesetzt werden. Dieser
+Hostname muss im LAN auf den Docker-Host zeigen; IP-Adressen sind für diese
+Option nicht vorgesehen. Das
+Gateway besitzt derzeit keine Anmeldung; der Port darf daher nur in ein
+vertrauenswürdiges Netz oder hinter eine geeignete Zugriffskontrolle freigegeben
+werden.
 
 Mehrzeilige Werte bleiben im API- und Render-Layer normale JSON-Strings mit
 Zeilenumbrüchen. Die Felddefinition `{"type":"textarea","rows":4}` steuert nur
@@ -168,7 +250,7 @@ Registry als YAML exportieren, da ältere Versionen SQLite nicht lesen.
 Logs und Stoppen:
 
 ```powershell
-docker compose logs -f printhub studio virtual-zebra
+docker compose logs -f printhub studio virtual-zebra ipp-gateway
 docker compose down
 ```
 
@@ -246,6 +328,11 @@ Eine Agent-URL konfiguriert nur die Discovery, nicht automatisch Drucker.
   Agenten; Standard 30 Sekunden, `0` deaktiviert nur die periodische Discovery.
 - `PRINTHUB_STUDIO_PORT`, `PRINTHUB_API_PORT`, `VIRTUAL_ZEBRA_WEB_PORT`:
   Host-Ports, falls die Defaults bereits belegt sind.
+- `PRINTHUB_IPP_PORT`, `PRINTHUB_IPP_BIND`, `PRINTHUB_IPP_HOSTNAME`:
+  Port, Bind-Adresse und die gegenüber CUPS gemeldete Adresse des IPP-Druckers.
+- `PRINTHUB_IPP_PRINTER_ID`: der als IPP-Queue veröffentlichte PrintHub-Drucker.
+- `PRINTHUB_IPP_MISMATCH_POLICY`: `hold` (sicherer Standard), `fit` oder
+  `fill` für abweichende Dokument- und Labelgrößen.
 - `ZPLGRID_ENABLE_LABELARY_*`: nur für PNG-Vorschauen. Für das eigentliche
   Erzeugen und Versenden von ZPL nicht erforderlich.
 - `TZ`: Zeitzone für zeitabhängige Template-Makros.

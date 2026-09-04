@@ -1,0 +1,31 @@
+{
+  NAME "Submit a document through the PrintHub IPP gateway"
+  OPERATION Print-Job
+  GROUP operation-attributes-tag
+  ATTR charset attributes-charset utf-8
+  ATTR language attributes-natural-language en
+  ATTR uri printer-uri $uri
+  ATTR name requesting-user-name $user
+  GROUP job-attributes-tag
+  ATTR integer copies 1
+  FILE $filename
+  STATUS successful-ok
+  STATUS successful-ok-ignored-or-substituted-attributes
+  EXPECT job-id
+  EXPECT job-uri
+}
+{
+  NAME "Wait for the submitted PrintHub job"
+  OPERATION Get-Job-Attributes
+  GROUP operation-attributes-tag
+  ATTR charset attributes-charset utf-8
+  ATTR language attributes-natural-language en
+  ATTR uri printer-uri $uri
+  ATTR integer job-id $job-id
+  ATTR name requesting-user-name $user
+  STATUS successful-ok
+  EXPECT job-state WITH-VALUE >5 REPEAT-NO-MATCH
+  DISPLAY job-state
+  DISPLAY job-state-reasons
+  DISPLAY job-state-message
+}
