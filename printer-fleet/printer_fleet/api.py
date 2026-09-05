@@ -180,8 +180,34 @@ def create_app(
             raise HTTPException(status_code=404, detail="Printer not found")
         return printer
 
-    def catalog_view(printer: dict[str, Any]) -> dict[str, Any]:
-        return {key: value for key, value in printer.items() if key != "connection"}
+    def catalog_view(
+        printer: dict[str, Any], principal: FleetPrincipal
+    ) -> dict[str, Any]:
+        if "admin" in principal.roles:
+            return printer
+
+        public_fields = (
+            "id",
+            "name",
+            "model",
+            "vendor",
+            "driver",
+            "enabled",
+            "site_id",
+            "alignment",
+            "capabilities",
+            "registry",
+            "control",
+        )
+        view = {key: printer[key] for key in public_fields if key in printer}
+        media = printer.get("media")
+        if isinstance(media, dict):
+            view["media"] = {
+                key: media[key]
+                for key in ("loaded", "authority")
+                if key in media
+            }
+        return view
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -208,7 +234,7 @@ def create_app(
     def list_printers(request: Request) -> list[dict[str, Any]]:
         principal = require_roles(request, "observer", "submitter")
         return [
-            catalog_view(printer)
+            catalog_view(printer, principal)
             for printer in repo.list_printers()
             if principal.allows_site(str(printer.get("site_id") or "default"))
         ]
@@ -238,7 +264,11 @@ def create_app(
 
     @app.get("/v1/printers/{printer_id}")
     def get_printer(printer_id: str, request: Request) -> dict[str, Any]:
-        return catalog_view(scoped_printer(request, printer_id, "observer", "submitter"))
+        principal = require_roles(request, "observer", "submitter")
+        return catalog_view(
+            scoped_printer(request, printer_id, "observer", "submitter"),
+            principal,
+        )
 
     @app.put("/v1/printers/{printer_id}")
     def put_printer(printer_id: str, printer: dict[str, Any], request: Request) -> dict[str, Any]:
@@ -281,18 +311,21 @@ def create_app(
         payload: PausePrinterRequest,
         request: Request,
     ) -> dict[str, Any]:
+        principal = require_roles(request, "admin")
         scoped_printer(request, printer_id, "admin")
         try:
             return catalog_view(
-                repo.set_printer_paused(printer_id, paused=True, reason=payload.reason)
+                repo.set_printer_paused(printer_id, paused=True, reason=payload.reason),
+                principal,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/v1/printers/{printer_id}/resume")
     def resume_printer(printer_id: str, request: Request) -> dict[str, Any]:
+        principal = require_roles(request, "admin")
         scoped_printer(request, printer_id, "admin")
-        return catalog_view(repo.set_printer_paused(printer_id, paused=False))
+        return catalog_view(repo.set_printer_paused(printer_id, paused=False), principal)
 
     @app.get("/v1/printers/{printer_id}/status")
     def get_printer_status(printer_id: str, request: Request) -> dict[str, Any]:

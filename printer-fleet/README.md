@@ -9,9 +9,9 @@ For new non-development deployments, mount a JSON credential document and set
 `PRINTER_FLEET_CREDENTIALS_FILE`. Each credential declares a stable principal,
 one or more `admin`, `observer` or `submitter` roles, and explicit site IDs or
 the single global `*` scope. `PRINTER_FLEET_CREDENTIALS_JSON` is available for
-secret-injection systems that cannot mount files. The legacy
-`PRINTER_FLEET_API_TOKEN` still maps to a global administrator during migration;
-combining legacy and structured credentials fails startup.
+secret-injection systems that cannot mount files. The former global
+`PRINTER_FLEET_API_TOKEN` is rejected at startup because it granted PrintHub
+administrative access to every site.
 
 All `/v1/*` requests require a recognized bearer credential when authentication
 is configured; `/health` remains open for orchestration. Every response carries
@@ -30,9 +30,11 @@ current service principal and defaults to `printhub`.
 delivery records grouped by their authoritative current state. It is protected
 by the same service credential whenever API authentication is enabled.
 
-The first vertical slice supports ZPL artifacts over `raw_tcp`, the legacy
-`raw9100` spelling and `serial_over_tcp`. A successful socket write is recorded
-as `transport_accepted`, never as a confirmed physical print.
+The Zebra driver accepts native `application/zpl` and the device-independent
+`application/vnd.printhub.raster-page+json` contract. It creates ZPL only in the
+Fleet worker, then sends it through `raw_tcp`, `serial_over_tcp` or
+`print_agent`. A successful socket write is recorded as `transport_accepted`,
+never as a confirmed physical print.
 
 Registry writes normalize RAW TCP to port 9100 and a bounded timeout. A
 `serial_over_tcp` endpoint must declare its real bridge port explicitly. Fleet
@@ -76,10 +78,10 @@ it does not claim to recall a job that may already be in flight at the physical
 device. The pause reason and timestamp are exposed in the printer's `control`
 object and survive service restarts.
 
-The `print_agent` transport is the vendor-neutral successor to the compatible
-`zebra_tamer` alias. It forwards device payloads and a stable idempotency key to
-an edge agent. Direct Ethernet printers remain connected to Fleet itself and do
-not require an agent.
+The `print_agent` transport forwards device payloads and a stable idempotency
+key to an edge agent. Direct Ethernet printers remain connected to Fleet itself
+and do not require an agent. Legacy protocol spellings are accepted only by the
+offline migration tool, never by the live delivery path.
 
 Important API groups:
 
@@ -174,3 +176,21 @@ source backup until the new deployment has passed its acceptance window; do
 not enable dual writes. PostgreSQL backups use the normal platform tooling,
 for example `pg_dump --format=custom`, and must be restore-tested on an
 independent database on the operator's backup schedule.
+
+## Legacy PrintHub registry import
+
+PrintHub no longer embeds a physical registry or device transport. Convert an
+old YAML/JSON export or its former SQLite registry offline:
+
+```sh
+python -m printer_fleet.legacy_import \
+  --source /backup/printers.sqlite3 \
+  --output /backup/printer-fleet-import.json
+```
+
+The command never modifies the source and refuses to overwrite its output. It
+normalizes `raw9100` to `raw_tcp` and old agent protocol names to
+`print_agent`. An agent record without a stable `agent_id` fails closed and
+must be rediscovered. Import the result through the authenticated Fleet
+registry API. Protect both files because physical endpoint details are
+sensitive configuration.

@@ -35,22 +35,17 @@ services:
       ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
       ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs
       ZPLGRID_COUNTERS_PATH: /data/counters.json
-      ZPLGRID_PRINTER_REGISTRY_PATH: /data/printers.sqlite3
-      ZPLGRID_PRINTER_SEED_PATH: /app/configs/printers.yml
-      ZPLGRID_DISCOVERY_INTERVAL_SECONDS: ${ZPLGRID_DISCOVERY_INTERVAL_SECONDS:-30}
-      ZPLGRID_ZEBRA_TAMER_AGENTS: ${ZPLGRID_ZEBRA_TAMER_AGENTS:-}
       ZPLGRID_DEFAULT_PRINTER_ID: ${ZPLGRID_DEFAULT_PRINTER_ID:-virtual-zebra}
       ZPLGRID_ENABLE_LABELARY_API: ${ZPLGRID_ENABLE_LABELARY_API:-0}
       ZPLGRID_ENABLE_LABELARY_PREVIEW: ${ZPLGRID_ENABLE_LABELARY_PREVIEW:-0}
       ZPLGRID_ENABLE_LABELARY_TEMPLATES: ${ZPLGRID_ENABLE_LABELARY_TEMPLATES:-0}
       ZPLGRID_TIMEZONE: ${TZ:-Europe/Berlin}
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
-      PRINTHUB_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:-development-fleet-token}
+      PRINTHUB_FLEET_API_TOKEN: ${PRINTHUB_FLEET_API_TOKEN:-development-printhub-token}
     ports:
       - "127.0.0.1:${PRINTHUB_API_PORT:-8001}:8000"
     volumes:
       - printhub_data:/data
-      - ./config/printers.yml:/app/configs/printers.yml:ro
     depends_on:
       virtual-zebra:
         condition: service_healthy
@@ -76,11 +71,11 @@ services:
       PRINTER_FLEET_WORKER_INTERVAL_SECONDS: "1"
       PRINTER_FLEET_DELIVERY_WORKER_ENABLED: "1"
       PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
-      PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS: ${ZPLGRID_DISCOVERY_INTERVAL_SECONDS:-30}
-      PRINTER_FLEET_AGENT_URLS: ${ZPLGRID_ZEBRA_TAMER_AGENTS:-}
+      PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS: ${PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS:-30}
+      PRINTER_FLEET_AGENT_URLS: ${PRINTER_FLEET_AGENT_URLS:-}
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
-      PRINTER_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:-development-fleet-token}
-      PRINTER_FLEET_API_CALLER_ID: printhub
+      PRINTER_FLEET_CREDENTIALS_JSON: >-
+        {"credentials":[{"id":"printhub","token":"${PRINTHUB_FLEET_API_TOKEN:-development-printhub-token}","roles":["observer","submitter"],"sites":["default"]},{"id":"developer-admin","token":"${PRINTER_FLEET_ADMIN_TOKEN:-development-fleet-admin-token}","roles":["admin"],"sites":["*"]}]}
     volumes:
       - printer_fleet_data:/data
       - ./config/printers.yml:/app/config/printers.yml:ro

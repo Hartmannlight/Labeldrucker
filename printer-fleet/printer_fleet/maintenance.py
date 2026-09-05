@@ -74,7 +74,7 @@ class PrinterMaintenanceService:
         command = self.providers.get(str(printer.get("driver") or "")).build(action)
         connection = printer.get("connection") or {}
         protocol = str(connection.get("protocol") or "")
-        if protocol not in {"raw_tcp", "raw9100", "serial_over_tcp"}:
+        if protocol not in {"raw_tcp", "serial_over_tcp"}:
             raise ValueError(
                 f"Maintenance action is unsupported for transport: {protocol}"
             )

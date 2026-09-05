@@ -752,3 +752,33 @@ independent retry loops from producing duplicate labels.
   runs.
 - Action 10 remains open for the deliberate stable breaking release and recorded
   Zebra, serial-bridge and PrintAgent hardware acceptance.
+
+### 2026-09-05: Device-independent artifact and legacy Fleet removal
+
+- PrintHub now emits `application/vnd.printhub.raster-page+json` after sizing,
+  scaling and dithering. The immutable contract carries one-bit row-major pixels,
+  resolution and job copies, but no transport or vendor endpoint.
+- PrinterFleet's Zebra driver validates that contract, generates ZPL `^GF` and
+  applies device-specific settings only after its worker claims the delivery.
+  This is the shared prepared-raster seam for a future Niimbot driver.
+- PrintHub's local physical registry, discovery worker, RAW TCP code,
+  ZebraTamer client and `LegacyFleetAdapter` have been removed. Missing Fleet
+  configuration now fails printer operations explicitly with HTTP 503 while
+  document editing and persistence remain independent.
+- `python -m printer_fleet.legacy_import` converts old PrintHub YAML, JSON or
+  SQLite registries without mutating the source. Protocol aliases are
+  normalized and ambiguous agent identities fail closed.
+- The checked-in PrintHub OpenAPI document is regenerated and protected by an
+  exact artifact-to-application regression test.
+- Runtime protocol, discovery and global-authentication aliases have also been
+  removed after adding the offline registry migration. Action 10 now remains
+  open for stable version publication and recorded real-hardware acceptance.
+- Fleet catalog responses are now role-aware: administrative clients retain the
+  complete device record, while PrintHub's observer/submitter identity receives
+  only a strict capability and loaded-media projection. Docker verification
+  proves that connection data, Zebra settings and internal observation URLs do
+  not reach PrintHub.
+- The rebuilt Docker stack held an A4 PDF targeting a 50 x 50 mm label without
+  device traffic. Explicit `fit` release then stored the prepared-raster MIME
+  artifact in PrinterFleet, reached `transport_accepted`, and produced exactly
+  one RAW TCP job in the virtual Zebra.

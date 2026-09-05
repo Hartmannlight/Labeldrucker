@@ -12,7 +12,7 @@ from .configuration import normalize_printer
 from .domain import DeliveryConflict, DeliveryState, RegistryConflict
 
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def _now() -> str:
@@ -137,7 +137,42 @@ class FleetRepository:
                 """
             )
             self._ensure_delivery_columns(db)
+            if schema_version < 3:
+                self._canonicalize_protocol_aliases(db)
             db.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+
+    @staticmethod
+    def _canonicalize_protocol_aliases(db) -> None:
+        aliases = {"raw9100": "raw_tcp", "zebra_tamer": "print_agent", "driver_agent": "print_agent"}
+
+        def migrate_payload(encoded: str | None) -> str | None:
+            if encoded is None:
+                return None
+            payload = json.loads(encoded)
+            connection = payload.get("connection") or {}
+            protocol = str(connection.get("protocol") or "")
+            canonical = aliases.get(protocol)
+            if canonical:
+                connection["protocol"] = canonical
+                payload["connection"] = connection
+            return json.dumps(payload, sort_keys=True)
+
+        for row in db.execute("SELECT id, payload_json FROM printers").fetchall():
+            migrated = migrate_payload(row["payload_json"])
+            if migrated != row["payload_json"]:
+                db.execute(
+                    "UPDATE printers SET payload_json = ? WHERE id = ?",
+                    (migrated, row["id"]),
+                )
+        for row in db.execute(
+            "SELECT id, route_snapshot_json FROM deliveries WHERE route_snapshot_json IS NOT NULL"
+        ).fetchall():
+            migrated = migrate_payload(row["route_snapshot_json"])
+            if migrated != row["route_snapshot_json"]:
+                db.execute(
+                    "UPDATE deliveries SET route_snapshot_json = ? WHERE id = ?",
+                    (migrated, row["id"]),
+                )
 
     def append_audit_record(
         self,

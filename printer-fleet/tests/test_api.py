@@ -102,7 +102,7 @@ def test_api_catalog_and_delivery(tmp_path, monkeypatch):
         assert client.put("/v1/printers/zebra-1", json=printer).status_code == 200
         catalog_printer = client.get("/v1/printers/zebra-1").json()
         assert catalog_printer["registry"]["revision"] == 1
-        assert "connection" not in catalog_printer
+        assert catalog_printer["connection"]["host"] == "unused"
         patched = client.patch(
             "/v1/printers/zebra-1",
             json={"revision": 1, "settings": {"name": "Packing line"}},
@@ -138,7 +138,11 @@ def test_api_catalog_and_delivery(tmp_path, monkeypatch):
 
 def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
     monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
-    monkeypatch.setenv("PRINTER_FLEET_API_TOKEN", "fleet-secret")
+    monkeypatch.setenv(
+        "PRINTER_FLEET_CREDENTIALS_JSON",
+        '{"credentials":[{"id":"test-admin","token":"fleet-secret-1234",'
+        '"roles":["admin"],"sites":["*"]}]}',
+    )
     app = create_app(FleetRepository(tmp_path / "protected.sqlite3"))
 
     with TestClient(app) as client:
@@ -150,7 +154,7 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
         accepted = client.get(
             "/v1/printers",
             headers={
-                "Authorization": "Bearer fleet-secret",
+                "Authorization": "Bearer fleet-secret-1234",
                 "X-Correlation-ID": "thingdex-print-123",
             },
         )
@@ -158,9 +162,9 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
         assert accepted.headers["X-Correlation-ID"] == "thingdex-print-123"
 
         created = client.put(
-            "/v1/printers/audited",
-            headers={
-                "Authorization": "Bearer fleet-secret",
+                "/v1/printers/audited",
+                headers={
+                    "Authorization": "Bearer fleet-secret-1234",
                 "X-Correlation-ID": "audit-123",
             },
             json={
@@ -172,7 +176,7 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
         assert created.status_code == 200
         audit = client.get(
             "/v1/audit-records",
-            headers={"Authorization": "Bearer fleet-secret"},
+            headers={"Authorization": "Bearer fleet-secret-1234"},
         ).json()
         assert any(
             record["correlation_id"] == "audit-123"
@@ -184,7 +188,7 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
 
         assert client.get("/metrics").status_code == 401
         metrics = client.get(
-            "/metrics", headers={"Authorization": "Bearer fleet-secret"}
+            "/metrics", headers={"Authorization": "Bearer fleet-secret-1234"}
         )
         assert metrics.status_code == 200
         assert "printer_fleet_printers 1" in metrics.text
@@ -354,6 +358,14 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
                     "site_id": site,
                     "driver": "zpl",
                     "connection": {"protocol": "raw_tcp", "host": f"{printer_id}.example"},
+                    "media": {
+                        "loaded": {"width_mm": 50, "height_mm": 50},
+                        "authority": {"source": "operator", "state": "loaded"},
+                        "dynamic_source": {"url": "http://internal.example/settings"},
+                        "agent_state": {"private": True},
+                    },
+                    "zpl": {"darkness": 12},
+                    "defaults": {"copies": 1},
                 },
             )
             assert response.status_code == 200
@@ -363,6 +375,21 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
             headers=headers("berlin-submit-token"),
         ).json()
         assert [printer["id"] for printer in visible] == ["berlin-zebra"]
+        assert visible[0]["media"] == {
+            "loaded": {"width_mm": 50, "height_mm": 50},
+            "authority": {"source": "operator", "state": "loaded"},
+        }
+        for private_field in ("connection", "zpl", "defaults"):
+            assert private_field not in visible[0]
+        assert "dynamic_source" not in visible[0]["media"]
+        assert "agent_state" not in visible[0]["media"]
+        admin_view = client.get(
+            "/v1/printers/berlin-zebra",
+            headers=headers("berlin-admin-token"),
+        ).json()
+        assert admin_view["connection"]["host"] == "berlin-zebra.example"
+        assert admin_view["zpl"]["darkness"] == 12
+        assert admin_view["media"]["dynamic_source"]["url"].startswith("http://")
         assert client.get(
             "/v1/printers/paris-zebra",
             headers=headers("berlin-submit-token"),

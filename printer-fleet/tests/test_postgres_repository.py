@@ -11,7 +11,7 @@ import pytest
 from printer_fleet.domain import DeliveryConflict, DeliveryState, PrintArtifact
 from printer_fleet.migrate import TABLES, migrate_sqlite_to_postgres
 from printer_fleet.postgres_repository import PostgresFleetRepository
-from printer_fleet.repository import FleetRepository
+from printer_fleet.repository import CURRENT_SCHEMA_VERSION, FleetRepository
 
 
 POSTGRES_URL = os.getenv("PRINTER_FLEET_TEST_POSTGRES_URL")
@@ -123,7 +123,7 @@ def test_offline_sqlite_cutover_copies_and_verifies_all_fleet_state(tmp_path: Pa
 
     report = migrate_sqlite_to_postgres(source_path, POSTGRES_URL)
 
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == CURRENT_SCHEMA_VERSION
     assert report["tables"]["deliveries"]["rows"] == 1
     assert report["tables"]["delivery_events"]["rows"] == 3
     assert target.get_printer("zebra-1")["control"]["reason"] == "cutover"

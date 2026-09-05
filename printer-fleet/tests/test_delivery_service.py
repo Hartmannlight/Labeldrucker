@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import socket
 import threading
+import base64
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -13,6 +15,7 @@ from printer_fleet.domain import (
     PrintArtifact,
     RegistryConflict,
     TransportReceipt,
+    UnsupportedDriver,
 )
 from printer_fleet.drivers import ZplDriver
 from printer_fleet.ports import DeviceTransport
@@ -419,7 +422,7 @@ def test_restart_marks_in_flight_delivery_unconfirmed_instead_of_retrying(reposi
     assert repository.list_due_delivery_ids(now=datetime.now(timezone.utc).isoformat()) == []
 
 
-@pytest.mark.parametrize("protocol", ["raw_tcp", "raw9100", "serial_over_tcp"])
+@pytest.mark.parametrize("protocol", ["raw_tcp", "serial_over_tcp"])
 def test_tcp_transports_send_the_exact_device_payload(protocol):
     received = bytearray()
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -454,3 +457,50 @@ def test_tcp_transports_send_the_exact_device_payload(protocol):
     assert not worker.is_alive()
     assert bytes(received) == artifact.payload
     assert receipt.state.value == "transport_accepted"
+
+
+def test_zpl_driver_encodes_device_independent_raster_and_job_copies():
+    artifact = PrintArtifact(
+        "application/vnd.printhub.raster-page+json",
+        json.dumps(
+            {
+                "version": 1,
+                "width_px": 8,
+                "height_px": 1,
+                "dpi": 203,
+                "copies": 2,
+                "black_bits_base64": base64.b64encode(b"\xa5").decode("ascii"),
+            }
+        ).encode("ascii"),
+    )
+
+    payload = ZplDriver().encode(
+        artifact,
+        {"defaults": {"copies": 1, "rotation": 90}, "zpl": {"darkness": 8}},
+    )
+
+    assert payload.content_type == "application/zpl"
+    assert payload.payload.decode("ascii") == (
+        "^XA^MD8\n^PQ2\n^FWR\n"
+        "^PW8\n^LL1\n^FO0,0\n^GFA,1,1,1,A5\n^FS\n^XZ\n"
+    )
+
+
+def test_zpl_driver_rejects_malformed_prepared_raster():
+    artifact = PrintArtifact(
+        "application/vnd.printhub.raster-page+json",
+        b'{"version":1,"width_px":8,"height_px":2,"dpi":203,"copies":1,"black_bits_base64":"/w=="}',
+    )
+
+    with pytest.raises(UnsupportedDriver, match="byte count"):
+        ZplDriver().encode(artifact, {})
+
+
+def test_zpl_driver_rejects_non_object_prepared_raster():
+    artifact = PrintArtifact(
+        "application/vnd.printhub.raster-page+json",
+        b"[]",
+    )
+
+    with pytest.raises(UnsupportedDriver, match="Invalid prepared raster artifact"):
+        ZplDriver().encode(artifact, {})

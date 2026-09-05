@@ -30,11 +30,10 @@ def test_structured_credentials_create_scoped_principals(monkeypatch) -> None:
     assert authenticator.authenticate("Bearer wrong") is None
 
 
-def test_ambiguous_credential_sources_fail_startup(monkeypatch) -> None:
+def test_removed_global_token_fails_closed(monkeypatch) -> None:
     monkeypatch.setenv("PRINTER_FLEET_API_TOKEN", "legacy")
-    monkeypatch.setenv("PRINTER_FLEET_CREDENTIALS_JSON", '{"credentials": []}')
 
-    with pytest.raises(ValueError, match="cannot be combined"):
+    with pytest.raises(ValueError, match="was removed"):
         BearerCredentialAuthenticator.from_environment()
 
 

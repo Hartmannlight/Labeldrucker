@@ -62,27 +62,15 @@ class BearerCredentialAuthenticator:
         inline = os.getenv("PRINTER_FLEET_CREDENTIALS_JSON", "").strip()
         path = os.getenv("PRINTER_FLEET_CREDENTIALS_FILE", "").strip()
         legacy_token = os.getenv("PRINTER_FLEET_API_TOKEN", "").strip()
+        if legacy_token:
+            raise ValueError(
+                "PRINTER_FLEET_API_TOKEN was removed; configure structured Fleet credentials"
+            )
         if inline and path:
             raise ValueError("Configure only one Fleet credentials source")
-        if (inline or path) and legacy_token:
-            raise ValueError("Structured and legacy Fleet credentials cannot be combined")
         if inline or path:
             raw = inline if inline else Path(path).read_text(encoding="utf-8")
             return cls(_parse_credentials(json.loads(raw)))
-        if legacy_token:
-            caller_id = os.getenv("PRINTER_FLEET_API_CALLER_ID", "printhub").strip() or "printhub"
-            return cls(
-                [
-                    (
-                        legacy_token,
-                        FleetPrincipal(
-                            id=caller_id,
-                            roles=frozenset({"admin"}),
-                            sites=frozenset({"*"}),
-                        ),
-                    )
-                ]
-            )
         return cls([])
 
 

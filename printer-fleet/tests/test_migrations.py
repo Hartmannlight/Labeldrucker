@@ -42,10 +42,29 @@ def test_version_one_database_migrates_printer_controls_without_data_loss(tmp_pa
 
     assert repository.get_printer("legacy-zebra")["control"]["paused"] is False
     with sqlite3.connect(path) as database:
-        assert database.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert database.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
         assert database.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='printer_controls'"
         ).fetchone() == ("printer_controls",)
+
+
+def test_version_two_database_migrates_live_protocol_aliases(tmp_path: Path) -> None:
+    path = tmp_path / "version-two.sqlite3"
+    repository = FleetRepository(path)
+    repository.initialize()
+    with sqlite3.connect(path) as database:
+        printer = '{"id":"legacy-zebra","driver":"zpl","connection":{"protocol":"raw9100","host":"legacy.example","port":9100}}'
+        database.execute(
+            "INSERT INTO printers VALUES (?, 1, ?, ?, ?)",
+            ("legacy-zebra", printer, "2026-09-05T00:00:00+00:00", "2026-09-05T00:00:00+00:00"),
+        )
+        database.execute("PRAGMA user_version = 2")
+
+    repository.initialize()
+
+    assert repository.get_printer("legacy-zebra")["connection"]["protocol"] == "raw_tcp"
+    with sqlite3.connect(path) as database:
+        assert database.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
 
 
 def test_newer_database_fails_closed_without_downgrade(tmp_path: Path) -> None:

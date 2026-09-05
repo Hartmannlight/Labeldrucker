@@ -52,7 +52,6 @@ class AgentDiscoveryService:
         try:
             listener = Listener()
             ServiceBrowser(zeroconf, "_print-agent._tcp.local.", listener)
-            ServiceBrowser(zeroconf, "_zpl-agent._tcp.local.", listener)
             time.sleep(timeout_seconds)
         finally:
             zeroconf.close()

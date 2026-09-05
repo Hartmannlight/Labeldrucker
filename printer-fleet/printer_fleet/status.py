@@ -49,7 +49,7 @@ class PrinterStatusService:
             raise ValueError("Printer status is not supported")
         connection = printer.get("connection") or {}
         protocol = str(connection.get("protocol") or "")
-        if protocol in {"print_agent", "zebra_tamer"}:
+        if protocol == "print_agent":
             snapshot = self.agent_client.snapshot(connection)
             summary = {
                 "model": ((snapshot.get("identity") or {}).get("model") or {}).get("value"),
@@ -65,7 +65,7 @@ class PrinterStatusService:
                 "parsed": snapshot,
                 "normalized": {"summary": summary, "agent_snapshot": snapshot},
             }
-        if protocol not in {"raw_tcp", "raw9100", "serial_over_tcp"}:
+        if protocol not in {"raw_tcp", "serial_over_tcp"}:
             raise ValueError(f"Printer status is unsupported for transport: {protocol}")
         commands = {
             "host_status": "~HS",

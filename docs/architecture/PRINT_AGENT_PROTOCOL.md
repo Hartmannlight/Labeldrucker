@@ -26,8 +26,7 @@ migration.
 
 ## Discovery
 
-Agents advertise both `_print-agent._tcp.local.` and the temporary
-`_zpl-agent._tcp.local.` compatibility service. `GET /v1/agent` returns a stable
+Agents advertise `_print-agent._tcp.local.`. `GET /v1/agent` returns a stable
 `agent_id`; endpoint changes are accepted only after that identity matches.
 
 `GET /v1/printers` returns stable agent-local IDs plus at least:
@@ -111,10 +110,8 @@ Thingdex, IPP and PrintHub contracts do not change when that driver is added.
 
 ## Compatibility and versioning
 
-- Existing ZebraTamer `/v1` response envelopes remain valid.
 - New fields are additive within v1; incompatible semantics require `/v2` or a
   new vendor MIME version.
-- The `zebra_tamer` Fleet transport name is accepted during migration and maps
-  to `print_agent`.
-- Compatibility aliases can be removed only after the integration compatibility
-  matrix no longer references them.
+- Live protocol and DNS-SD aliases have been removed. Upgrade old agents before
+  discovery and convert stored registry entries with
+  `python -m printer_fleet.legacy_import`.

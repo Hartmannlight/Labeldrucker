@@ -30,10 +30,8 @@ class TransportRegistry:
             transports
             or {
                 "raw_tcp": raw,
-                "raw9100": raw,
                 "serial_over_tcp": raw,
                 "print_agent": agent,
-                "zebra_tamer": agent,
             }
         )
 

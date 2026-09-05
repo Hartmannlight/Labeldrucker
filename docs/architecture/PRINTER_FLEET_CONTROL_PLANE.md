@@ -98,6 +98,13 @@ route policy. Site filtering is enforced server-side for catalogs, deliveries
 and status. Cross-site misses return not-found, while global audit, metrics,
 agent enrollment and registry transfer require a global administrator.
 
+Catalog projection is role-aware. Fleet administrators receive the complete
+physical record needed by Fleet Console. Observer and submitter identities such
+as PrintHub receive an explicit allowlist containing identity, loaded media,
+alignment, capabilities and operational control state. Connections,
+vendor-driver settings, defaults, dynamic observation URLs and raw agent state
+never cross that boundary.
+
 ## Evolution rule
 
 Keep the API and worker in one Fleet image and bounded context, but run the

@@ -23,12 +23,10 @@ Adding a driver must not change the Thingdex, IPP or PrintHub contracts.
 
 ## Migration-only surface
 
-| Compatibility surface | Replacement | Known consumers | Removal gate |
-| --- | --- | --- | --- |
-| PrintHub `LegacyFleetAdapter` and local writable printer registry | `HttpPrinterFleetAdapter` | compact source profile and rollback baseline | migration/export acceptance passes and every supported deployment includes PrinterFleet |
-| `zebra_tamer` connection protocol and `_zpl-agent._tcp` discovery name | `print_agent` and `_print-agent._tcp` | existing agent installations and stored registries | PrintAgent migration tool rewrites configuration and the release matrix contains no legacy agent |
-| `raw9100` protocol name | `raw_tcp` with default port 9100 | existing PrintHub registry exports and examples | registry migration rewrites every stored route and rollback no longer consumes the old format |
-| global `PRINTER_FLEET_API_TOKEN` | structured credentials file and later OIDC verifier | development and migration-only installations | credential migration is documented and no production profile accepts the global token |
+There is no migration-only live API or transport surface. Legacy registry
+spellings are inputs to the offline `printer_fleet.legacy_import` command only;
+they are rejected by live Fleet configuration and delivery. Old PrintAgent
+installations must be upgraded before Fleet discovery.
 
 PrintHub's read-only printer selection and printer-targeted logical print routes
 may remain as document-domain conveniences. They must return Fleet snapshots and
@@ -44,6 +42,16 @@ Retired on 2026-09-05:
   device status and raw-ZPL submission. Fleet Console and the PrinterFleet API
   now own those workflows; PrintHub's Fleet adapter exposes only catalog reads
   and immutable artifact delivery.
+- PrintHub's `LegacyFleetAdapter`, writable local printer registry, discovery
+  loop and in-process RAW/agent transports. Existing YAML, JSON and SQLite
+  registries migrate offline with `python -m printer_fleet.legacy_import`;
+  every supported deployment now includes PrinterFleet.
+- Runtime aliases `raw9100` and `zebra_tamer`, legacy `_zpl-agent._tcp` and
+  `_zpl-printer._tcp` advertisements, and the global
+  `PRINTER_FLEET_API_TOKEN`. Deployments use `raw_tcp`, `print_agent`,
+  `_print-agent._tcp`, `_print-agent-printer._tcp` and scoped structured
+  credentials. Old registry spellings remain accepted only by the offline
+  migration command.
 
 ## Stable-release gate
 

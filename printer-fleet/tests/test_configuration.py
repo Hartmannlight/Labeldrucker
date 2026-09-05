@@ -43,6 +43,16 @@ def test_serial_bridge_requires_its_actual_tcp_port() -> None:
         ({"protocol": "raw_tcp", "host": "http://printer"}, "IP address or hostname"),
         ({"protocol": "raw_tcp", "host": "printer", "port": 70000}, "between 1 and 65535"),
         ({"protocol": "shell", "host": "printer"}, "Unsupported"),
+        ({"protocol": "raw9100", "host": "printer"}, "Unsupported"),
+        (
+            {
+                "protocol": "zebra_tamer",
+                "base_url": "http://edge:8080",
+                "agent_id": "edge-1",
+                "printer_id": "usb-zebra",
+            },
+            "Unsupported",
+        ),
         (
             {
                 "protocol": "print_agent",

@@ -6,7 +6,7 @@ printers:
     vendor: Local
     driver: zpl
     connection:
-      protocol: raw9100
+      protocol: raw_tcp
       host: virtual-zebra
       port: 9100
       timeout_ms: 3000
@@ -16,10 +16,6 @@ printers:
         height_mm: 50
         color: white
         type: virtual
-      dynamic_source:
-        kind: zpl_emulator_settings
-        url: http://virtual-zebra:9191/api/settings
-        timeout_ms: 1000
     alignment:
       dpi: 203
       offset_x_mm: 0

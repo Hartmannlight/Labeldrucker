@@ -60,7 +60,8 @@ class PostgresFleetRepository(FleetRepository):
             row = db.execute(
                 "SELECT version FROM fleet_schema_metadata WHERE singleton = TRUE"
             ).fetchone()
-            if row and int(row["version"]) > CURRENT_SCHEMA_VERSION:
+            schema_version = int(row["version"]) if row else 0
+            if schema_version > CURRENT_SCHEMA_VERSION:
                 raise RuntimeError(
                     f"Fleet database schema {row['version']} is newer than supported "
                     f"version {CURRENT_SCHEMA_VERSION}"
@@ -121,6 +122,8 @@ class PostgresFleetRepository(FleetRepository):
             for statement in schema.split(";"):
                 if statement.strip():
                     db.execute(statement)
+            if schema_version < 3:
+                self._canonicalize_protocol_aliases(_Connection(db))
             db.execute(
                 """INSERT INTO fleet_schema_metadata(singleton, version) VALUES (TRUE, %s)
                    ON CONFLICT(singleton) DO UPDATE SET version=excluded.version""",

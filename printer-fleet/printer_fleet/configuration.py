@@ -8,8 +8,8 @@ from urllib.parse import urlsplit
 
 _IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,119}")
 _DRIVER = re.compile(r"[a-z][a-z0-9_]{0,63}")
-_TCP_PROTOCOLS = {"raw_tcp", "raw9100", "serial_over_tcp"}
-_AGENT_PROTOCOLS = {"print_agent", "zebra_tamer"}
+_TCP_PROTOCOLS = {"raw_tcp", "serial_over_tcp"}
+_AGENT_PROTOCOLS = {"print_agent"}
 
 
 def _integer(value: object, *, field: str, minimum: int, maximum: int) -> int:

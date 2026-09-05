@@ -20,9 +20,9 @@ eine davon vollständig getrennte PostgreSQL-Datenbank.
 
 ### Was ist das neue Repository?
 
-Der Ordner `Labeldrucker` ist das Git-Repository für den Compose-Stack, die
-Betriebsdokumentation und das IPP-Gateway. Dieses bislang lokale Repository wird
-unter `Hartmannlight/Labeldrucker` veröffentlicht. Der Unterordner
+Der Ordner `Labeldrucker` ist das öffentliche Git-Repository für den
+Compose-Stack, die Betriebsdokumentation und das IPP-Gateway. Es liegt unter
+`Hartmannlight/Labeldrucker`. Der Unterordner
 `ipp-gateway/` ist weiterhin kein eigenes Repository.
 
 Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
@@ -41,13 +41,13 @@ Repositories bleiben.
 
 | Repository | Branch | Zweck | geprüfter Commit |
 | --- | --- | --- | --- |
-| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `9e1b77d` |
-| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `c80fc4a` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `d1d788d` |
-| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `d6df4d6` |
-| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `d27ea6c` |
-| [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `2fa71dc` |
-| [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext | `9721643` |
+| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `880d76b` |
+| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `f33b456` |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `32841e1` |
+| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `6dd643c` |
+| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `6b6ffad` |
+| [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `a1f8483` |
+| [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext | `a07c133` |
 
 Die Änderungen des Studio-Rewrites sind auf `main` zusammengeführt. Die
 aufgeführten Commits bilden den gemeinsam geprüften Stand.
@@ -90,10 +90,11 @@ Bei einem bereits vorhandenen Checkout werden fehlende Submodule so geladen:
 git submodule update --init --recursive
 ```
 
-`ZebraTamer` bleibt zur Laufzeit optional und wird nicht automatisch als
+Der noch im Repository `ZebraTamer` liegende PrintAgent bleibt zur Laufzeit
+optional und wird nicht automatisch als
 Container gestartet. Sein Quellstand ist jetzt dennoch als Submodul fest
 eingebunden, weil er schrittweise zum herstellerneutralen PrintAgent entwickelt
-wird. Reale Instanzen werden weiterhin über `ZPLGRID_ZEBRA_TAMER_AGENTS`
+wird. Reale Instanzen werden über `PRINTER_FLEET_AGENT_URLS`
 angebunden.
 
 ## Konfiguration und Start
@@ -121,13 +122,12 @@ prüfsummengeschützte Druckartefakte. Druckeradressen und physische Zustellvers
 gehören damit nicht mehr zum dauerhaften Zielmodell von PrintHub.
 Die getrennte Fleet Console greift über einen same-origin Proxy direkt auf
 PrinterFleet zu. Im Entwicklungsprofil kann zum Anmelden
-`development-fleet-token` verwendet werden; das Token bleibt nur im Speicher
+`development-fleet-admin-token` verwendet werden; das Token bleibt nur im Speicher
 des Browser-Tabs. Produktionszugänge stammen aus der strukturierten Fleet-
 Credential-Datei und müssen über TLS bereitgestellt werden.
-Auch Discovery, Gerätestatus, Registry-Import/-Export und physische Retries
-werden bei aktiviertem Fleet-Dienst lediglich durch die bisherigen PrintHub-
-URLs durchgereicht. Dadurch bleiben Studio und SDK während der Migration
-nutzbar, ohne zwei beschreibbare Quellen der Wahrheit zu erzeugen.
+Discovery, Gerätestatus, Registry-Import/-Export, Wartung und physische Retries
+existieren ausschließlich in PrinterFleet und Fleet Console. PrintHub erhält
+nur einen bereinigten Katalog ohne Endpunkte oder Zugangsdaten.
 
 ## Schnittstellen: Was kann wie angesprochen werden?
 
@@ -145,13 +145,13 @@ in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
 | Template rendern | `POST /v1/renders/zpl`, `POST /v1/renders/png` | Ja | Rendert ohne zu drucken; Variablen dürfen auch Zeilenumbrüche enthalten. |
 | Gespeichertes Template drucken | `POST /v1/print-jobs` | Ja | Langlebiger Job mit `printer_id`, `template_id` und `variables`; Status über `GET /v1/print-jobs/{id}`. |
 | Ungespeichertes Template drucken | `POST /v1/print-jobs` | Ja | Statt `template_id` wird ein unveränderlicher `template`-Snapshot im langlebigen Job gespeichert. |
-| RAW ZPL II drucken | `POST /v1/printers/{printer_id}/prints/zpl` | Ja | Body: `{"zpl":"^XA...^XZ"}`. Bei `raw9100` ergänzt PrintHub konfigurierte Gerätewerte, behält die Befehle des Payloads aber bei; an ZebraTamer geht RAW-ZPL unverändert. |
-| Drucker und Status | `GET /v1/printers`, `GET /v1/printers/{id}/status` | Ja | Status nur, wenn der registrierte Drucker ihn unterstützt. |
-| RAW-TCP/JetDirect Port 9100 | PrinterFleet → Drucker | Ja | Drucker mit `connection.protocol: raw_tcp` oder dem kompatiblen Namen `raw9100` werden zentral auf dem konfigurierten Host/Port angesprochen. Weder PrintHub noch PrinterFleet lauschen selbst als Drucker auf Port 9100. |
+| RAW ZPL II drucken | Direkter PrinterFleet-Delivery-Vertrag | Nur für kontrollierte Integrationen | PrintHub veröffentlicht absichtlich keinen beliebigen RAW-ZPL-Endpunkt. PrinterFleet validiert Treiber und Berechtigung. |
+| Druckerauswahl | `GET /v1/printers`, `GET /v1/printers/{id}` in PrintHub | Ja | Liefert nur Fleet-Snapshots ohne physische Endpunkte. Status und Administration liegen in Fleet Console. |
+| RAW-TCP/JetDirect Port 9100 | PrinterFleet → Drucker | Ja | `connection.protocol: raw_tcp`; Port 9100 ist der Standard. Weder PrintHub noch PrinterFleet lauschen selbst als Drucker auf Port 9100. |
 | RS232-zu-Ethernet | PrinterFleet → Bridge | Ja | `connection.protocol: serial_over_tcp` nutzt einen transparenten TCP-Bridge-Endpunkt; serielle Parameter werden auf der Bridge konfiguriert. |
 | Virtueller Zebra auf Port 9100 | nur im Docker-Netz: `virtual-zebra:9100` | Ja, intern | In der mitgelieferten Compose-Datei wird 9100 nicht auf den Host veröffentlicht; von außen wird über die PrintHub-API gedruckt. |
 | PrintHub selbst zu CUPS hinzufügen | `ipp://localhost:8631/ipp/print` | Ja | Driverless IPP-Queue für den mit `PRINTHUB_IPP_PRINTER_ID` ausgewählten PrintHub-Drucker. Akzeptiert PWG Raster, Apple Raster, PDF, PostScript und JPEG. |
-| Bestehende CUPS-Queue als PrintHub-Ausgabegerät | – | Nein | Das Gateway ist ein Eingang für Anwendungen und CUPS. PrintHub sendet weiterhin über seine Geräte-Backends wie `raw9100` oder ZebraTamer. |
+| Bestehende CUPS-Queue als PrintHub-Ausgabegerät | – | Nein | Das Gateway ist ein Eingang. Physische Ausgabe erfolgt ausschließlich über PrinterFleet oder PrintAgent. |
 
 ## Aus Chrome und CUPS drucken
 
@@ -178,7 +178,7 @@ lpstat -p printhub-label
 ```
 
 Danach erscheint `printhub-label` im Systemdruckdialog von Chrome. Das Gateway
-meldet die in PrintHub konfigurierte bzw. von ZebraTamer gelesene Rollenbreite,
+meldet die aus PrinterFleet gelesene Rollenbreite,
 Rollenhöhe, Auflösung und den monochromen Farbraum an CUPS. Bei einer Änderung
 des eingelegten Mediums das Gateway neu starten, damit bereits geöffnete
 Druckdialoge die neuen Fähigkeiten abfragen:
@@ -249,16 +249,9 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri http://localhost:8001/v1/print-jobs -ContentType application/json -Body $body
 ```
 
-Beispiel für unverarbeitetes ZPL II:
-
-```powershell
-$body = @{ zpl = '^XA^FO30,30^A0N,40,40^FDHallo^FS^XZ' } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8001/v1/printers/virtual-zebra/prints/zpl -ContentType application/json -Body $body
-```
-
 Der virtuelle Drucker wird beim ersten Start aus `config/printers.yml` in
-PrinterFleet registriert und von dort direkt per `raw9100` angesprochen. Eine
-separate ZebraTamer-/PrintAgent-Instanz ist nur für Geräte nötig, die der zentrale
+PrinterFleet registriert und von dort direkt per `raw_tcp` angesprochen. Eine
+separate PrintAgent-Instanz ist nur für Geräte nötig, die der zentrale
 Dienst nicht direkt erreichen kann, etwa USB- oder Bluetooth-Drucker. Die
 YAML-Datei ist danach kein Laufzeitspeicher mehr.
 
@@ -266,41 +259,26 @@ YAML-Datei ist danach kein Laufzeitspeicher mehr.
 
 PrinterFleet verwaltet Drucker und physische Zustellungen. Das lokale
 Quellcodeprofil nutzt `/data/fleet.sqlite3`; das Produktionsprofil nutzt eine
-eigene PostgreSQL-Datenbank mit eigenem Benutzer und Volume. PrintHub behält
-vorübergehend seine bisherige Registry als Kompatibilitätsfassade für alte
-Studio-/SDK-Endpunkte; neue Katalogabfragen und Druckzustellungen laufen bereits
-über PrinterFleet. Diese Übergangsphase vermeidet einen nicht rückrollbaren
-Big-Bang-Datenumzug.
+eigene PostgreSQL-Datenbank mit eigenem Benutzer und Volume. PrintHub besitzt
+keine lokale physische Registry mehr. Fleet Console ist die Verwaltungsoberfläche
+für Registry, Status, Medienzustand, Wartung, Discovery und Queues.
 
-- Beim ersten Start wird die komplette bisherige YAML einmalig und atomar
-  übernommen. Öffentliche IDs, Einstellungen und deaktivierte Geräte bleiben
-  erhalten. Die originale Konfiguration bleibt zusätzlich als unveränderter
-  Migrationsdatensatz in der Registry gespeichert.
-- `config/printers.yml` ist schreibgeschützt eingebunden. Spätere Änderungen
-  daran haben auch nach einem Neustart keinen automatischen Einfluss mehr.
-- Bei ZebraTamer-Druckern werden Gerätevorgaben und eingelegte Rollen samt Farbe
-  ausschließlich in der optionalen ZebraTamer-WebUI unter `/ui/` verwaltet.
-  Studio verlinkt diese Oberfläche; **Edit settings** bearbeitet dort nur noch
-  Namen, Aktivierung und Job-Standardwerte. Bei anderen Druckern bleiben die
-  bisherigen Einstellungen verfügbar. Veraltete parallele Bearbeitungen werden
-  mit Konfliktmeldung abgelehnt.
-- **Import YAML** fügt Geräte hinzu; abweichende bestehende Einträge oder
-  doppelte Geräte brechen den gesamten Import ohne Teiländerungen ab.
-- **Export YAML** exportiert nur die gespeicherte Konfiguration, nicht den
-  flüchtigen Erreichbarkeitsstatus. Exporte ersetzen kein vollständiges Backup
-  des Volumes einschließlich Druckjobs und Vorlagen.
-- Discovery aktualisiert bekannte Endpunkte und Erreichbarkeit alle 30 Sekunden
-  sowie bei **Discover / refresh agents**. Sie fügt Geräte nicht automatisch
-  hinzu. Rollenangaben werden für ZebraTamer-Geräte direkt vom Agenten gelesen;
-  alte Medien-, Kalibrierungs- und Druckwerte der Registry bleiben Archivdaten.
-- Offline-Geräte bleiben gespeichert. Zwei Agenten mit derselben lokalen
-  Drucker-ID erhalten getrennte öffentliche IDs. Wiederholtes Hinzufügen
-  desselben Geräts erhält die bestehende ID und alle Einstellungen.
+Ein alter PrintHub-YAML-/JSON-Export oder eine alte `printers.sqlite3` wird
+offline und ohne Änderung der Quelle konvertiert:
 
-Vor dem ersten Update das bestehende Volume und `config/printers.yml` sichern.
-Bei widersprüchlichen doppelten Geräten bricht die Migration sicher ab; die
-YAML bleibt unverändert. Vor einem Rollback auf die alte Version die aktuelle
-Registry als YAML exportieren, da ältere Versionen SQLite nicht lesen.
+```sh
+python -m printer_fleet.legacy_import \
+  --source /backup/printers.sqlite3 \
+  --output /backup/printer-fleet-import.json
+```
+
+Die Ausgabe kann ein globaler Fleet-Administrator über
+`POST /v1/printer-registry/import` atomar importieren. `raw9100` wird zu
+`raw_tcp`, `zebra_tamer` beziehungsweise `driver_agent` wird zu `print_agent`.
+Fehlt bei einem alten Agent-Gerät die stabile `agent_id`, bricht das Werkzeug
+ab: Das Gerät muss über Fleet Console neu entdeckt werden, statt eine Identität
+zu erraten. Die Exportdatei enthält physische Endpunkte und ist wie ein Secret
+zu behandeln. Vor jeder Migration Datenbank und Quellexport unverändert sichern.
 
 Im Produktionsprofil sind Fleet-API und Fleet-Worker zwei Prozesse desselben
 Images. Der Worker allein besitzt Geräte-I/O und Crash-Recovery; ein Neustart
@@ -319,9 +297,10 @@ docker compose down
 `docker compose down -v` löscht die beiden benannten Volumes und damit diese
 Daten.
 
-## Reale Zebra-Drucker mit ZebraTamer
+## Lokal angeschlossene Drucker mit PrintAgent
 
-ZebraTamer läuft am besten nativ auf dem Linux-Rechner oder Raspberry Pi, an
+Der aus ZebraTamer hervorgegangene PrintAgent läuft nativ auf dem Linux-Rechner
+oder Raspberry Pi, an
 dem der USB-Drucker angeschlossen ist. Die Installation aus dem Repository:
 
 ```sh
@@ -330,35 +309,24 @@ curl -fsSL https://github.com/Hartmannlight/ZebraTamer/releases/latest/download/
 
 Anschließend `/etc/zpl-agent/config.toml` prüfen. Wichtig sind der korrekte
 Character-Device-Pfad (zum Beispiel `/dev/usb/lp0`) und ein erreichbarer REST-Port.
-Die aktualisierte ZebraTamer-Version unterstützt eine explizite eindeutige
-`agent_id`; ohne Angabe erzeugt sie einmalig eine UUID in `data_dir/agent-id`.
-Diese Datei dauerhaft erhalten und mitsichern. ZebraTamer arbeitet ohne Thingdex.
+Der Agent unterstützt eine explizite eindeutige
+`agent_id`; ohne Angabe erzeugt er einmalig eine UUID in `data_dir/agent-id`.
+Diese Datei dauerhaft erhalten und mitsichern. PrintAgent arbeitet ohne Thingdex
+und kommuniziert ausschließlich mit PrinterFleet.
 
-Bereits installierte ältere Agenten bleiben adressgebunden nutzbar. Sichere
-automatische IP-Wechsel benötigen das ZebraTamer-Update. Beim ersten Erkennen
-der neuen Identität am bisherigen Endpunkt bleibt die bestehende Drucker-ID
-erhalten. Ein anderer Agent am selben Endpunkt wird nicht still übernommen.
-
-Wenn PrintHub und ZebraTamer nicht zuverlässig per mDNS miteinander sprechen
-können (typisch bei Docker oder getrennten Netzen), die Agenten explizit in
+Wenn PrinterFleet und PrintAgent nicht zuverlässig per mDNS miteinander sprechen
+können, die Agenten explizit in
 `.env` eintragen:
 
 ```dotenv
-ZPLGRID_ZEBRA_TAMER_AGENTS=http://192.168.1.50:8080
+PRINTER_FLEET_AGENT_URLS=http://192.168.1.50:8080
 ```
 
-Mehrere URLs werden durch Kommas getrennt. Alternativ im Studio **Manual
-ZebraTamer URL** verwenden. Vor **Add** die eingelegte Rolle und die tatsächliche
-DPI in ZebraTamer einrichten: Medienformat und Farbe kommen vom Agenten,
-Gerätewerte aus seiner Abfrage bzw. dem bestätigten Hardwareprofil. Die optionale
-WebUI wird dort mit `webui_enabled = true` und einem eigenen `admin_token`
-aktiviert und ist unter `http://<agent-host>:8080/ui/` erreichbar. Details stehen
-in der ZebraTamer-README. PrintHub sendet für diese Geräte keine automatischen
-Intensitäts-, Geschwindigkeits- oder Modusvorgaben mehr; selbst erzeugte Jobs
-überschreiben auch nicht die Gerätemaße. Explizites Raw-ZPL bleibt unverändert.
-Die öffentliche ID wird von PrintHub vergeben (`zt-…` für neue
-Agentendrucker); bestehende IDs bleiben erhalten. Die tatsächliche ID aus
-`GET /v1/printers` kann als Standard gesetzt werden, beispielsweise:
+Mehrere URLs werden durch Kommas getrennt. Alternativ kann ein globaler
+Administrator die URL in Fleet Console anstoßen. Medienformat, Farbe und DPI
+werden im Agenten bestätigt und als beobachteter Fleet-Zustand geführt. Die
+öffentliche Drucker-ID wird bei der Registrierung in PrinterFleet vergeben. Sie
+kann als PrintHub-Standard gesetzt werden, beispielsweise:
 
 ```dotenv
 ZPLGRID_DEFAULT_PRINTER_ID=virtual-zebra
@@ -367,7 +335,7 @@ ZPLGRID_DEFAULT_PRINTER_ID=virtual-zebra
 Nach einer Änderung:
 
 ```powershell
-docker compose up -d --force-recreate printhub studio
+docker compose up -d --force-recreate printer-fleet printhub studio
 ```
 
 Kontrolle:
@@ -376,17 +344,22 @@ Kontrolle:
 curl.exe http://localhost:8001/v1/printers
 ```
 
-Der virtuelle Drucker und alle bereits registrierten ZebraTamer-Geräte sollten
-in der Antwort sowie in PrintHub Studio unter `/#/printers` erscheinen.
-Eine Agent-URL konfiguriert nur die Discovery, nicht automatisch Drucker.
+Der virtuelle Drucker und alle registrierten PrintAgent-Geräte erscheinen in
+der PrintHub-Auswahlliste. Physische Details und Administration bleiben in Fleet
+Console. Eine Agent-URL konfiguriert nur Discovery, nicht automatische
+Registrierung.
 
 ## Wichtige `.env`-Werte
 
-- `ZPLGRID_ZEBRA_TAMER_AGENTS`: explizite Agent-URLs; für Docker der
+- `PRINTER_FLEET_AGENT_URLS`: explizite Agent-URLs; für Docker der
   zuverlässigste Discovery-Weg.
 - `ZPLGRID_DEFAULT_PRINTER_ID`: vorausgewählter Drucker in PrintHub Studio.
-- `ZPLGRID_DISCOVERY_INTERVAL_SECONDS`: automatische Aktualisierung bekannter
+- `PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS`: automatische Aktualisierung bekannter
   Agenten; Standard 30 Sekunden, `0` deaktiviert nur die periodische Discovery.
+- `PRINTHUB_FLEET_API_TOKEN`: eingeschränkter `observer`-/`submitter`-Zugang
+  von PrintHub zu den erlaubten Sites.
+- `PRINTER_FLEET_ADMIN_TOKEN`: lokaler Entwicklungszugang für Fleet Console;
+  Produktion verwendet gemountete strukturierte Credentials.
 - `PRINTHUB_STUDIO_PORT`, `PRINTHUB_API_PORT`, `VIRTUAL_ZEBRA_WEB_PORT`:
   Host-Ports, falls die Defaults bereits belegt sind.
 - `PRINTHUB_IPP_PORT`, `PRINTHUB_IPP_BIND`, `PRINTHUB_IPP_HOSTNAME`:

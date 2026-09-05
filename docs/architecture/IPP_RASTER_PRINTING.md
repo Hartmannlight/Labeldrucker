@@ -27,24 +27,26 @@ IPP gateway ── maps ticket + forwards original ──► Document job API
                                              │ dithering       │
                                              │ preview         │
                                              └────────┬────────┘
-                                                      │ 1-bit page
-                                      ┌───────────────┴───────────────┐
-                                      ▼                               ▼
-                                 ZPL encoder                  future Niimbot encoder
-                                      │                               │
-                              raw9100/ZebraTamer              driver-agent transport
+                                                      │ versioned 1-bit artifact
+                                                      ▼
+                                                PrinterFleet worker
+                                             ┌────────┴────────┐
+                                             ▼                 ▼
+                                        Zebra driver     future Niimbot driver
+                                             │                 │
+                                      raw_tcp / bridge      PrintAgent
 ```
 
 The gateway owns only IPP protocol details, capability advertisement and ticket
 mapping. PrintHub owns PDF/PostScript/PWG decoding, durable job state,
-loaded-media validation and printing policy. Drivers only
-turn an already prepared monochrome page into a device artifact. Backends only
-deliver that artifact. No driver may independently resize a page or invent its
-own preview.
+loaded-media validation and printing policy. The prepared page crosses the
+service boundary as `application/vnd.printhub.raster-page+json`. Fleet drivers
+alone turn it into a device payload; transports only deliver that payload. No
+driver may independently resize a page or invent its own preview.
 
 ## Invariants
 
-- The printer registry or its dynamic media source is authoritative for loaded
+- PrinterFleet and its observed media snapshot are authoritative for loaded
   width, height, DPI and label color.
 - Physical page dimensions travel with every raster page; pixel dimensions are
   not treated as a physical size.
@@ -53,8 +55,8 @@ own preview.
   `fill`.
 - `fit` preserves the full page and adds unused label area. `fill` preserves the
   aspect ratio and crops centrally. Stretching is never implicit.
-- Every document page becomes one label. Copies are applied by the selected
-  printer backend.
+- Every document page becomes one label. Job copies travel in the prepared
+  artifact and are applied by the selected Fleet driver.
 - Color and transparency are flattened to the physical media color for preview,
   converted to grayscale, then reduced to one bit. Photo mode uses
   Floyd-Steinberg dithering; text/graphics default to a hard threshold.
@@ -67,12 +69,12 @@ own preview.
 
 ## Extension point for Niimbot B1
 
-The registry accepts a non-ZPL `driver`, opaque `driver_options`, and the
-generic `driver_agent` connection. A Niimbot implementation should add:
+The Fleet registry accepts a non-ZPL `driver`, opaque `driver_options`, and the
+generic `print_agent` connection. A Niimbot implementation should add:
 
-1. a `RasterDriver` that compresses the prepared one-bit bitmap into the B1
-   protocol artifact;
-2. a `PrinterBackend` for the driver agent that owns Bluetooth/USB connection,
+1. a Fleet/agent driver that consumes the existing prepared-raster contract and
+   compresses its one-bit bitmap into the B1 protocol payload;
+2. a PrintAgent transport that owns Bluetooth/USB connection,
    framing, retries and device status;
 3. capability/media discovery in that agent;
 4. contract tests using captured protocol fixtures, without changing the IPP
@@ -84,8 +86,8 @@ silently routing a binary payload through a ZPL transport.
 ## Operational model
 
 The current IPP gateway publishes one configured PrintHub printer. It reads the
-loaded medium at startup for CUPS capabilities and the backend reads it again
-for every job before validation. Restart the gateway after changing a roll so
+Fleet-backed medium snapshot at startup for CUPS capabilities and PrintHub reads
+it again for every job before validation. Restart the gateway after changing a roll so
 already open print dialogs can refresh their advertised media. A future gateway
 supervisor may republish capabilities automatically; this does not affect the
 raster or driver contracts.

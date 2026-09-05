@@ -79,7 +79,7 @@ def main() -> None:
     if component == "printer-fleet":
         args += [
             "-e", "PRINTER_FLEET_MDNS_ENABLED=0",
-            "-e", "PRINTER_FLEET_API_TOKEN=smoke-secret",
+            "-e", 'PRINTER_FLEET_CREDENTIALS_JSON={"credentials":[{"id":"smoke-admin","token":"smoke-secret-1234","roles":["admin"],"sites":["*"]}]}',
             "-p", "127.0.0.1::8000",
         ]
         container_port = "8000/tcp"
