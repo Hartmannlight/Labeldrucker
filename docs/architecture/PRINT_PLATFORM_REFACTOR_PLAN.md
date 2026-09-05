@@ -810,3 +810,34 @@ independent retry loops from producing duplicate labels.
   candidate images have undergone physical testing.
 - Action 10 remains open only for filling that record with real Zebra evidence
   and intentionally dispatching the first stable compatibility release.
+
+### 2026-09-05: Docker Desktop USB hardware path
+
+- PrintAgent now supports an explicit `usb_bulk` transport selected by USB VID,
+  PID and optional serial identity. It discovers only printer-class bulk
+  endpoints, fails closed on ambiguous devices and keeps the existing
+  character-device transport for native Linux installations.
+- The Docker Desktop profile passes only the resolved USB device node to a
+  non-root UID/GID 999 process. Its root filesystem is read-only, all Linux
+  capabilities are dropped and `no-new-privileges` is enabled; neither PrintHub
+  nor PrinterFleet receives host-device access.
+- The runtime links Debian's `libusb-1.0.so.0` dynamically. A real Zebra LP 2824
+  Plus was identified bidirectionally at 203 dpi through USB/IP from Windows to
+  Docker Desktop; firmware, hardware identity and status queries completed.
+- PrinterFleet discovered and registered the agent device, and PrintHub exposed
+  only its public 50 x 25 mm media/capability projection. Multiple uniquely
+  marked one-page raster jobs traversed PrintHub -> PrinterFleet -> PrintAgent
+  -> USB with a single physical label per job and honest
+  `transport_accepted` state.
+- The run found and fixed a real control-plane gap: allowlisted Zebra
+  maintenance was restricted to direct TCP despite `print_agent` already being
+  a registered transport. Maintenance now uses the same transport registry and
+  canonical `application/zpl` contract. A Fleet-issued media calibration changed
+  the erroneous device-reported length from 79 to 212 dots for the loaded
+  25 mm gap labels.
+- User-observed alignment exposed persistent device offsets independently of
+  raster preparation. Typed, revision-checked Agent configuration was used to
+  read back and save the device calibration without putting offsets into
+  templates. Final visual measurement, power-cycle persistence, disconnect
+  ambiguity, CUPS/browser, color/dither and independent review remain open; no
+  stable compatibility release is authorized by this development run alone.

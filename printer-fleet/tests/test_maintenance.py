@@ -40,6 +40,7 @@ def test_zebra_maintenance_actions_are_fixed_and_explicit(action, expected):
     )
 
     assert transport.payloads[0][0].payload == expected
+    assert transport.payloads[0][0].content_type == "application/zpl"
     assert result["action"] == action
     assert result["moves_media"] is True
     assert result["state"] == "transport_accepted"
@@ -61,3 +62,26 @@ def test_arbitrary_or_non_zebra_maintenance_is_rejected_before_transport():
     with pytest.raises(UnsupportedDriver):
         service.execute({**printer, "driver": "niimbot-b1"}, "calibrate-media")
     assert transport.payloads == []
+
+
+def test_allowlisted_maintenance_uses_print_agent_transport():
+    transport = RecordingTransport()
+    service = PrinterMaintenanceService(
+        transports=TransportRegistry({"print_agent": transport})
+    )
+    printer = {
+        "id": "zebra-usb",
+        "driver": "zpl",
+        "connection": {
+            "protocol": "print_agent",
+            "base_url": "http://print-agent:8080",
+            "agent_id": "workshop",
+            "printer_id": "zebra-usb-device",
+        },
+    }
+
+    result = service.execute(printer, "calibrate-media")
+
+    assert transport.payloads[0][0].payload == b"~JC\n"
+    assert transport.payloads[0][0].description == "Calibrate Zebra media and ribbon sensors"
+    assert result["state"] == "transport_accepted"

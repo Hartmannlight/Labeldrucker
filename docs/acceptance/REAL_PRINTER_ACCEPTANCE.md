@@ -29,7 +29,7 @@ flash-write or arbitrary-command behavior through the platform.
 2. Print a configuration label through the allowlisted maintenance action.
    Confirm site-admin authorization, audit correlation and serialization with
    the printer queue.
-3. Submit a uniquely marked 50 x 50 mm label. Match PrintHub job ID, Fleet
+3. Submit a uniquely marked label matching the loaded media. Match PrintHub job ID, Fleet
    delivery ID and the physical label. RAW TCP success must remain
    `transport_accepted`, not `confirmed`.
 4. Submit two jobs to this printer and one to another printer. Make this endpoint
@@ -83,7 +83,7 @@ from the shared TCP implementation.
    output.
 4. Print a color image using document and photo optimization; compare threshold
    and dithering behavior.
-5. Submit A4 to a 50 x 50 mm target. Confirm it is held without device traffic,
+5. Submit A4 to the loaded label target. Confirm it is held without device traffic,
    inspect the fit preview, then release it explicitly with `fit`. Repeat `fill`
    only when intentional cropping is acceptable.
 

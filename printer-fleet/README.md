@@ -103,7 +103,9 @@ The initial ZPL maintenance allowlist contains `print-configuration` (`~WC`),
 `print-network-configuration` (`~WL`) and `calibrate-media` (`~JC`). All require
 a site administrator, share the printer's operation lease with deliveries and
 status, and are audit logged. These actions can move label stock; `~JC` also
-recalibrates media and ribbon sensors. A successful TCP write is still reported
+recalibrates media and ribbon sensors. The same allowlisted command is delivered
+through the printer's registered transport, including `print_agent`; no raw
+command endpoint is exposed. A successful transport write is still reported
 only as `transport_accepted`. The commands follow Zebra's official
 [host-status command reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/advanced-techniques/host-status-commands.html)
 and [media calibration reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/~jc2.html).

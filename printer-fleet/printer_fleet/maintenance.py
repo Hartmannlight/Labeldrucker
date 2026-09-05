@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Any, Mapping, Protocol
 
 from .domain import DevicePayload, UnsupportedDriver
 from .ports import DeviceTransport
@@ -74,14 +74,10 @@ class PrinterMaintenanceService:
         command = self.providers.get(str(printer.get("driver") or "")).build(action)
         connection = printer.get("connection") or {}
         protocol = str(connection.get("protocol") or "")
-        if protocol not in {"raw_tcp", "serial_over_tcp"}:
-            raise ValueError(
-                f"Maintenance action is unsupported for transport: {protocol}"
-            )
         transport: DeviceTransport = self.transports.get(protocol)
         receipt = transport.send(
             DevicePayload(
-                content_type="application/vnd.zebra-zpl",
+                content_type="application/zpl",
                 payload=command.payload,
                 description=command.description,
             ),

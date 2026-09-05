@@ -1,0 +1,31 @@
+services:
+  printer-fleet:
+    environment:
+      PRINTER_FLEET_AGENT_URLS: http://print-agent:8080
+    depends_on:
+      print-agent:
+        condition: service_started
+
+  print-agent:
+    build:
+      context: ./components/ZebraTamer
+      dockerfile: Dockerfile
+    user: "999:999"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    devices:
+      - "${PRINT_AGENT_USB_DEVICE:?PRINT_AGENT_USB_DEVICE is required}:${PRINT_AGENT_USB_DEVICE:?PRINT_AGENT_USB_DEVICE is required}:rwm"
+    volumes:
+      - print_agent_data:/var/lib/zpl-agent
+      - ${PRINT_AGENT_CONFIG_PATH:-./deploy/secrets/print-agent-usb.toml}:/etc/zpl-agent/config.toml:ro
+    restart: unless-stopped
+    networks:
+      - backend
+
+volumes:
+  print_agent_data:

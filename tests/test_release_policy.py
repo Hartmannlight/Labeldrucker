@@ -168,6 +168,26 @@ def test_runtime_images_remove_python_build_tooling() -> None:
         assert "python -m pip uninstall -y pip setuptools wheel jaraco.context" in document
 
 
+def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
+    profile = yaml.safe_load((ROOT / "compose.usb-agent.yaml").read_text(encoding="utf-8"))
+    agent = profile["services"]["print-agent"]
+    device = agent["devices"][0]
+
+    assert agent["user"] == "999:999"
+    assert agent["read_only"] is True
+    assert agent["cap_drop"] == ["ALL"]
+    assert agent["security_opt"] == ["no-new-privileges:true"]
+    assert "privileged" not in agent
+    assert "PRINT_AGENT_USB_DEVICE" in device
+    assert "/dev/bus/usb" not in device
+
+    dockerfile = (ROOT / "components" / "ZebraTamer" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert "libusb-1.0-0-dev" in dockerfile
+    assert "libusb-1.0-0" in dockerfile
+
+
 def test_fleet_console_keeps_operator_credentials_out_of_images_and_storage() -> None:
     dockerfile = (ROOT / "fleet-console" / "Dockerfile").read_text(encoding="utf-8")
     client = (ROOT / "fleet-console" / "api.js").read_text(encoding="utf-8")

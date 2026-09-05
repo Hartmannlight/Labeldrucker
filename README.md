@@ -314,6 +314,32 @@ Der Agent unterstützt eine explizite eindeutige
 Diese Datei dauerhaft erhalten und mitsichern. PrintAgent arbeitet ohne Thingdex
 und kommuniziert ausschließlich mit PrinterFleet.
 
+Für einen direkt an Docker Desktop angeschlossenen USB-Drucker steht der
+separate Override `compose.usb-agent.yaml` bereit. Docker Desktop unterstützt
+kein gewöhnliches Host-USB-Passthrough; das Gerät muss zuerst per USB/IP an die
+Linux-VM angehängt werden. Danach wird ausschließlich der konkrete
+`/dev/bus/usb/<bus>/<device>`-Knoten dem non-root PrintAgent zugewiesen:
+
+```powershell
+Copy-Item deploy/secrets/print-agent-usb.toml.example `
+  deploy/secrets/print-agent-usb.toml
+# VID, PID, Seriennummer und Geräteprofil in der lokalen Datei verifizieren.
+usbipd bind --busid BUS-ID                 # einmalig als Administrator
+usbipd attach --wsl docker-desktop --busid BUS-ID
+$env:PRINT_AGENT_USB_DEVICE = "/dev/bus/usb/001/002"
+wsl -d docker-desktop -u root -- chown 0:999 $env:PRINT_AGENT_USB_DEVICE
+wsl -d docker-desktop -u root -- chmod 0660 $env:PRINT_AGENT_USB_DEVICE
+docker compose -f compose.yaml -f compose.usb-agent.yaml up -d --build
+```
+
+Bus- und Gerätenummer können sich nach Abziehen oder Neustart ändern. Vor jedem
+Start anhand von `usbipd list` und `lsusb` neu verifizieren; nie einen breiten
+USB-Bus oder `--privileged` an den Agenten durchreichen. Die lokale TOML-Datei
+ist über `deploy/secrets/*` von Git ausgeschlossen. Das Beispiel enthält keine
+einsatzfähige Geräteidentität. `usb_bulk` greift über `libusb` direkt auf die
+Printer-Class-Bulk-Endpunkte zu und funktioniert deshalb auch dann, wenn der
+Docker-Desktop-Kernel kein `usblp`-Modul und damit kein `/dev/usb/lp0` anbietet.
+
 Wenn PrinterFleet und PrintAgent nicht zuverlässig per mDNS miteinander sprechen
 können, die Agenten explizit in
 `.env` eintragen:
