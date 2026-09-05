@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an immutable digest}
+    environment:
+      POSTGRES_USER: thingdex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: thingdex
+    volumes: [thingdex_postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U thingdex -d thingdex]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    restart: unless-stopped
+    networks: [print-platform]
+
+  thingdex-migrate:
+    image: ${THINGDEX_IMAGE:?Set THINGDEX_IMAGE to an immutable digest}
+    command: ["true"]
+    environment: &thingdex-environment
+      DATABASE_URL: ${THINGDEX_DATABASE_URL:?Set THINGDEX_DATABASE_URL}
+      THINGDEX_RUN_MIGRATIONS: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+    networks: [print-platform]
+
+  thingdex:
+    image: ${THINGDEX_IMAGE:?Set THINGDEX_IMAGE to an immutable digest}
+    environment:
+      <<: *thingdex-environment
+      THINGDEX_RUN_MIGRATIONS: "false"
+      LABEL_PRINTING_ENABLED: "true"
+      THINGDEX_PRINT_ADMIN_TOKEN: ${THINGDEX_PRINT_ADMIN_TOKEN:?Set THINGDEX_PRINT_ADMIN_TOKEN}
+      THINGDEX_PRINTHUB_EVENT_SECRET: ${THINGDEX_PRINTHUB_EVENT_SECRET:?Set THINGDEX_PRINTHUB_EVENT_SECRET}
+    ports:
+      - ${THINGDEX_API_BIND:-127.0.0.1}:${THINGDEX_API_PORT:-8000}:8000
+    depends_on:
+      thingdex-migrate: {condition: service_completed_successfully}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [print-platform]
+
+  thingdex-print-worker:
+    image: ${THINGDEX_IMAGE:?Set THINGDEX_IMAGE to an immutable digest}
+    command: ["python", "-m", "thingdex.print_worker"]
+    environment:
+      <<: *thingdex-environment
+      THINGDEX_RUN_MIGRATIONS: "false"
+      PRINTHUB_API_BASE: http://printhub:8000
+      PRINTHUB_API_TOKEN: ${PRINTHUB_API_TOKEN:?Set PRINTHUB_API_TOKEN}
+      THINGDEX_PRINT_MAX_ATTEMPTS: "10"
+    depends_on:
+      thingdex-migrate: {condition: service_completed_successfully}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [print-platform]
+
+volumes:
+  thingdex_postgres:

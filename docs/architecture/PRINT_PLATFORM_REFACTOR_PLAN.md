@@ -344,3 +344,23 @@ independent retry loops from producing duplicate labels.
   complete offline Alembic SQL generation and strict documentation build pass.
   The latest full suite has 6 passing and 23 PostgreSQL-dependent skipped tests;
   a live PostgreSQL and Docker run remains pending on this host.
+
+### 2026-09-05: Production deployment boundary
+
+- Source-building Compose remains explicitly a development profile. A new
+  standalone production definition contains only immutable image variables;
+  the optional Thingdex definition overlays PostgreSQL, one migration owner,
+  API and outbox worker without introducing a runtime source dependency.
+- IPP and Studio are opt-in production profiles. Service data stays in isolated
+  volumes, host ports bind to loopback by default, and core services receive
+  capability drops, no-new-privileges, PID and memory limits.
+- A fail-closed release validator rejects mutable tags, all-zero example
+  digests and example secrets. The compatibility-manifest shape records API
+  generations and exact image references.
+- PrintHub now runs as its previously created UID 10001. Thingdex migration
+  ownership is configurable so the API/migrator can run Alembic once while the
+  worker never races it.
+- Compose structure validates for standalone and integrated profiles. Action 8
+  remains open until CI publishes and signs real component digests and a real
+  compatibility manifest; action 9 remains open for identity, audit, metrics,
+  scoping and backup/restore automation.

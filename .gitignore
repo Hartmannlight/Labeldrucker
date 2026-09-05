@@ -1,4 +1,5 @@
 .env
+deploy/.env.production
 artifacts/printhub-before-registry-*.tar.gz
 artifacts/printers-before-registry-*.yml
 test-tmp/

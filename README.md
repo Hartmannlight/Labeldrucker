@@ -2,6 +2,11 @@
 
 Stand: 5. September 2026
 
+Entwicklung baut die ausgecheckten Quellen mit `compose.yaml`. Die getrennten,
+image-basierten Produktions- und Thingdex-Integrationsprofile sind in
+[`docs/architecture/DEPLOYMENT_PROFILES.md`](docs/architecture/DEPLOYMENT_PROFILES.md)
+dokumentiert; deren Platzhalter sind absichtlich nicht produktiv startbar.
+
 Diese Variante betreibt nur die Etiketten- und Druckfunktionen. Sie enthält
 keine Thingdex-API, keine Inventardatenbank und kein PostgreSQL.
 

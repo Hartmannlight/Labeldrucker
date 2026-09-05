@@ -1,0 +1,17 @@
+{
+  "release": "replace-with-release-id",
+  "contracts": {
+    "printHubApi": "v1",
+    "printerFleetApi": "v1",
+    "printAgentApi": "v1",
+    "thingdexApi": "v1"
+  },
+  "images": {
+    "printerFleet": "${PRINTER_FLEET_IMAGE}",
+    "printHub": "${PRINTHUB_IMAGE}",
+    "ippGateway": "${PRINTHUB_IPP_IMAGE}",
+    "studio": "${PRINTHUB_STUDIO_IMAGE}",
+    "thingdex": "${THINGDEX_IMAGE}",
+    "postgres": "${POSTGRES_IMAGE}"
+  }
+}

@@ -1,0 +1,85 @@
+name: printhub-production
+
+services:
+  printer-fleet:
+    image: ${PRINTER_FLEET_IMAGE:?Set PRINTER_FLEET_IMAGE to an immutable digest}
+    environment:
+      PRINTER_FLEET_DATABASE: /data/fleet.sqlite3
+      PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
+    volumes: [printer_fleet_data:/data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    restart: unless-stopped
+    networks: [print-platform]
+
+  printhub:
+    image: ${PRINTHUB_IMAGE:?Set PRINTHUB_IMAGE to an immutable digest}
+    environment:
+      PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
+      ZPLGRID_TEMPLATES_DIR: /data/templates
+      ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
+      ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs
+      ZPLGRID_COUNTERS_PATH: /data/counters.json
+    ports:
+      - ${PRINTHUB_API_BIND:-127.0.0.1}:${PRINTHUB_API_PORT:-8001}:8000
+    volumes: [printhub_data:/data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    depends_on:
+      printer-fleet: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [print-platform]
+
+  ipp-gateway:
+    profiles: [ipp]
+    image: ${PRINTHUB_IPP_IMAGE:?Set PRINTHUB_IPP_IMAGE to an immutable digest}
+    environment:
+      PRINTHUB_API_URL: http://printhub:8000
+      PRINTHUB_IPP_PORT: "8631"
+      PRINTHUB_IPP_PRINTER_ID: ${PRINTHUB_IPP_PRINTER_ID:?Set PRINTHUB_IPP_PRINTER_ID}
+      PRINTHUB_IPP_MISMATCH_POLICY: hold
+    ports:
+      - ${PRINTHUB_IPP_BIND:-127.0.0.1}:${PRINTHUB_IPP_PORT:-8631}:8631
+    volumes: [ipp_spool:/var/spool/printhub-ipp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    depends_on:
+      printhub: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [print-platform]
+
+  studio:
+    profiles: [studio]
+    image: ${PRINTHUB_STUDIO_IMAGE:?Set PRINTHUB_STUDIO_IMAGE to an immutable digest}
+    environment:
+      APP_BACKEND_API_BASE: /api
+      APP_RENDER_API_BASE: /api
+      APP_API_UPSTREAM: http://printhub:8000
+    ports:
+      - ${PRINTHUB_STUDIO_BIND:-127.0.0.1}:${PRINTHUB_STUDIO_PORT:-8088}:80
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 256m
+    depends_on:
+      printhub: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [print-platform]
+
+networks:
+  print-platform:
+
+volumes:
+  printer_fleet_data:
+  printhub_data:
+  ipp_spool:
