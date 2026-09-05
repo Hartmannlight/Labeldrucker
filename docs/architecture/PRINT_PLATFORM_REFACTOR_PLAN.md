@@ -1006,3 +1006,20 @@ independent retry loops from producing duplicate labels.
   PrinterFleet and PrintAgent in one attempt. The operator confirmed exactly
   one physical 50 x 25 mm label with perfect content and alignment, closing the
   development `cups_browser` acceptance gate.
+
+### 2026-09-06: Reproducible Windows media-ticket repair
+
+- Later Chrome attempts stopped in the Windows spooler and created no PrintHub
+  job. The Microsoft IPP Class Driver had again rounded the gateway's exact
+  50 x 25 mm capability to its 2 x 1 inch global default.
+- Removing and recreating the queue with the same name reproduced the rounding,
+  so queue recreation is not a sufficient operational remedy.
+- `scripts/install_windows_ipp_printer.ps1` now reads the unrounded
+  PrintCapabilities XML, validates the current user's media ticket as exactly
+  50 x 25 mm and provides a read-only `-CheckOnly` mode. Queue creation and
+  `-Recreate` require elevation; repairing an existing queue is per-user and
+  does not.
+- The Microsoft driver continues to expose the rounded global default after it
+  accepts an exact validated ticket. The installer reports that fact instead
+  of claiming to persist a setting the driver discards. Each Windows account
+  using the queue must therefore run the repair once.

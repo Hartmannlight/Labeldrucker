@@ -177,14 +177,25 @@ sudo lpadmin -p printhub-label -E \
 lpstat -p printhub-label
 ```
 
-Unter Windows 11 kann derselbe lokale Gateway aus einer als Administrator
-gestarteten PowerShell als systemweite IPP-Queue eingerichtet werden:
+Unter Windows 11 richtet das mitgelieferte Skript denselben lokalen Gateway als
+systemweite IPP-Queue ein. Es validiert außerdem den benutzerspezifischen
+PrintTicket-Medieneintrag gegen die vom Gateway gemeldeten 50 x 25 mm. Das ist
+wichtig, weil der Microsoft IPP Class Driver ein nahes benutzerdefiniertes
+Format sonst gelegentlich auf 2 x 1 Zoll rundet. Für die erstmalige Installation
+in einer als Administrator gestarteten PowerShell ausführen:
 
 ```powershell
-Add-Printer -Name "PrintHub 50x25 Label" `
-  -IppURL "http://localhost:8631/ipp/print"
-Get-Printer -Name "PrintHub 50x25 Label"
+.\scripts\install_windows_ipp_printer.ps1
+.\scripts\install_windows_ipp_printer.ps1 -CheckOnly
 ```
+
+Mit `-Recreate` wird eine vorhandene Queue einschließlich ihrer lokalen
+Spooljobs bewusst ersetzt. Abweichende Medien können mit `-WidthMm` und
+`-HeightMm` angegeben werden; sie müssen bereits vom Gateway angeboten werden.
+Jeder Windows-Benutzer, der die Queue verwendet, führt das Skript einmal im
+eigenen Konto aus; bei einer vorhandenen Queue ist dafür keine Erhöhung nötig.
+Der Microsoft-Treiber kann seinen globalen Standard weiterhin gerundet
+anzeigen, maßgeblich für Chrome ist das vom Skript geprüfte Benutzerticket.
 
 Windows verwendet dafür den integrierten `Microsoft IPP Class Driver`; ein
 herstellerspezifischer Zebra-Treiber ist auf dem Client nicht erforderlich.
@@ -248,11 +259,12 @@ Drucktransport auf das beworbene TLS wechseln.
 Ein Windows-Auftrag, der mit PrintService-Ereignis 372 und HRESULT
 `0x80040003` endet, während das Gateway nur erfolgreiche
 `Get-Printer-Attributes`-Anfragen sieht, ist ein lokaler
-`E_PRINTTICKET_FORMAT`-Fehler. Die im Benutzer-PrintTicket gespeicherte
-`PageMediaSize` muss exakt einer aktuell vom Drucker gemeldeten Medienoption
-entsprechen. Insbesondere sind 2 x 1 Zoll (50,8 x 25,4 mm) und 50 x 25 mm nicht
-dieselbe Größe. In den Windows-Druckeinstellungen das gemeldete 50-x-25-mm-
-Format erneut auswählen oder die Queue nach dem Gateway-Update neu anlegen.
+`E_PRINTTICKET_FORMAT`-Fehler. Die PrintTicket-`PageMediaSize` muss exakt einer
+aktuell vom Drucker gemeldeten Medienoption entsprechen. Insbesondere sind
+2 x 1 Zoll (50,8 x 25,4 mm) und 50 x 25 mm nicht dieselbe Größe. Das
+Installationsskript im betroffenen Windows-Konto erneut ausführen und
+anschließend mit `-CheckOnly` prüfen; ein bloßes Entfernen und erneutes
+Hinzufügen der Queue kann den gerundeten Windows-Standard beibehalten.
 
 Zusätzlich `docker compose logs ipp-gateway` prüfen: Wechselt Windows auf IPPS,
 muss auf `Starting HTTPS session` die Meldung `Connection now encrypted`
