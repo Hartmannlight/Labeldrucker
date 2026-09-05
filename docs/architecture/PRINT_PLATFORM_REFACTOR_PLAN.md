@@ -40,8 +40,9 @@ building sibling repositories or Git submodules.
    unavailable.
 2. PrintHub owns templates, document preparation, preview and logical print
    jobs; it does not own physical printer credentials or transports.
-3. PrinterFleet owns physical printers, capabilities, media state, routing,
-   delivery attempts and device protocols; it does not own templates or
+3. PrinterFleet is the central printer control plane. It owns physical printers,
+   capabilities, media state, routing, delivery attempts, vendor maintenance
+   operations and device protocols; it does not own templates, page layout or
    inventory entities.
 4. IPP translates protocol semantics and submits PrintHub jobs; it does not
    implement scaling, dithering, routing or device delivery.
@@ -60,9 +61,10 @@ building sibling repositories or Git submodules.
 | Thingdex | Inventory, locations, label automation and data bindings | Templates, printer addresses, rendering, device status |
 | PrintHub | Templates, source documents, preflight, preview, logical jobs | USB/Bluetooth, RAW TCP, SNMP, physical retries |
 | IPP Gateway | CUPS queues, IPP attributes, document upload, IPP status mapping | Rendering policy, printer registry, device protocols |
-| PrinterFleet | Printer registry, capabilities, media, routing, deliveries, drivers | Inventory objects, templates, document design |
+| PrinterFleet | Printer registry, sites, capabilities, media, routing, queues, deliveries, drivers and device administration | Inventory objects, templates, source documents, page layout |
 | PrintAgent | Local USB/Bluetooth/serial access and agent-side drivers | Global routing, templates, Thingdex integration |
-| Studio | PrintHub user interface and designer | Authoritative server data |
+| PrintHub Studio | Template, preview and job user interface | Physical printer administration |
+| Fleet Console | Operator interface over the PrinterFleet API | Rendering, templates, inventory data |
 | Thingdex Home Inventory | Release bill of materials, deployment and system docs | Product business logic |
 
 ## Target data flow
@@ -75,14 +77,13 @@ Chrome/CUPS -> IPP Gateway ─────┘              |
                               preflight / scale / raster / preview
                                                 |
                                                 v
-                                  immutable PrintArtifact
+                              immutable prepared artifact
                                                 |
                                                 v
                                          PrinterFleet
-                                      /       |       \
-                              RAW TCP     IPP device    PrintAgent
-                              / serial       |          USB/Bluetooth
-                             Zebra        printer       Niimbot
+                                /          |             \
+                    Zebra RAW TCP   serial-over-TCP      PrintAgent
+                       port 9100      bridge:any port     USB/Bluetooth
 ```
 
 ## Contract model
@@ -131,6 +132,20 @@ model. A ZPL driver may use native text/barcode operations when possible and a
 raster fallback otherwise. A Niimbot driver consumes the same prepared raster
 and applies its own compression and transport framing.
 
+Network reachability, not physical attachment to the application host, decides
+whether an agent is needed. A central Fleet instance connects directly to a
+printer IP or transparent RS232-to-Ethernet bridge. Port 9100 is the default for
+RAW/JetDirect, but every endpoint is configurable because serial bridges often
+use another port. The optional agent is reserved for transports the Fleet host
+cannot reach directly or for site-network segmentation.
+
+Device administration follows the same rule. Zebra-specific status and safe
+configuration commands for reachable network printers run in a Fleet driver;
+they are not routed through PrintHub and do not require an agent. The Fleet API
+is the authority and a separately deployable Fleet Console provides the
+central, ZebraTamer-like operator experience without coupling that UI to the
+document-preparation service. See `PRINTER_FLEET_CONTROL_PLANE.md`.
+
 ## Job ownership and states
 
 PrintHub logical jobs:
@@ -158,6 +173,9 @@ independent retry loops from producing duplicate labels.
 - Keep PrinterFleet and PrintAgent independently releasable. They may initially
   share a source repository if that improves driver contract testing, but they
   remain separate deployables.
+- Keep Fleet Console independently releasable as a static client of the
+  PrinterFleet API. Its existence must not make the Fleet API or worker depend
+  on a browser-facing process.
 - Keep the IPP gateway independently deployable even if its source temporarily
   lives beside PrintHub.
 - Treat SDKs as generated contract artifacts; do not share internal domain
@@ -207,6 +225,10 @@ independent retry loops from producing duplicate labels.
 - Thingdex creates and edits inventory while PrintHub is absent, then delivers
   queued intents exactly once after recovery.
 - PrinterFleet sends directly to a network RAW-9100 emulator without an agent.
+- PrinterFleet sends to a configurable serial-over-TCP port without an agent.
+- One unreachable or slow printer cannot block another printer's queue.
+- Vendor maintenance commands are authorized, audited and serialized with jobs
+  for the affected device.
 - An agent can disconnect during a job and resume without duplicate printing.
 - A socket-accepted but unconfirmed job is never displayed as physically
   confirmed.
@@ -427,3 +449,24 @@ independent retry loops from producing duplicate labels.
   PostgreSQL CI service, checkout/setup actions, runner image and Poetry
   version. Its publish workflow still needs the tested-candidate and
   attestation stages before action 8 can close.
+
+### 2026-09-05: Central Fleet control plane clarification
+
+- PrinterFleet is explicitly the central physical-printer control plane, not an
+  optional adapter hidden behind PrintHub. It directly manages reachable Zebra
+  Ethernet/WLAN printers and transparent serial bridges; no Linux-attached
+  device or site agent is required for these paths.
+- RAW/JetDirect keeps port 9100 as a default rather than a fixed assumption.
+  Serial-over-TCP remains a distinct connection profile with an explicit port
+  and bridge metadata even though its current byte transport is shared.
+- ZebraTamer-like central operations belong to versioned Fleet drivers and the
+  Fleet API. A separately deployable Fleet Console can expose those operations
+  without adding physical administration to PrintHub Studio.
+- Fleet API and delivery workers may initially share one container because they
+  belong to one bounded context and one transactional data model. Their module,
+  lease and queue boundaries still permit later worker scaling without changing
+  the public contract.
+- Thingdex now also builds native amd64/arm64 candidates from locked
+  dependencies, smoke-tests them with PostgreSQL, scans them and publishes only
+  the exact tested archives with SBOM and provenance attestations. A real
+  cross-repository digest manifest is still required before action 8 closes.

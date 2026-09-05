@@ -27,6 +27,13 @@ wait for it, then run with migrations disabled. The worker does not depend on a
 healthy PrintHub container, so a PrintHub outage cannot prevent Thingdex from
 starting or accepting inventory changes.
 
+PrinterFleet needs network reachability to its managed printers, not a physical
+USB connection to the container host. A Zebra Ethernet/WLAN endpoint is normally
+configured as `raw_tcp` on port 9100. A transparent RS232-to-Ethernet bridge is
+configured as `serial_over_tcp` with its actual port. Deploy a PrintAgent only
+for USB, Bluetooth, local serial or a site network that is intentionally not
+routable from the central Fleet service.
+
 Every production image value must be an OCI reference pinned by digest. Tags may
 be published for humans, but never belong in a deployed release environment.
 Create the environment from `deploy/.env.production.example`, inject secrets from
