@@ -688,4 +688,8 @@ independent retry loops from producing duplicate labels.
   `/v1/printers/{id}/prints/template` endpoint, has been removed. Inventory
   requests continue to commit without contacting PrintHub.
 - Thingdex is therefore no longer a consumer blocking removal of direct
-  template submission. The SDK remains on that compatibility surface.
+  template submission.
+- PrintHub's canonical job accepts either a stored template ID or an immutable
+  inline template snapshot. Studio uses the snapshot form for unsaved drafts,
+  the SDK no longer exposes direct template submission, and the legacy HTTP
+  route has been removed from the public OpenAPI contract.

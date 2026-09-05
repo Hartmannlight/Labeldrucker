@@ -29,13 +29,17 @@ Adding a driver must not change the Thingdex, IPP or PrintHub contracts.
 | PrintHub `LegacyFleetAdapter` and local writable printer registry | `HttpPrinterFleetAdapter` | compact source profile and rollback baseline | migration/export acceptance passes and every supported deployment includes PrinterFleet |
 | `zebra_tamer` connection protocol and `_zpl-agent._tcp` discovery name | `print_agent` and `_print-agent._tcp` | existing agent installations and stored registries | PrintAgent migration tool rewrites configuration and the release matrix contains no legacy agent |
 | `raw9100` protocol name | `raw_tcp` with default port 9100 | existing PrintHub registry exports and examples | registry migration rewrites every stored route and rollback no longer consumes the old format |
-| PrintHub direct `/v1/printers/{id}/prints/template` submission | canonical durable `/v1/print-jobs` | SDK | SDK uses canonical job creation and preserves idempotency/status behavior; Thingdex completed this migration on 2026-09-05 |
 | global `PRINTER_FLEET_API_TOKEN` | structured credentials file and later OIDC verifier | development and migration-only installations | credential migration is documented and no production profile accepts the global token |
 
 PrintHub's read-only printer selection and printer-targeted logical print routes
 may remain as document-domain conveniences. They must return Fleet snapshots and
 must never regain endpoint addresses, device credentials, discovery or physical
 retry ownership.
+
+Retired on 2026-09-05: direct
+`POST /v1/printers/{id}/prints/template` submission. Thingdex, Studio and the SDK
+now create durable `/v1/print-jobs`; inline Studio drafts are immutable job
+snapshots.
 
 ## Stable-release gate
 
