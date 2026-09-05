@@ -1059,7 +1059,9 @@ independent retry loops from producing duplicate labels.
 - Exactly one candidate-4 baseline was submitted. PrintHub, Fleet and Agent
   produced one linked job each; PrintHub reconciled one downstream entry to
   `transport_accepted` with 242 bytes. Repeating the identical idempotent
-  request returned the same identifiers without another delivery.
+  request returned the same identifiers. A separate Agent-side list check found
+  exactly one job for the derived idempotency key, proving that the replay did
+  not create another delivery at the final durable boundary.
 - The immutable bill of materials and sanitized evidence are recorded in
   `docs/acceptance/2026-09-06-v1.0.0-candidate-4.md`. Physical emission and
   visual inspection still require operator confirmation; remaining destructive
