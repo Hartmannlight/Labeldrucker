@@ -212,7 +212,7 @@ independent retry loops from producing duplicate labels.
 - [x] 8. Replace production sibling builds and Git submodules with signed,
   immutable component images, a compatibility manifest and standalone,
   integrated and development Compose profiles.
-- [ ] 9. Add enterprise controls: OIDC-ready identities, service credentials,
+- [x] 9. Add enterprise controls: OIDC-ready identities, service credentials,
   signed events, tenant/site scoping, audit records, correlation IDs, metrics,
   resource limits, backups and PostgreSQL migration paths.
 - [ ] 10. Run contract, migration, failure-injection and real-device acceptance
@@ -547,8 +547,9 @@ independent retry loops from producing duplicate labels.
   software older than the stored generation. This replaces silent ad-hoc
   downgrade behavior with the first explicit migration boundary.
 - All 42 Fleet tests pass, including Windows restore locking, tamper detection,
-  non-overwrite and future-schema regressions. Scheduled off-host backups and a
-  PostgreSQL repository implementation remain open parts of action 9.
+  non-overwrite and future-schema regressions. At this milestone, scheduled
+  off-host backups and a PostgreSQL repository implementation remained open;
+  both were completed by the later PostgreSQL and deployment work below.
 
 ### 2026-09-05: Durable queue administration
 
@@ -564,8 +565,9 @@ independent retry loops from producing duplicate labels.
   database rather than process memory. Schema generation 2 migrates existing
   generation-1 databases forward and includes controls in verified backups.
 - All 45 Fleet tests pass, including API role/site policy, migration, restart,
-  pause/resume and queued-work regressions. Richer operator workflows, retention
-  policy and production database scaling remain open parts of action 9.
+  pause/resume and queued-work regressions. At this milestone, richer operator
+  workflows, retention policy and production database scaling remained open;
+  the action-9 controls were subsequently completed below.
 
 ### 2026-09-05: Asynchronous Fleet acceptance boundary
 
@@ -589,9 +591,9 @@ independent retry loops from producing duplicate labels.
   oldest-per-printer claims, device leases and ordered state/event writes. The
   cutover uses one writer and a verified stop/import/compare/switch sequence;
   indefinite dual-write is excluded.
-- This establishes the implementation seam but does not close action 9: the
-  PostgreSQL adapter and an automated migration rehearsal still need to pass the
-  same repository contract suite.
+- This established the implementation seam. The PostgreSQL adapter and automated
+  migration rehearsal described below subsequently passed the same repository
+  contract suite.
 
 ### 2026-09-05: PostgreSQL Fleet implementation
 
@@ -609,8 +611,16 @@ independent retry loops from producing duplicate labels.
   concurrent idempotency, FIFO claims, ordered events, leases and the complete
   SQLite-to-PostgreSQL migration rehearsal. Production Compose gives Fleet a
   database and credentials separate from Thingdex.
-- Action 9 remains open until this PostgreSQL suite and the production container
-  gate have passed remotely and backup/restore operations are rehearsed.
+- The remote PostgreSQL suite and production container gate passed in
+  [CI run 33951140893](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33951140893).
+  That gate also creates a custom-format `pg_dump`, restores it into a fresh
+  database and compares authoritative table counts.
+- [Container Release run 33951140966](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33951140966)
+  passed native amd64/arm64 build, runtime smoke, vulnerability scan, SBOM
+  attestation and multi-architecture publication. The verified Fleet image is
+  `ghcr.io/hartmannlight/printer-fleet@sha256:0bba2ad0d19f883294de7828f9af56a214fd7c6f83f90c0c39723eeac25b2e49`.
+  Together with the documented off-host backup schedule and restore runbook,
+  this closes action 9.
 
 ### 2026-09-05: Allowlisted Zebra maintenance
 
