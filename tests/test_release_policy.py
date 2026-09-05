@@ -252,6 +252,19 @@ def test_ipp_hostname_maps_both_loopbacks_in_source_and_production() -> None:
         assert service["environment"]["PRINTHUB_IPP_HOSTNAME"] == expected_hostname
         assert service["extra_hosts"] == expected_hosts
 
+    assert production["environment"]["PRINTHUB_IPP_MDNS_ENABLED"] == "1"
+    assert production["user"] == "0:0"
+    assert production["cap_drop"] == ["ALL"]
+    assert production["cap_add"] == [
+        "CHOWN",
+        "DAC_OVERRIDE",
+        "FOWNER",
+        "SETGID",
+        "SETUID",
+    ]
+    assert production["security_opt"] == ["no-new-privileges:true"]
+    assert "privileged" not in production
+
 
 def test_fleet_console_keeps_operator_credentials_out_of_images_and_storage() -> None:
     dockerfile = (ROOT / "fleet-console" / "Dockerfile").read_text(encoding="utf-8")
@@ -268,7 +281,10 @@ def test_fleet_console_keeps_operator_credentials_out_of_images_and_storage() ->
     assert '"--read-only"' in smoke
     assert production["read_only"] is True
     assert production["cap_drop"] == ["ALL"]
-    assert "/etc/nginx/http.d" in production["tmpfs"]
+    assert production["tmpfs"] == [
+        "/tmp",
+        "/etc/nginx/http.d:rw,noexec,nosuid,nodev,mode=0755,uid=101,gid=101",
+    ]
 
 
 def compatibility_values() -> dict[str, str]:

@@ -99,7 +99,8 @@ services:
       PRINTHUB_IPP_PRINTER_ID: ${PRINTHUB_IPP_PRINTER_ID:?Set PRINTHUB_IPP_PRINTER_ID}
       PRINTHUB_IPP_HOSTNAME: ${PRINTHUB_IPP_HOSTNAME:-localhost}
       PRINTHUB_IPP_MISMATCH_POLICY: hold
-      PRINTHUB_IPP_MDNS_ENABLED: "0"
+      PRINTHUB_IPP_MDNS_ENABLED: "1"
+    user: "0:0"
     extra_hosts:
       - "${PRINTHUB_IPP_HOSTNAME:-localhost}=127.0.0.1"
       - "${PRINTHUB_IPP_HOSTNAME:-localhost}=[::1]"
@@ -109,6 +110,7 @@ services:
       - ipp_spool:/var/spool/printhub-ipp
       - ipp_tls:/var/lib/printhub-ipp/tls
     cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
     security_opt: [no-new-privileges:true]
     pids_limit: 256
     mem_limit: 512m
@@ -144,7 +146,9 @@ services:
     ports:
       - ${PRINTER_FLEET_CONSOLE_BIND:-127.0.0.1}:${PRINTER_FLEET_CONSOLE_PORT:-8089}:8080
     read_only: true
-    tmpfs: [/tmp, /etc/nginx/http.d]
+    tmpfs:
+      - /tmp
+      - /etc/nginx/http.d:rw,noexec,nosuid,nodev,mode=0755,uid=101,gid=101
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 128
