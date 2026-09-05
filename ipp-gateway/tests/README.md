@@ -120,10 +120,13 @@ docker compose exec ipp-gateway ipptool -t `
 ```
 
 Erwartetes Ergebnis: zwei bestandene `ipptool`-Tests. Der neueste Eintrag unter
-`GET http://localhost:8001/v1/print-jobs` hat `source_kind: "document"`, den
-Status `queued`, `downstream_job_state: "queued"` und `bytes_sent: 0`. Das ist
-die ehrliche dauerhafte Annahme durch PrinterFleet; erst dessen Zustellhistorie
-und der Eintrag im virtuellen Zebra beweisen den anschließenden Weg über RAW TCP.
+`GET http://localhost:8001/v1/print-jobs` hat `source_kind: "document"` und genau
+einen Eintrag in `downstream_jobs`. Direkt nach der Annahme darf der Status noch
+`queued` sein; nach der Übertragung an den virtuellen Zebra müssen der logische
+Status, `downstream_job_state` und `downstream_jobs[0].state` den Wert
+`transport_accepted` tragen. `bytes_sent` ist dann größer als null. Das ist die
+ehrliche Transportbestätigung; eine physische Ausgabe kann RAW TCP allein nicht
+bestätigen.
 
 ## A4 auf einem 50 × 50-mm-Label prüfen
 
@@ -150,8 +153,9 @@ Invoke-RestMethod -Method Post `
   -Body '{"scaling":"fit"}'
 ```
 
-Danach muss der Status `queued` mit `downstream_job_state: "queued"` sein. `fill`
-ist ebenfalls zulässig, kann aber Randinhalt abschneiden.
+Die direkte Freigabeantwort ist zunächst `queued`. Nach der Übertragung müssen
+der logische Status und alle Downstream-Statusfelder `transport_accepted` sein.
+`fill` ist ebenfalls zulässig, kann aber Randinhalt abschneiden.
 
 ## Testumfang im geprüften Stand
 

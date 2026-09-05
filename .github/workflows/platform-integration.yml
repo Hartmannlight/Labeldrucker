@@ -37,7 +37,7 @@ jobs:
           docker compose cp ipp-gateway/tests/fixtures/label-50mm.pdf ipp-gateway:/tmp/label-50mm.pdf
           docker compose exec -T ipp-gateway ipptool -t -f /tmp/label-50mm.pdf ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
           curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs |
-            jq --exit-status '.[0] | .source_kind == "document" and .status == "queued" and .bytes_sent == 0 and .downstream_job_state == "queued"'
+            jq --exit-status '.[0] | .source_kind == "document" and (.status == "queued" or .status == "transport_accepted") and (.downstream_jobs | length) == 1 and .downstream_jobs[0].state == .downstream_job_state'
       - name: Hold and explicitly release an A4-to-label mismatch
         run: |
           docker compose cp ipp-gateway/tests/fixtures/a4.pdf ipp-gateway:/tmp/a4.pdf
@@ -55,11 +55,14 @@ jobs:
           deadline=$((SECONDS + 30))
           while (( SECONDS < deadline )); do
             if curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq --exit-status 'length >= 2' >/dev/null; then
-              exit 0
+              jobs="$(curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs)"
+              if jq --exit-status '.[0:2] | length == 2 and all(.[]; .status == "transport_accepted" and .downstream_job_state == "transport_accepted" and .bytes_sent > 0 and (.downstream_jobs | length) == 1 and .downstream_jobs[0].state == "transport_accepted")' <<<"$jobs" >/dev/null; then
+                exit 0
+              fi
             fi
             sleep 1
           done
-          echo "Expected at least two jobs in the virtual Zebra" >&2
+          echo "Expected two transport-accepted PrintHub jobs in the virtual Zebra" >&2
           exit 1
       - name: Show container state on failure
         if: failure()
