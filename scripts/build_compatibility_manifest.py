@@ -22,6 +22,11 @@ COMPONENTS = {
         "https://github.com/Hartmannlight/Labeldrucker",
         "PLATFORM_SOURCE_REVISION",
     ),
+    "fleetConsole": (
+        "PRINTER_FLEET_CONSOLE_IMAGE",
+        "https://github.com/Hartmannlight/Labeldrucker",
+        "PLATFORM_SOURCE_REVISION",
+    ),
     "printHub": (
         "PRINTHUB_IMAGE",
         "https://github.com/Hartmannlight/PrintHub-ZPL-ll",
@@ -51,6 +56,7 @@ CONTRACTS = {
 }
 SIGNER_WORKFLOWS = {
     "printerFleet": "Hartmannlight/Labeldrucker/.github/workflows/container-release.yml",
+    "fleetConsole": "Hartmannlight/Labeldrucker/.github/workflows/container-release.yml",
     "printHub": "Hartmannlight/PrintHub-ZPL-ll/.github/workflows/container-release.yml",
     "ippGateway": "Hartmannlight/Labeldrucker/.github/workflows/container-release.yml",
     "studio": "Hartmannlight/LabelArchitect/.github/workflows/container-release.yml",

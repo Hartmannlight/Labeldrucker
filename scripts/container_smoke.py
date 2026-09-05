@@ -38,6 +38,26 @@ class PrinterHandler(BaseHTTPRequestHandler):
         return
 
 
+class FleetHandler(BaseHTTPRequestHandler):
+    observed_authorization: str | None = None
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path != "/v1/printers":
+            self.send_error(404)
+            return
+        type(self).observed_authorization = self.headers.get("Authorization")
+        body = b"[]"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Correlation-ID", "smoke-correlation")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
 def wait_http(url: str) -> None:
     deadline = time.monotonic() + 60
     while True:
@@ -74,6 +94,19 @@ def main() -> None:
             "-p", "127.0.0.1::8631",
         ]
         container_port = "8631/tcp"
+    elif component == "printer-fleet-console":
+        FleetHandler.observed_authorization = None
+        mock = ThreadingHTTPServer(("0.0.0.0", 18080), FleetHandler)
+        threading.Thread(target=mock.serve_forever, daemon=True).start()
+        args += [
+            "--read-only",
+            "--tmpfs", "/tmp",
+            "--tmpfs", "/etc/nginx/http.d:uid=101,gid=101,mode=0750",
+            "--add-host", "host.docker.internal:host-gateway",
+            "-e", "FLEET_API_UPSTREAM=http://host.docker.internal:18080",
+            "-p", "127.0.0.1::8080",
+        ]
+        container_port = "8080/tcp"
     else:
         raise RuntimeError("Unexpected component")
     container = run(*args, image)
@@ -88,6 +121,16 @@ def main() -> None:
             )
             with urllib.request.urlopen(request, timeout=3) as response:
                 assert b"printer_fleet_printers" in response.read()
+        elif component == "printer-fleet-console":
+            wait_http(f"http://{host}:{port_text}/")
+            request = urllib.request.Request(
+                f"http://{host}:{port_text}/api/v1/printers",
+                headers={"Authorization": "Bearer smoke-operator"},
+            )
+            with urllib.request.urlopen(request, timeout=3) as response:
+                assert json.load(response) == []
+                assert response.headers["X-Correlation-ID"] == "smoke-correlation"
+            assert FleetHandler.observed_authorization == "Bearer smoke-operator"
         else:
             deadline = time.monotonic() + 60
             while True:
@@ -98,7 +141,7 @@ def main() -> None:
                     if time.monotonic() >= deadline:
                         raise
                     time.sleep(1)
-        uid = run("docker", "exec", container, "python", "-c", "import os; print(os.getuid())")
+        uid = run("docker", "exec", container, "id", "-u")
         if uid == "0":
             raise RuntimeError("Candidate process still runs as root after startup")
     finally:

@@ -33,6 +33,13 @@
         "revision": "${PLATFORM_SOURCE_REVISION}"
       }
     },
+    "fleetConsole": {
+      "image": "${PRINTER_FLEET_CONSOLE_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/Labeldrucker",
+        "revision": "${PLATFORM_SOURCE_REVISION}"
+      }
+    },
     "studio": {
       "image": "${PRINTHUB_STUDIO_IMAGE}",
       "source": {

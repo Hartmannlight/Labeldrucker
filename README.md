@@ -27,7 +27,7 @@ unter `Hartmannlight/Labeldrucker` veröffentlicht. Der Unterordner
 
 Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
 
-- `Labeldrucker`: Docker Compose, IPP-Eingang, vorläufiger PrinterFleet-Quellcode und Betriebsdokumentation
+- `Labeldrucker`: Docker Compose, IPP-Eingang, PrinterFleet, Fleet Console und Betriebsdokumentation
 - `PrintHub-ZPL-ll`: Druckjob-API, Rasterpipeline, Vorschau und logische Druckjobs
 - `PrinterFleet`: zentrale physische Drucker, Fähigkeiten, Medienzustand und Auslieferungen
 - `printhub-sdk`: generierter und kuratierter TypeScript-Client
@@ -72,6 +72,7 @@ Labeldrucker/
 │   ├── ZebraTamer/                  # Git-Submodule, künftiger PrintAgent
 │   └── ZPL-II-Printer-Emulator/     # Git-Submodule
 ├── ipp-gateway/
+├── fleet-console/                  # getrennte physische Druckerverwaltung
 ├── printer-fleet/                  # eigenständiger Dienst, vorläufig hier inkubiert
 └── compose.yaml
 ```
@@ -109,6 +110,7 @@ docker compose ps
 Danach sind erreichbar:
 
 - PrintHub Studio: `http://localhost:8088`
+- PrinterFleet Console: `http://localhost:8089`
 - PrintHub/OpenAPI: `http://localhost:8001/docs`
 - Virtueller Zebra: `http://localhost:9191`
 - IPP-/CUPS-Drucker: `ipp://localhost:8631/ipp/print`
@@ -117,6 +119,11 @@ PrinterFleet ist absichtlich nur im internen Compose-Netz erreichbar. PrintHub
 liest den Druckerkatalog über dessen HTTP-API und übergibt fertige,
 prüfsummengeschützte Druckartefakte. Druckeradressen und physische Zustellversuche
 gehören damit nicht mehr zum dauerhaften Zielmodell von PrintHub.
+Die getrennte Fleet Console greift über einen same-origin Proxy direkt auf
+PrinterFleet zu. Im Entwicklungsprofil kann zum Anmelden
+`development-fleet-token` verwendet werden; das Token bleibt nur im Speicher
+des Browser-Tabs. Produktionszugänge stammen aus der strukturierten Fleet-
+Credential-Datei und müssen über TLS bereitgestellt werden.
 Auch Discovery, Gerätestatus, Registry-Import/-Export und physische Retries
 werden bei aktiviertem Fleet-Dienst lediglich durch die bisherigen PrintHub-
 URLs durchgereicht. Dadurch bleiben Studio und SDK während der Migration
@@ -137,7 +144,7 @@ in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
 | Vorlage anlegen / ändern | `POST /v1/templates`, `PUT /v1/templates/{id}` | Ja | Enthält Template-JSON, Felddefinitionen, Beispieldaten und Vorschauziel. |
 | Template rendern | `POST /v1/renders/zpl`, `POST /v1/renders/png` | Ja | Rendert ohne zu drucken; Variablen dürfen auch Zeilenumbrüche enthalten. |
 | Gespeichertes Template drucken | `POST /v1/print-jobs` | Ja | Langlebiger Job mit `printer_id`, `template_id` und `variables`; Status über `GET /v1/print-jobs/{id}`. |
-| Ungespeichertes Template drucken | `POST /v1/printers/{printer_id}/prints/template` | Ja | Template und Variablen werden direkt im Request mitgegeben. |
+| Ungespeichertes Template drucken | `POST /v1/print-jobs` | Ja | Statt `template_id` wird ein unveränderlicher `template`-Snapshot im langlebigen Job gespeichert. |
 | RAW ZPL II drucken | `POST /v1/printers/{printer_id}/prints/zpl` | Ja | Body: `{"zpl":"^XA...^XZ"}`. Bei `raw9100` ergänzt PrintHub konfigurierte Gerätewerte, behält die Befehle des Payloads aber bei; an ZebraTamer geht RAW-ZPL unverändert. |
 | Drucker und Status | `GET /v1/printers`, `GET /v1/printers/{id}/status` | Ja | Status nur, wenn der registrierte Drucker ihn unterstützt. |
 | RAW-TCP/JetDirect Port 9100 | PrinterFleet → Drucker | Ja | Drucker mit `connection.protocol: raw_tcp` oder dem kompatiblen Namen `raw9100` werden zentral auf dem konfigurierten Host/Port angesprochen. Weder PrintHub noch PrinterFleet lauschen selbst als Drucker auf Port 9100. |

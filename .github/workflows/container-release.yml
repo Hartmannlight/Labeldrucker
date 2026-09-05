@@ -29,13 +29,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component: [printer-fleet, printhub-ipp]
+        component: [printer-fleet, printhub-ipp, printer-fleet-console]
         arch: [amd64, arm64]
         include:
           - component: printer-fleet
             image: ghcr.io/hartmannlight/printer-fleet
           - component: printhub-ipp
             image: ghcr.io/hartmannlight/printhub-ipp
+          - component: printer-fleet-console
+            image: ghcr.io/hartmannlight/printer-fleet-console
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,6 +92,8 @@ jobs:
             image: ghcr.io/hartmannlight/printer-fleet
           - component: printhub-ipp
             image: ghcr.io/hartmannlight/printhub-ipp
+          - component: printer-fleet-console
+            image: ghcr.io/hartmannlight/printer-fleet-console
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

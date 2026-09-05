@@ -35,6 +35,16 @@ jobs:
             dockerfile: ipp-gateway/Dockerfile
             arch: arm64
             runner: ubuntu-24.04-arm
+          - component: printer-fleet-console
+            context: fleet-console
+            dockerfile: fleet-console/Dockerfile
+            arch: amd64
+            runner: ubuntu-24.04
+          - component: printer-fleet-console
+            context: fleet-console
+            dockerfile: fleet-console/Dockerfile
+            arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

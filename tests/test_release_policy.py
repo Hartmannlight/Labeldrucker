@@ -47,6 +47,8 @@ def test_workflows_parse_and_candidate_matrix_covers_native_platforms() -> None:
         ("printer-fleet", "arm64", "ubuntu-24.04-arm"),
         ("printhub-ipp", "amd64", "ubuntu-24.04"),
         ("printhub-ipp", "arm64", "ubuntu-24.04-arm"),
+        ("printer-fleet-console", "amd64", "ubuntu-24.04"),
+        ("printer-fleet-console", "arm64", "ubuntu-24.04-arm"),
     }
 
 
@@ -159,6 +161,24 @@ def test_runtime_images_remove_python_build_tooling() -> None:
     for path in (ROOT / "printer-fleet" / "Dockerfile", ROOT / "ipp-gateway" / "Dockerfile"):
         document = path.read_text(encoding="utf-8")
         assert "python -m pip uninstall -y pip setuptools wheel jaraco.context" in document
+
+
+def test_fleet_console_keeps_operator_credentials_out_of_images_and_storage() -> None:
+    dockerfile = (ROOT / "fleet-console" / "Dockerfile").read_text(encoding="utf-8")
+    client = (ROOT / "fleet-console" / "api.js").read_text(encoding="utf-8")
+    smoke = (ROOT / "scripts" / "container_smoke.py").read_text(encoding="utf-8")
+    production = yaml.safe_load(
+        (ROOT / "deploy" / "compose.standalone.yaml").read_text(encoding="utf-8")
+    )["services"]["fleet-console"]
+
+    assert "USER nginx" in dockerfile
+    assert "TOKEN" not in dockerfile.upper()
+    assert "localStorage" not in client
+    assert "sessionStorage" not in client
+    assert '"--read-only"' in smoke
+    assert production["read_only"] is True
+    assert production["cap_drop"] == ["ALL"]
+    assert "/etc/nginx/http.d" in production["tmpfs"]
 
 
 def compatibility_values() -> dict[str, str]:

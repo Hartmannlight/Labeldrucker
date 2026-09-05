@@ -37,7 +37,7 @@ def release_context() -> tuple[str, str, str, str | None]:
     component = os.environ["COMPONENT"]
     sha = os.environ["GITHUB_SHA"]
     ref = os.environ["GITHUB_REF"]
-    if component not in {"printer-fleet", "printhub-ipp"}:
+    if component not in {"printer-fleet", "printhub-ipp", "printer-fleet-console"}:
         raise RuntimeError("Unexpected component")
     if not re.fullmatch(r"[a-f0-9]{40}", sha):
         raise RuntimeError("Unexpected source SHA")

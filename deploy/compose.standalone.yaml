@@ -127,6 +127,24 @@ services:
     restart: unless-stopped
     networks: [print-platform]
 
+  fleet-console:
+    profiles: [fleet-console]
+    image: ${PRINTER_FLEET_CONSOLE_IMAGE:?Set PRINTER_FLEET_CONSOLE_IMAGE to an immutable digest}
+    environment:
+      FLEET_API_UPSTREAM: http://printer-fleet:8000
+    ports:
+      - ${PRINTER_FLEET_CONSOLE_BIND:-127.0.0.1}:${PRINTER_FLEET_CONSOLE_PORT:-8089}:8080
+    read_only: true
+    tmpfs: [/tmp, /etc/nginx/http.d]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 128m
+    depends_on:
+      printer-fleet: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [print-platform]
+
 networks:
   print-platform:
 

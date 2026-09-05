@@ -11,6 +11,10 @@ on:
         description: Published PrinterFleet image at sha256 digest
         required: true
         type: string
+      fleet_console_image:
+        description: Published PrinterFleet Console image at sha256 digest
+        required: true
+        type: string
       ipp_gateway_image:
         description: Published IPP gateway image at sha256 digest
         required: true
@@ -76,6 +80,7 @@ jobs:
           COMPATIBILITY_RELEASE: ${{ inputs.release }}
           PLATFORM_SOURCE_REVISION: ${{ github.sha }}
           PRINTER_FLEET_IMAGE: ${{ inputs.printer_fleet_image }}
+          PRINTER_FLEET_CONSOLE_IMAGE: ${{ inputs.fleet_console_image }}
           PRINTHUB_IPP_IMAGE: ${{ inputs.ipp_gateway_image }}
           PRINTHUB_IMAGE: ${{ inputs.printhub_image }}
           PRINTHUB_SOURCE_REVISION: ${{ inputs.printhub_revision }}

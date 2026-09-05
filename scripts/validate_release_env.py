@@ -8,6 +8,7 @@ import re
 
 IMAGE_KEYS = (
     "PRINTER_FLEET_IMAGE",
+    "PRINTER_FLEET_CONSOLE_IMAGE",
     "PRINTHUB_IMAGE",
     "PRINTHUB_IPP_IMAGE",
     "PRINTHUB_STUDIO_IMAGE",
@@ -103,6 +104,7 @@ def validate_manifest(values: dict[str, str], document: object) -> list[str]:
         return ["Compatibility manifest components must be an object"]
     names = {
         "PRINTER_FLEET_IMAGE": "printerFleet",
+        "PRINTER_FLEET_CONSOLE_IMAGE": "fleetConsole",
         "PRINTHUB_IMAGE": "printHub",
         "PRINTHUB_IPP_IMAGE": "ippGateway",
         "PRINTHUB_STUDIO_IMAGE": "studio",

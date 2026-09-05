@@ -6,11 +6,13 @@ a production release artifact.
 
 Production uses `deploy/compose.standalone.yaml`. It contains no `build`, source
 mount or package-install step. PrintHub, the PrinterFleet API and its delivery
-worker always start; IPP and Studio are explicit optional profiles:
+worker always start; IPP, Studio and Fleet Console are explicit optional
+profiles:
 
 ```sh
 docker compose --env-file /run/secrets/printhub-release.env \
-  -f deploy/compose.standalone.yaml --profile ipp --profile studio up -d
+  -f deploy/compose.standalone.yaml \
+  --profile ipp --profile studio --profile fleet-console up -d
 ```
 
 Thingdex is an independent overlay rather than a mandatory PrintHub dependency:
@@ -19,7 +21,7 @@ Thingdex is an independent overlay rather than a mandatory PrintHub dependency:
 docker compose --env-file /run/secrets/thingdex-release.env \
   -f deploy/compose.standalone.yaml \
   -f deploy/compose.integrated.yaml \
-  --profile ipp --profile studio up -d
+  --profile ipp --profile studio --profile fleet-console up -d
 ```
 
 The integrated overlay has one short-lived migration owner. API and print worker
@@ -40,6 +42,13 @@ catalog and queue interface; the worker owns recovery and physical device I/O.
 Restarting or saturating a device worker therefore cannot rewrite active jobs
 from an API startup or make printer administration unavailable. The source-based
 development profile may keep the worker embedded for a smaller local stack.
+
+Fleet Console is a separate static operator application and reverse proxy. It
+connects only to PrinterFleet and never receives PrintHub's service credential.
+An operator enters a site-scoped or global-admin bearer credential in the
+browser; the value remains in tab memory and is forwarded as an explicit
+Authorization header. Publish the console only behind TLS and the enterprise
+access boundary. The default host binding remains loopback-only.
 
 Every production image value must be an OCI reference pinned by digest. Tags may
 be published for humans, but never belong in a deployed release environment.
@@ -70,8 +79,9 @@ an environment whose image values differ from that manifest. The all-zero
 digests and `replace-me` secrets are deliberate fail-closed placeholders, not
 runnable defaults.
 
-`printer-fleet` and `printhub-ipp` are released by the root repository's
-container pipeline because their source currently lives here. The pipeline
+`printer-fleet`, `printer-fleet-console` and `printhub-ipp` are released by the
+root repository's container pipeline because their source currently lives
+here. The pipeline
 builds and smoke-tests native amd64 and arm64 candidates, scans them, exports
 SBOMs, publishes exactly those tested archives, creates a multi-architecture
 index and attaches GitHub build-provenance and SBOM attestations. Immutable
