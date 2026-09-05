@@ -81,3 +81,11 @@ State is isolated in service-owned volumes. Back up `printhub_data`,
 `printer_fleet_data`, `ipp_spool` when IPP is enabled, and `thingdex_postgres`
 before upgrades. Restore testing and signature verification are release gates,
 not optional operational advice.
+
+PrinterFleet ships `python -m printer_fleet.backup` for online SQLite backup,
+manifest/checksum verification and fail-closed restore to a new path. Mount the
+Fleet data volume read-only and an independent backup target read-write when
+running the backup command. Stop Fleet before restore, verify the backup first,
+restore to a new database filename and switch only after a health check. The
+database carries an explicit schema generation and newer generations are never
+downgraded implicitly.

@@ -535,3 +535,18 @@ independent retry loops from producing duplicate labels.
 - Example secret files are committed only as fail-closed templates; matching
   deployment-specific files are ignored. Six focused PrintHub adapter tests and
   55 combined platform tests pass, and production Compose validates.
+
+### 2026-09-05: Fleet backup and schema safety
+
+- Fleet now creates transactionally consistent online SQLite backups through
+  the SQLite backup API and emits a manifest containing schema generation,
+  bounded record counts, file size and SHA-256 checksum.
+- Verification checks both database integrity and every manifest fact. Restore
+  re-verifies the source, builds a temporary database and atomically creates a
+  new target; it refuses to overwrite operator data.
+- The database records schema generation 1 and fails closed when opened by
+  software older than the stored generation. This replaces silent ad-hoc
+  downgrade behavior with the first explicit migration boundary.
+- All 42 Fleet tests pass, including Windows restore locking, tamper detection,
+  non-overwrite and future-schema regressions. Scheduled off-host backups and a
+  PostgreSQL repository implementation remain open parts of action 9.

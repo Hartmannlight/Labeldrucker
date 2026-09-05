@@ -12,6 +12,9 @@ from .configuration import normalize_printer
 from .domain import DeliveryConflict, DeliveryState, RegistryConflict
 
 
+CURRENT_SCHEMA_VERSION = 1
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -39,6 +42,12 @@ class FleetRepository:
 
     def initialize(self) -> None:
         with self._connection() as db:
+            schema_version = int(db.execute("PRAGMA user_version").fetchone()[0])
+            if schema_version > CURRENT_SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Fleet database schema {schema_version} is newer than supported "
+                    f"version {CURRENT_SCHEMA_VERSION}"
+                )
             db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS printers (
@@ -122,6 +131,7 @@ class FleetRepository:
                 """
             )
             self._ensure_delivery_columns(db)
+            db.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
 
     def append_audit_record(
         self,

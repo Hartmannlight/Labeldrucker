@@ -78,3 +78,35 @@ credential needs `observer` plus `submitter` only for its assigned sites.
 
 This directory incubates an independently deployable service. It is intended
 to become its own repository once its v1 contract is stable.
+
+## Backup and restore
+
+Create a transactionally consistent online backup without stopping Fleet:
+
+```sh
+python -m printer_fleet.backup backup \
+  --database /data/fleet.sqlite3 \
+  --output /backup/fleet-2026-09-05.sqlite3
+```
+
+The command refuses existing output paths and writes a companion manifest with
+the schema version, record counts, size and SHA-256 checksum. Verify it before
+and after copying to independent storage:
+
+```sh
+python -m printer_fleet.backup verify \
+  --backup /backup/fleet-2026-09-05.sqlite3
+```
+
+Restore only while Fleet is stopped, and always to a new path:
+
+```sh
+python -m printer_fleet.backup restore \
+  --backup /backup/fleet-2026-09-05.sqlite3 \
+  --target /data/fleet-restored.sqlite3
+```
+
+Restore verifies the manifest and SQLite integrity before atomically creating
+the target. It never overwrites an existing database. Fleet records an explicit
+schema version and refuses databases created by newer software rather than
+silently downgrading them.
