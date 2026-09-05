@@ -951,7 +951,7 @@ independent retry loops from producing duplicate labels.
 
 - Two Chrome submissions reached the Windows system queue but failed locally
   before an IPP job operation reached Docker. PrintService event 372 reported
-  HRESULT `0x80040003` (`OLE_E_ADVISENOTSUPPORTED`); the gateway saw only
+  HRESULT `0x80040003` (`E_PRINTTICKET_FORMAT`); the gateway saw only
   successful capability queries.
 - The gateway advertised both IPP and IPPS, but its development startup changed
   from root to UID 10002 without changing the inherited root identity
@@ -963,5 +963,13 @@ independent retry loops from producing duplicate labels.
   named volume in development and standalone production Compose.
 - A real `ipps://localhost:8631/ipp/print` capability request now completes over
   an encrypted connection. The certificate fingerprint remains unchanged over
-  a gateway restart. A fresh Chrome submission and physical label are still
-  required before closing the `cups_browser` acceptance gate.
+  a gateway restart.
+- Windows also retained a stale custom 2 x 1 inch media option while the current
+  queue capability was exactly 50 x 25 mm. Replacing the user PrintTicket media
+  with the current capability validated without conflict. The gateway now
+  selects PDF as its default output PDL and publishes a PDF passthrough filter
+  for the Microsoft IPP Class Driver.
+- A fresh print of the versioned Chrome fixture traversed IPP, PrintHub,
+  PrinterFleet and PrintAgent in one attempt. The operator confirmed exactly
+  one physical 50 x 25 mm label with perfect content and alignment, closing the
+  development `cups_browser` acceptance gate.

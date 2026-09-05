@@ -93,6 +93,15 @@ Zeigt der Dialog A4 oder eine unbekannte Größe, nicht drucken: Mit der
 Gateway-Standardrichtlinie `hold` wäre der Auftrag zwar geschützt, der
 Client-Fähigkeitstest wäre dennoch fehlgeschlagen.
 
+Bricht Windows den Auftrag vor `Create-Job` mit PrintService-Ereignis 372 und
+`0x80040003` ab, zuerst das benutzerspezifische PrintTicket kontrollieren. Seine
+Medienoption muss exakt 50.000 x 25.000 Mikrometer aus den aktuellen
+Druckerfähigkeiten referenzieren; ein älteres 2-x-1-Zoll-Ticket mit
+50.800 x 25.400 Mikrometern ist nicht kompatibel. Das korrekte Papierformat in
+den Druckeinstellungen erneut wählen oder die IPP-Queue neu anlegen. Im Gateway
+muss der verschlüsselte Verbindungsaufbau außerdem mit `Connection now
+encrypted` enden.
+
 ## Echtes PDF durch die gesamte Pipeline senden
 
 Die Testdatei ist ein gültiges einseitiges PDF mit 50 × 50 mm Seitengröße.

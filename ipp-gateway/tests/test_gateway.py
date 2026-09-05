@@ -40,6 +40,24 @@ class GatewayTests(unittest.TestCase):
             Path(command[key_option + 1]), Path("/var/lib/printhub-ipp/tls")
         )
 
+    def test_ipp_server_advertises_a_windows_renderable_default_pdl(self) -> None:
+        command = entrypoint.build_ipp_command(
+            "/usr/sbin/ippeveprinter",
+            ppd_path=Path("/run/printer.ppd"),
+            spool_dir=Path("/var/spool/jobs"),
+            tls_dir=Path("/var/lib/printhub-ipp/tls"),
+            hostname="printer.example.test",
+            port="8631",
+            service_name="PrintHub Label",
+        )
+
+        output_option = command.index("-F")
+        self.assertEqual(command[output_option + 1], "application/pdf")
+        ppd_option = command.index("-P")
+        self.assertEqual(Path(command[ppd_option + 1]), Path("/run/printer.ppd"))
+        self.assertNotIn("-a", command)
+        self.assertNotIn("-f", command)
+
     def test_privilege_drop_updates_identity_environment_for_cups_tls(self) -> None:
         account = SimpleNamespace(
             pw_uid=10002,
@@ -84,7 +102,7 @@ class GatewayTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "mDNS mode requires root"):
                 entrypoint.prepare_runtime_privileges(Path("runtime"))
 
-    def test_ppd_reports_exact_loaded_label(self) -> None:
+    def test_ppd_reports_exact_loaded_label_and_pdf_output(self) -> None:
         ppd = entrypoint.build_ppd(
             {
                 "name": "Workshop",
@@ -99,6 +117,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('*DefaultResolution: 203dpi', ppd)
         self.assertIn('*Resolution 203dpi/203 dpi:', ppd)
         self.assertIn('*ColorDevice: False', ppd)
+        self.assertIn(
+            '*cupsFilter2: "application/vnd.cups-pdf application/pdf 0 -"', ppd
+        )
 
     def test_chrome_acceptance_fixture_declares_one_exact_label_page(self) -> None:
         fixture = (ROOT / "tests" / "fixtures" / "chrome-label-50x25.html").read_text(

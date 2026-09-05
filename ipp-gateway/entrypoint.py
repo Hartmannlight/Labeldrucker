@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - only used by Windows unit test
 
 
 APP_UID = 10002
+DEFAULT_OUTPUT_FORMAT = "application/pdf"
 
 
 def start_discovery_services() -> None:
@@ -100,7 +101,15 @@ def media_name(width_mm: float, height_mm: float) -> str:
 
 
 def _ppd_text(value: object) -> str:
-    return str(value).encode("ascii", errors="replace").decode("ascii").replace("\\", "\\\\").replace('"', '\\"')
+    return (
+        str(value)
+        .encode("ascii", errors="replace")
+        .decode("ascii")
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\r", " ")
+        .replace("\n", " ")
+    )
 
 
 def build_ppd(printer: dict[str, Any]) -> str:
@@ -138,6 +147,7 @@ def build_ppd(printer: dict[str, Any]) -> str:
 *Throughput: "1"
 *TTRasterizer: Type42
 *cupsVersion: 2.4
+*cupsFilter2: "application/vnd.cups-pdf application/pdf 0 -"
 *cupsManualCopies: True
 *OpenUI *PageSize/Label size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
@@ -179,6 +189,8 @@ def build_ipp_command(
     return [
         executable,
         "--no-web-forms",
+        "-F",
+        DEFAULT_OUTPUT_FORMAT,
         "-P",
         str(ppd_path),
         "-c",

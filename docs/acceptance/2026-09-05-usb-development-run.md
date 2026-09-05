@@ -71,6 +71,18 @@ printer responses are intentionally excluded.
     operation reached the physical printer and reported
     model `Zebra LP 2824 Plus`, ready. No print job was submitted. This passes
     idle USB removal/recovery but not an in-flight ambiguous-outcome test.
+11. A later USB reattachment assigned the same printer a new Linux device
+    number. The old running container still exposed its stale node, but Docker
+    could no longer use that node for a restart. Four browser deliveries were
+    accepted by the Agent and conservatively ended as `outcome_unknown` while
+    opening the configured USB identity; none was retried automatically. After
+    resolving the new exact node, restoring its non-root group permissions and
+    recreating only PrintAgent and PrinterFleet with the USB Compose override,
+    the Agent again reported the expected serial identity, protocol-up and
+    ready state.
+12. Chrome then printed the versioned 50 x 25 mm fixture through the Windows
+    system queue. Exactly one physical label was produced. The operator
+    confirmed that its content and alignment were perfect.
 
 ## Correlation and remaining gates
 
@@ -83,8 +95,8 @@ Additional alignment job IDs are:
 The operator confirmed the final alignment result. Still required for stable
 evidence are power-cycle persistence, queue isolation,
 Fleet/Agent response-loss idempotency and in-flight disconnect ambiguity,
-media-change refresh, a filtered browser-dialog print, color/dither output, A4
-fit release, sanitized visual evidence and independent review. Direct RAW TCP
+media-change refresh, color/dither output, A4 fit release, sanitized visual
+evidence and independent review. Direct RAW TCP
 and serial-over-TCP require separate representative hardware and cannot inherit
 this USB result.
 
@@ -246,7 +258,7 @@ conversion or physical delivery, so `cups_browser` remains open.
 The operator then confirmed that Chrome displayed the expected preview and
 submitted the job twice. Windows retained both 13,534-byte jobs as completed
 failures, with zero physical pages. PrintService event 372 returned HRESULT
-`0x80040003` (`OLE_E_ADVISENOTSUPPORTED`). No `Create-Job`, `Send-Document` or
+`0x80040003` (`E_PRINTTICKET_FORMAT`). No `Create-Job`, `Send-Document` or
 `Print-Job` appeared in the gateway log and no PrintHub/Fleet/Agent record was
 created, proving that both attempts stopped inside the Windows print path.
 
@@ -257,5 +269,25 @@ profile had started as root for Avahi, dropped to UID 10002, and retained
 user. The corrected gateway passes an explicit persistent credential directory
 and updates the identity environment during privilege dropping. A real IPPS
 `Get-Printer-Attributes` request now passes with `Connection now encrypted`, and
-the certificate fingerprint is stable over a gateway restart. This is transport
-evidence only: one fresh Chrome submission and its physical result remain open.
+the certificate fingerprint is stable over a gateway restart.
+
+The remaining local failure was a stale Windows user PrintTicket. It requested
+a custom 50.8 x 25.4 mm (2 x 1 inch) medium while the current printer
+capabilities exposed an exact 50 x 25 mm option. Replacing the ticket's
+`PageMediaSize` with the current 50,000 x 25,000 micrometre capability validated
+without conflict. The gateway also explicitly selected PDF as its default
+output PDL and published the PPD PDF passthrough filter used by the Microsoft
+IPP Class Driver.
+
+A fresh Chrome submission of `chrome-label-50x25.html` then produced one
+50 x 25 mm PDF and one correlated delivery path:
+
+- PrintHub job: `650464d6-38bd-4d2b-baad-04a9352e7c6d`
+- Fleet delivery: `647d1482-5f8c-4759-bd3d-bab6e55d39c1`
+- PrintAgent job: `d94c2f66-c46d-4e4b-9f23-27cd815b4ef1`
+- Final Fleet and Agent state: `transport_accepted`
+- Fleet attempts: 1
+
+The Agent accounted for one label, and the operator confirmed that exactly one
+physical label was emitted with perfect content and alignment. This closes the
+filtered Chrome/Windows development acceptance scenario.

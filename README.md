@@ -247,13 +247,21 @@ Drucktransport auf das beworbene TLS wechseln.
 
 Ein Windows-Auftrag, der mit PrintService-Ereignis 372 und HRESULT
 `0x80040003` endet, während das Gateway nur erfolgreiche
-`Get-Printer-Attributes`-Anfragen sieht, weist auf einen abgebrochenen lokalen
-IPP/TLS-Transport hin. Zuerst `docker compose logs ipp-gateway` prüfen: Auf
-`Starting HTTPS session` muss `Connection now encrypted` folgen. Die Meldung
-`Server credentials not set` bedeutet, dass der TLS-Speicher fehlt oder für
-UID 10002 nicht schreibbar ist. Danach nur das Gateway neu bauen und starten;
-bereits als abgeschlossen/fehlerhaft markierte Windows-Jobs werden dabei nicht
-erneut gesendet.
+`Get-Printer-Attributes`-Anfragen sieht, ist ein lokaler
+`E_PRINTTICKET_FORMAT`-Fehler. Die im Benutzer-PrintTicket gespeicherte
+`PageMediaSize` muss exakt einer aktuell vom Drucker gemeldeten Medienoption
+entsprechen. Insbesondere sind 2 x 1 Zoll (50,8 x 25,4 mm) und 50 x 25 mm nicht
+dieselbe Größe. In den Windows-Druckeinstellungen das gemeldete 50-x-25-mm-
+Format erneut auswählen oder die Queue nach dem Gateway-Update neu anlegen.
+
+Zusätzlich `docker compose logs ipp-gateway` prüfen: Wechselt Windows auf IPPS,
+muss auf `Starting HTTPS session` die Meldung `Connection now encrypted`
+folgen. `Server credentials not set` bedeutet, dass der TLS-Speicher fehlt oder
+für UID 10002 nicht schreibbar ist. Das Gateway veröffentlicht PDF als
+Standard-Ausgabeformat und eine passende PDF-Passthrough-Regel, damit der
+Microsoft IPP Class Driver einen von PrintHub unterstützten Datenstrom erzeugt.
+Bereits als abgeschlossen oder fehlerhaft markierte Windows-Jobs werden nach
+einer Korrektur nicht erneut gesendet.
 
 Die Loopback-Variante ist nur für lokale Entwicklung vorgesehen. Für LAN- oder
 Produktionszugriff sind ein verwaltetes Zertifikat, eine eindeutige
@@ -383,9 +391,13 @@ wsl -d docker-desktop -u root -- chmod 0660 $env:PRINT_AGENT_USB_DEVICE
 docker compose -f compose.yaml -f compose.usb-agent.yaml up -d --build
 ```
 
-Bus- und Gerätenummer können sich nach Abziehen oder Neustart ändern. Vor jedem
-Start anhand von `usbipd list` und `lsusb` neu verifizieren; nie einen breiten
-USB-Bus oder `--privileged` an den Agenten durchreichen. Die lokale TOML-Datei
+Bus- und Gerätenummer können sich nach Abziehen oder Neustart ändern. Ein noch
+laufender Container kann dabei einen veralteten Geräteknoten anzeigen, obwohl
+Docker den Drucker unter einer neuen Nummer eingebunden hat. Vor jedem Start
+anhand von `usbipd list` und in `docker-desktop` unter `/dev/bus/usb` neu
+verifizieren, Rechte auf dem aktuellen Knoten setzen und den PrintAgent mit dem
+neuen `PRINT_AGENT_USB_DEVICE` neu erstellen. Nie einen breiten USB-Bus oder
+`--privileged` an den Agenten durchreichen. Die lokale TOML-Datei
 ist über `deploy/secrets/*` von Git ausgeschlossen. Das Beispiel enthält keine
 einsatzfähige Geräteidentität. `usb_bulk` greift über `libusb` direkt auf die
 Printer-Class-Bulk-Endpunkte zu und funktioniert deshalb auch dann, wenn der
