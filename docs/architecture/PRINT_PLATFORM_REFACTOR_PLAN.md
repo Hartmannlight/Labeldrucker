@@ -209,7 +209,7 @@ independent retry loops from producing duplicate labels.
 - [x] 7. Replace Thingdex synchronous label calls with a transactional outbox,
   idempotent PrintHub connector and replay-safe status inbox. Remove every
   direct ZebraTamer/PrintAgent to Thingdex dependency.
-- [ ] 8. Replace production sibling builds and Git submodules with signed,
+- [x] 8. Replace production sibling builds and Git submodules with signed,
   immutable component images, a compatibility manifest and standalone,
   integrated and development Compose profiles.
 - [ ] 9. Add enterprise controls: OIDC-ready identities, service credentials,
@@ -361,11 +361,12 @@ independent retry loops from producing duplicate labels.
   contract generated from that canonical schema.
 - The Thingdex integration distribution starts API and print worker separately
   and wires PrintHub to PrinterFleet. Production image pinning and release
-  compatibility metadata remain action 8.
-- Automated status: six database-independent outbox tests, OpenAPI drift check,
-  complete offline Alembic SQL generation and strict documentation build pass.
-  The latest full suite has 6 passing and 23 PostgreSQL-dependent skipped tests;
-  a live PostgreSQL and Docker run remains pending on this host.
+  compatibility metadata were completed by the first attested `v0.1.0` bill of
+  materials described below.
+- Automated status: outbox tests, OpenAPI drift check, Alembic migrations,
+  strict documentation build and the complete PostgreSQL-backed suite pass.
+  Native amd64 and arm64 candidate images also pass PostgreSQL runtime smoke,
+  non-root, vulnerability, secret, misconfiguration and SBOM gates in CI.
 
 ### 2026-09-05: Production deployment boundary
 
@@ -382,10 +383,10 @@ independent retry loops from producing duplicate labels.
 - PrintHub now runs as its previously created UID 10001. Thingdex migration
   ownership is configurable so the API/migrator can run Alembic once while the
   worker never races it.
-- Compose structure validates for standalone and integrated profiles. Action 8
-  remains open until CI publishes and signs real component digests and a real
-  compatibility manifest; action 9 remains open for identity, audit, metrics,
-  scoping and backup/restore automation.
+- Compose structure validates for standalone and integrated profiles. Signed
+  immutable component images and the first compatibility manifest now close
+  action 8; action 9 remains open for production PostgreSQL Fleet persistence
+  and its rehearsed migration path.
 
 ### 2026-09-05: Authenticated Fleet boundary
 
@@ -442,13 +443,8 @@ independent retry loops from producing duplicate labels.
   disabled there and PID 1 starts as UID 10002. Development can explicitly run
   the entrypoint as root for D-Bus/Avahi initialization, after which it drops
   permanently to UID 10002.
-- Action 8 remains open until Thingdex adopts equivalent attestation gates and
-  a real cross-repository compatibility manifest is assembled from published
-  digests.
-- Thingdex's first release-hardening slice pins its Python runtime base,
-  PostgreSQL CI service, checkout/setup actions, runner image and Poetry
-  version. Its publish workflow still needs the tested-candidate and
-  attestation stages before action 8 can close.
+- Thingdex now uses the same tested-candidate, multiarch publication, SBOM and
+  provenance-attestation pattern as the other released services.
 
 ### 2026-09-05: Central Fleet control plane clarification
 
@@ -468,8 +464,7 @@ independent retry loops from producing duplicate labels.
   the public contract.
 - Thingdex now also builds native amd64/arm64 candidates from locked
   dependencies, smoke-tests them with PostgreSQL, scans them and publishes only
-  the exact tested archives with SBOM and provenance attestations. A real
-  cross-repository digest manifest is still required before action 8 closes.
+  the exact tested archives with SBOM and provenance attestations.
 
 ### 2026-09-05: Per-printer delivery scheduling
 
@@ -503,8 +498,12 @@ independent retry loops from producing duplicate labels.
 - The manifest and checksum receive their own GitHub artifact attestation. The
   production environment validator can require exact equality between all six
   image variables and this signed bill of materials.
-- The workflow is ready, but action 8 remains open until the component release
-  branches publish their real images and the first attested manifest is created.
+- Compatibility Release `v0.1.0` (GitHub Actions run `33950121168`) verified and
+  assembled the first real component set. Its deterministic manifest checksum
+  is `742c40be60136f2bbfaf1d26c1798c6c03e1644849ea5e5da418d2f471ee516e`;
+  the downloaded checksum and the manifest's GitHub build-provenance
+  attestation were independently verified after publication. This closes
+  action 8.
 
 ### 2026-09-05: Fleet principals and site boundaries
 
