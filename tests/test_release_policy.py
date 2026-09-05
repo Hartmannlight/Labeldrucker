@@ -57,6 +57,10 @@ def test_workflows_parse_and_candidate_matrix_covers_native_platforms() -> None:
     }
     ci_checkout = workflows["ci.yml"]["jobs"]["test"]["steps"][0]
     assert ci_checkout["with"]["submodules"] == "recursive"
+    integration = workflows["platform-integration.yml"]["jobs"]["cups-to-raw-tcp"]
+    assert integration["env"]["PRINTHUB_IPP_HOSTNAME"] == (
+        "printhub-ipp.integration.test"
+    )
 
 
 def test_release_context_rejects_non_release_refs(monkeypatch) -> None:
@@ -191,6 +195,24 @@ def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
     )
     assert "libusb-1.0-0-dev" in dockerfile
     assert "libusb-1.0-0" in dockerfile
+
+
+def test_ipp_hostname_maps_both_loopbacks_in_source_and_production() -> None:
+    source = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))[
+        "services"
+    ]["ipp-gateway"]
+    production = yaml.safe_load(
+        (ROOT / "deploy" / "compose.standalone.yaml").read_text(encoding="utf-8")
+    )["services"]["ipp-gateway"]
+    expected_hostname = "${PRINTHUB_IPP_HOSTNAME:-localhost}"
+    expected_hosts = [
+        f"{expected_hostname}=127.0.0.1",
+        f"{expected_hostname}=[::1]",
+    ]
+
+    for service in (source, production):
+        assert service["environment"]["PRINTHUB_IPP_HOSTNAME"] == expected_hostname
+        assert service["extra_hosts"] == expected_hosts
 
 
 def test_fleet_console_keeps_operator_credentials_out_of_images_and_storage() -> None:

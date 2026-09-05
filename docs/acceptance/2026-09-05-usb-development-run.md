@@ -66,9 +66,10 @@ Additional alignment job IDs are:
 The operator confirmed the final alignment result. Still required for stable
 evidence are power-cycle persistence, queue isolation,
 Fleet/Agent response-loss idempotency, USB disconnect ambiguity, media-change
-refresh, CUPS/browser output, color/dither output, A4 hold/fit, sanitized visual
-evidence and independent review. Direct RAW TCP and serial-over-TCP require
-separate representative hardware and cannot inherit this USB result.
+refresh, a filtered browser-dialog print, color/dither output, A4 fit release,
+sanitized visual evidence and independent review. Direct RAW TCP
+and serial-over-TCP require separate representative hardware and cannot inherit
+this USB result.
 
 ## Revision-bound control run
 
@@ -119,3 +120,52 @@ the rest of the alignment, including the previously clipped left border and the
 unchanged vertical axis, is correct. The device-specific alignment therefore
 passes this development run at `LEFT POSITION +6`, `LABEL TOP +4`. This does not
 replace the remaining stable-release gates listed above.
+
+## Docker IPP and PDF run
+
+The IPP gateway was recreated in the existing Compose project with only
+`PRINTHUB_IPP_PRINTER_ID=zebra-lp2824-usb` changed. The PrintAgent remained
+running. The official CUPS `get-printer-attributes.test` passed, and the gateway
+advertised the live Fleet media as 50 x 25 mm, 203 dpi and monochrome. Its
+document formats included PDF, PostScript, JPEG, PWG Raster and Apple Raster.
+A probe from a separate container also reached the host-published port 8631 and
+received valid IPP capabilities. This proves Docker network and published-port
+reachability.
+
+A deterministic, one-page 50 x 25 mm PDF with the marker `IPP PDF` /
+`50 x 25 mm` was rendered at 203 dpi and visually checked before submission.
+Its SHA-256 is
+`e6f3d4ec4f00a7bcb946f17e1714e48e28be11070bd3ca029475f9d1470f8f77`.
+The two-step CUPS `ipptool` Print-Job/Get-Job-Attributes test passed and produced
+one correlated software path:
+
+- PrintHub job: `17102d63-fefb-4acc-9d38-11aed9d609c5`
+- Fleet delivery: `4f9acf5f-6f4b-476a-866b-91667385a1fd`
+- PrintAgent job: `1993c6fd-672d-4586-990a-2fcf08842ad6`
+- Final Fleet and Agent state: `transport_accepted`
+- Fleet attempts: 1
+
+Physical count and appearance await operator confirmation.
+
+The existing A4 fixture, SHA-256
+`0ee5f9667653cafe6ae5cacdae98b7f8f1be08b673333e1d6e4f364de5505874`,
+was then submitted through the same IPP endpoint with the safe `hold` policy.
+PrintHub job `59d06eea-a27f-4977-b562-efb9a3ca85bc` reports `held` with the
+explicit 210 x 297 mm versus 50 x 25 mm warning. It has no bytes sent, Fleet
+delivery or Agent job, proving that the mismatch did not reach the device. A
+deliberate `fit` release and its physical result remain untested.
+
+An additional ephemeral Debian CUPS instance then added the gateway with the
+documented `lpadmin -m everywhere` flow. This exposed a startup defect for
+non-`localhost` gateway names: Compose mapped the configured name only to IPv4
+loopback, while `ippeveprinter` also required an IPv6 listener. Source and
+production Compose now map the configured name to both `127.0.0.1` and `::1`,
+and the production profile passes `PRINTHUB_IPP_HOSTNAME` through explicitly.
+The corrected gateway became healthy with a custom DNS name; CUPS created its
+driverless PPD and exposed `50x25mm.Borderless` and grayscale-only output.
+
+CUPS job `printhub-label-3` sent the original A4 PDF through `lp -o raw`.
+PrintHub job `c0984a88-abf9-4486-8a34-765cd05dfeaf` was again held with no bytes,
+Fleet delivery or Agent job. This verifies a real CUPS queue and preserves the
+platform-side A4 safety decision. A normal filtered Chrome job remains open
+because desktop CUPS may transform its input before the gateway receives it.

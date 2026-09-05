@@ -107,7 +107,8 @@ services:
       PRINTHUB_IPP_MDNS_ENABLED: "1"
     user: "0:0"
     extra_hosts:
-      - "${PRINTHUB_IPP_HOSTNAME:-localhost}:127.0.0.1"
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=127.0.0.1"
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=[::1]"
     ports:
       - "${PRINTHUB_IPP_BIND:-127.0.0.1}:${PRINTHUB_IPP_PORT:-8631}:8631"
     volumes:

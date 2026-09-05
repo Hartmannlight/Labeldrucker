@@ -216,6 +216,11 @@ Gateway besitzt derzeit keine Anmeldung; der Port darf daher nur in ein
 vertrauenswürdiges Netz oder hinter eine geeignete Zugriffskontrolle freigegeben
 werden.
 
+Der Compose-Stack ordnet denselben Namen innerhalb des Gateway-Containers sowohl
+`127.0.0.1` als auch `::1` zu. Diese interne Loopback-Zuordnung ist erforderlich,
+weil `ippeveprinter` IPv4- und IPv6-Listener öffnet; Clients im LAN lösen den
+Namen dagegen weiterhin auf die Adresse des Docker-Hosts auf.
+
 Im Produktionsprofil ist mDNS bewusst deaktiviert und der IPP-Prozess läuft ab
 Containerstart als UID 10002 ohne Linux-Capabilities. Die Queue wird dort über
 ihre explizite `ipp://`-Adresse eingerichtet. Nur das Quellcode-

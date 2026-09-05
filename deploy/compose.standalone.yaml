@@ -95,8 +95,12 @@ services:
       PRINTHUB_API_URL: http://printhub:8000
       PRINTHUB_IPP_PORT: "8631"
       PRINTHUB_IPP_PRINTER_ID: ${PRINTHUB_IPP_PRINTER_ID:?Set PRINTHUB_IPP_PRINTER_ID}
+      PRINTHUB_IPP_HOSTNAME: ${PRINTHUB_IPP_HOSTNAME:-localhost}
       PRINTHUB_IPP_MISMATCH_POLICY: hold
       PRINTHUB_IPP_MDNS_ENABLED: "0"
+    extra_hosts:
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=127.0.0.1"
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=[::1]"
     ports:
       - ${PRINTHUB_IPP_BIND:-127.0.0.1}:${PRINTHUB_IPP_PORT:-8631}:8631
     volumes: [ipp_spool:/var/spool/printhub-ipp]

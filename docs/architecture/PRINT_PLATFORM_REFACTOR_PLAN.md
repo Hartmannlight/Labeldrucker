@@ -864,3 +864,28 @@ independent retry loops from producing duplicate labels.
   corrected device-specific alignment passes this development run.
 - Stable evidence remains gated on the other declared hardware scenarios,
   published candidate digests and a different human reviewer.
+
+### 2026-09-05: Docker IPP/PDF hardware path
+
+- The running IPP gateway was pointed at the Fleet-owned USB Zebra without
+  changing PrintHub, Fleet or Agent responsibility boundaries. It advertised
+  the observed 50 x 25 mm media, 203 dpi and monochrome mode, and passed the
+  official CUPS printer-attributes test.
+- A second container reached the host-published IPP port, proving the Docker
+  ingress path used by a local CUPS client. A temporary Debian CUPS instance
+  subsequently created a driverless queue with `lpadmin -m everywhere`; its
+  generated queue exposed the loaded 50 x 25 mm medium and monochrome output.
+- A verified 50 x 25 mm PDF traversed IPP, PrintHub, PrinterFleet and PrintAgent
+  in one attempt and ended in `transport_accepted`; physical confirmation is
+  pending.
+- An A4 PDF submitted through the same endpoint was held with an explicit
+  210 x 297 mm versus 50 x 25 mm mismatch and created no Fleet delivery or
+  Agent job. A second submission through the actual CUPS queue with `lp -o raw`
+  produced the same safe result. The explicit `fit` release and a normal
+  filtered Chrome print remain separate physical tests.
+- The real CUPS setup exposed a custom-hostname startup defect that loopback
+  testing had hidden. `ippeveprinter` opens IPv4 and IPv6 listeners, while the
+  development Compose profile mapped custom names only to IPv4 loopback and the
+  production profile did not pass the hostname through. Both profiles now map
+  the configured name to `127.0.0.1` and `::1`; production passes it explicitly,
+  and CI boots the integration platform with a non-default hostname.
