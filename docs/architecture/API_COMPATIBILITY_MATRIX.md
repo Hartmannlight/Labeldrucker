@@ -12,7 +12,7 @@ consumer has moved and the integrated release manifest pins those revisions.
 | Producer | Contract | Authoritative responsibility | Current consumers |
 | --- | --- | --- | --- |
 | PrintHub | HTTP `/v1/templates`, `/v1/renders/*`, `/v1/print-jobs`, document jobs | templates, preflight, preview, page policy and logical jobs | Studio, SDK, IPP gateway, Thingdex |
-| PrinterFleet | HTTP `/v1/printers`, `/v1/deliveries`, `/v1/agents`, maintenance and audit APIs | physical catalog, site policy, queues, transport and device administration | PrintHub and Fleet Console |
+| PrinterFleet | HTTP `/v1/printers`, `/v1/deliveries` with bounded ID filtering, `/v1/agents`, maintenance and audit APIs | physical catalog, site policy, queues, transport and device administration | PrintHub and Fleet Console |
 | PrintAgent | HTTP `/v1/agent`, `/v1/drivers`, `/v1/printers/*` | site-local discovery and opaque device-payload delivery | PrinterFleet only |
 | Thingdex | `PrintIntent` outbox and signed PrintHub status inbox | inventory intent and business status projection | Thingdex worker, PrintHub event sink |
 | IPP gateway | driverless IPP printer; PrintHub document API downstream | protocol translation and IPP job/status mapping only | CUPS and desktop applications |

@@ -113,6 +113,7 @@ class FleetRepositoryPort(DeliveryRepository, AgentRepository, Protocol):
     def list_deliveries(
         self,
         *,
+        delivery_ids: Collection[str] | None = None,
         printer_id: str | None = None,
         printer_ids: Collection[str] | None = None,
         state: str | None = None,

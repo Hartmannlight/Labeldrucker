@@ -1023,3 +1023,22 @@ independent retry loops from producing duplicate labels.
   accepts an exact validated ticket. The installer reports that fact instead
   of claiming to persist a setting the driver discards. Each Windows account
   using the queue must therefore run the repair once.
+
+### 2026-09-06: Logical job status reconciliation
+
+- Candidate 3 physically delivered its baseline through Fleet and PrintAgent,
+  but PrintHub continued to expose the submission-time `queued` state. Its
+  narrow Fleet port had no delivery-read operation, so neither single-job nor
+  list reads could converge on the physical-delivery authority.
+- PrinterFleet now accepts up to 100 repeated delivery IDs on its existing list
+  endpoint while preserving role and site scope. PrintHub batches larger reads,
+  persists the refreshed Fleet state and remains available with its last known
+  snapshot during a Fleet outage.
+- Logical jobs now retain every downstream delivery instead of only the first.
+  This is required for document ingestion where each page becomes a label.
+  Aggregate state is fail-closed: `unconfirmed` outranks `failed`, active states
+  remain `queued`, and accepted/confirmed outcomes are never inferred from a
+  partial set.
+- Candidate 3 is superseded because this changes both Fleet and PrintHub source.
+  Candidate 4 must resolve new immutable digests and repeat all applicable
+  physical gates; candidate-3 evidence remains an audit trail only.

@@ -68,6 +68,12 @@ def test_postgres_preserves_registry_queue_lease_and_event_contracts():
     duplicate, duplicate_created = _queue(repository, "same-key", "2026-09-05T10:00:00+00:00")
     second, _ = _queue(repository, "second-key", "2026-09-05T10:00:01+00:00")
     assert created is True and duplicate_created is False and duplicate["id"] == first["id"]
+    assert [
+        delivery["id"]
+        for delivery in repository.list_deliveries(
+            delivery_ids={first["id"], "missing-delivery"}
+        )
+    ] == [first["id"]]
     with pytest.raises(DeliveryConflict):
         repository.create_delivery(
             idempotency_key="same-key", request_hash="different", printer_id="zebra-1",

@@ -8,7 +8,7 @@ import re
 from typing import Any
 import uuid
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import yaml
@@ -448,6 +448,7 @@ def create_app(
     @app.get("/v1/deliveries")
     def list_deliveries(
         request: Request,
+        delivery_id: list[str] = Query(default_factory=list),
         printer_id: str | None = None,
         state: str | None = None,
         limit: int = 100,
@@ -455,6 +456,10 @@ def create_app(
         principal = require_roles(request, "observer", "submitter")
         if limit < 1 or limit > 500:
             raise HTTPException(status_code=422, detail="limit must be between 1 and 500")
+        if len(delivery_id) > 100:
+            raise HTTPException(status_code=422, detail="at most 100 delivery ids are allowed")
+        if any(not value or len(value) > 255 for value in delivery_id):
+            raise HTTPException(status_code=422, detail="delivery ids must contain 1 to 255 characters")
         if state is not None and state not in {item.value for item in DeliveryState}:
             raise HTTPException(status_code=422, detail="Unknown delivery state")
         if printer_id:
@@ -467,6 +472,7 @@ def create_app(
                 if principal.allows_site(str(printer.get("site_id") or "default"))
             }
         deliveries = repo.list_deliveries(
+            delivery_ids=set(delivery_id) if delivery_id else None,
             printer_id=printer_id,
             printer_ids=allowed_printer_ids,
             state=state,

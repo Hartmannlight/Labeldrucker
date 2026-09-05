@@ -104,6 +104,18 @@ def queue_delivery(
     return delivery
 
 
+def test_list_deliveries_filters_by_exact_delivery_ids(repository):
+    first = queue_delivery(repository, printer_id="zebra-1", key="batch/first")
+    second = queue_delivery(repository, printer_id="zebra-1", key="batch/second")
+    queue_delivery(repository, printer_id="zebra-1", key="batch/unrelated")
+
+    selected = repository.list_deliveries(
+        delivery_ids={first["id"], second["id"], "missing-delivery"}
+    )
+
+    assert {delivery["id"] for delivery in selected} == {first["id"], second["id"]}
+
+
 def test_delivery_is_durable_idempotent_and_honest(repository):
     transport = RecordingTransport()
     service = DeliveryService(

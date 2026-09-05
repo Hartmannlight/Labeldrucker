@@ -678,6 +678,7 @@ class FleetRepository:
     def list_deliveries(
         self,
         *,
+        delivery_ids: Collection[str] | None = None,
         printer_id: str | None = None,
         printer_ids: Collection[str] | None = None,
         state: str | None = None,
@@ -685,6 +686,12 @@ class FleetRepository:
     ) -> list[dict[str, Any]]:
         clauses: list[str] = []
         parameters: list[Any] = []
+        if delivery_ids is not None:
+            selected = sorted(set(delivery_ids))
+            if not selected:
+                return []
+            clauses.append(f"id IN ({','.join('?' for _ in selected)})")
+            parameters.extend(selected)
         if printer_id:
             clauses.append("printer_id = ?")
             parameters.append(printer_id)

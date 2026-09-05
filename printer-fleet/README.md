@@ -49,6 +49,10 @@ while an outcome could already have reached a device, the delivery becomes
 
 `POST /v1/deliveries` only validates and durably queues an artifact before
 returning HTTP 202. It never opens a printer connection in the request path.
+`GET /v1/deliveries` accepts repeated `delivery_id` query parameters, capped at
+100 IDs per request, so upstream logical-job services can reconcile a bounded
+set of deliveries without N+1 calls. Site scoping is applied after the ID
+filter; knowing a delivery ID never bypasses tenant visibility.
 The delivery worker is the normal owner of device I/O, so printer latency and
 outages do not consume API requests. The embedded worker is enabled by default
 for a compact single-container deployment and can be disabled with

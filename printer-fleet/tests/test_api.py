@@ -419,6 +419,20 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
         )
         assert accepted.status_code == 202
         assert accepted.json()["state"] == "queued"
+        unrelated = client.post(
+            "/v1/deliveries",
+            headers=headers("berlin-submit-token"),
+            json={
+                "printer_id": "berlin-zebra",
+                "idempotency_key": "scoped/unrelated",
+                "artifact": {
+                    "mime_type": "application/zpl",
+                    "payload_base64": base64.b64encode(payload).decode("ascii"),
+                    "checksum": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                },
+            },
+        )
+        assert unrelated.status_code == 202
         paris = client.post(
             "/v1/deliveries",
             headers=headers("global-admin-token"),
@@ -433,6 +447,25 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
             },
         )
         assert paris.status_code == 202
+        selected_deliveries = client.get(
+            "/v1/deliveries",
+            params=[
+                ("delivery_id", accepted.json()["id"]),
+                ("delivery_id", paris.json()["id"]),
+                ("delivery_id", "missing-delivery"),
+            ],
+            headers=headers("berlin-submit-token"),
+        )
+        assert selected_deliveries.status_code == 200
+        assert [item["id"] for item in selected_deliveries.json()] == [
+            accepted.json()["id"]
+        ]
+        too_many_ids = client.get(
+            "/v1/deliveries",
+            params=[("delivery_id", f"delivery-{index}") for index in range(101)],
+            headers=headers("berlin-submit-token"),
+        )
+        assert too_many_ids.status_code == 422
         visible_deliveries = client.get(
             "/v1/deliveries?limit=1&state=queued",
             headers=headers("berlin-submit-token"),
