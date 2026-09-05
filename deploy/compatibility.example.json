@@ -1,17 +1,51 @@
 {
-  "release": "replace-with-release-id",
+  "schemaVersion": 1,
+  "release": "v0.0.0",
   "contracts": {
+    "printAgentApi": "v1",
     "printHubApi": "v1",
     "printerFleetApi": "v1",
-    "printAgentApi": "v1",
     "thingdexApi": "v1"
   },
-  "images": {
-    "printerFleet": "${PRINTER_FLEET_IMAGE}",
-    "printHub": "${PRINTHUB_IMAGE}",
-    "ippGateway": "${PRINTHUB_IPP_IMAGE}",
-    "studio": "${PRINTHUB_STUDIO_IMAGE}",
-    "thingdex": "${THINGDEX_IMAGE}",
-    "postgres": "${POSTGRES_IMAGE}"
+  "components": {
+    "ippGateway": {
+      "image": "${PRINTHUB_IPP_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/Labeldrucker",
+        "revision": "${PLATFORM_SOURCE_REVISION}"
+      }
+    },
+    "postgres": {
+      "image": "${POSTGRES_IMAGE}",
+      "source": {"kind": "upstream"}
+    },
+    "printHub": {
+      "image": "${PRINTHUB_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/PrintHub-ZPL-ll",
+        "revision": "${PRINTHUB_SOURCE_REVISION}"
+      }
+    },
+    "printerFleet": {
+      "image": "${PRINTER_FLEET_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/Labeldrucker",
+        "revision": "${PLATFORM_SOURCE_REVISION}"
+      }
+    },
+    "studio": {
+      "image": "${PRINTHUB_STUDIO_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/LabelArchitect",
+        "revision": "${STUDIO_SOURCE_REVISION}"
+      }
+    },
+    "thingdex": {
+      "image": "${THINGDEX_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/Thingdex",
+        "revision": "${THINGDEX_SOURCE_REVISION}"
+      }
+    }
   }
 }

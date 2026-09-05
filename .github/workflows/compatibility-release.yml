@@ -1,0 +1,100 @@
+name: Compatibility Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Exact platform release, for example v1.0.0
+        required: true
+        type: string
+      printer_fleet_image:
+        description: Published PrinterFleet image at sha256 digest
+        required: true
+        type: string
+      ipp_gateway_image:
+        description: Published IPP gateway image at sha256 digest
+        required: true
+        type: string
+      printhub_image:
+        description: Published PrintHub image at sha256 digest
+        required: true
+        type: string
+      printhub_revision:
+        description: PrintHub source commit represented by its image
+        required: true
+        type: string
+      studio_image:
+        description: Published PrintHub Studio image at sha256 digest
+        required: true
+        type: string
+      studio_revision:
+        description: Studio source commit represented by its image
+        required: true
+        type: string
+      thingdex_image:
+        description: Published Thingdex image at sha256 digest
+        required: true
+        type: string
+      thingdex_revision:
+        description: Thingdex source commit represented by its image
+        required: true
+        type: string
+      postgres_image:
+        description: Upstream PostgreSQL image at sha256 digest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: compatibility-release
+  cancel-in-progress: false
+
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Require the protected release branch
+        run: test "$GITHUB_REF" = "refs/heads/main"
+      - name: Assemble and verify release bill of materials
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPATIBILITY_RELEASE: ${{ inputs.release }}
+          PLATFORM_SOURCE_REVISION: ${{ github.sha }}
+          PRINTER_FLEET_IMAGE: ${{ inputs.printer_fleet_image }}
+          PRINTHUB_IPP_IMAGE: ${{ inputs.ipp_gateway_image }}
+          PRINTHUB_IMAGE: ${{ inputs.printhub_image }}
+          PRINTHUB_SOURCE_REVISION: ${{ inputs.printhub_revision }}
+          PRINTHUB_STUDIO_IMAGE: ${{ inputs.studio_image }}
+          STUDIO_SOURCE_REVISION: ${{ inputs.studio_revision }}
+          THINGDEX_IMAGE: ${{ inputs.thingdex_image }}
+          THINGDEX_SOURCE_REVISION: ${{ inputs.thingdex_revision }}
+          POSTGRES_IMAGE: ${{ inputs.postgres_image }}
+        run: >-
+          python3 scripts/build_compatibility_manifest.py
+          --verify-images --verify-attestations
+          --output release/compatibility.json
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/compatibility.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: print-platform-${{ inputs.release }}
+          path: |
+            release/compatibility.json
+            release/compatibility.json.sha256
+          retention-days: 90

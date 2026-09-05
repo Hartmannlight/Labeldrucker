@@ -491,3 +491,17 @@ independent retry loops from producing duplicate labels.
   a lease and an abandoned lease expires conservatively.
 - The complete PrinterFleet suite has 31 passing tests, including coordinated
   concurrency, claim-order, registry-boundary and operation-exclusion coverage.
+
+### 2026-09-05: Attested compatibility bill of materials
+
+- A root-owned Compatibility Release workflow assembles independently released
+  component digests into one deterministic versioned manifest instead of
+  rebuilding sibling repositories.
+- The gate resolves every digest as a native linux/amd64 and linux/arm64 index.
+  For project-owned images it also verifies GitHub provenance against the exact
+  source repository, source commit and pinned signer workflow before assembly.
+- The manifest and checksum receive their own GitHub artifact attestation. The
+  production environment validator can require exact equality between all six
+  image variables and this signed bill of materials.
+- The workflow is ready, but action 8 remains open until the component release
+  branches publish their real images and the first attested manifest is created.

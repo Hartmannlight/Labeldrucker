@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import re
 
@@ -53,13 +54,44 @@ def validate(values: dict[str, str]) -> list[str]:
     return errors
 
 
+def validate_manifest(values: dict[str, str], document: object) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(document, dict):
+        return ["Compatibility manifest must be a JSON object"]
+    if document.get("schemaVersion") != 1:
+        errors.append("Compatibility manifest schemaVersion must be 1")
+        return errors
+    components = document.get("components")
+    if not isinstance(components, dict):
+        return ["Compatibility manifest components must be an object"]
+    names = {
+        "PRINTER_FLEET_IMAGE": "printerFleet",
+        "PRINTHUB_IMAGE": "printHub",
+        "PRINTHUB_IPP_IMAGE": "ippGateway",
+        "PRINTHUB_STUDIO_IMAGE": "studio",
+        "THINGDEX_IMAGE": "thingdex",
+        "POSTGRES_IMAGE": "postgres",
+    }
+    for key, name in names.items():
+        component = components.get(name)
+        manifest_image = component.get("image") if isinstance(component, dict) else None
+        if manifest_image != values.get(key):
+            errors.append(f"{key} does not match compatibility manifest component {name}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate an immutable production release environment")
     parser.add_argument("env_file", type=Path)
+    parser.add_argument("--manifest", type=Path)
     args = parser.parse_args()
     try:
-        errors = validate(read_env(args.env_file))
-    except (OSError, ValueError) as exc:
+        values = read_env(args.env_file)
+        errors = validate(values)
+        if args.manifest:
+            document = json.loads(args.manifest.read_text(encoding="utf-8"))
+            errors.extend(validate_manifest(values, document))
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(exc)
         return 2
     if errors:

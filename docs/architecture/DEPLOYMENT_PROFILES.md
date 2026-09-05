@@ -40,14 +40,19 @@ Create the environment from `deploy/.env.production.example`, inject secrets fro
 the site's secret manager, and validate it before Compose:
 
 ```sh
-python scripts/validate_release_env.py /run/secrets/thingdex-release.env
+python scripts/validate_release_env.py /run/secrets/thingdex-release.env \
+  --manifest /run/releases/compatibility.json
 ```
 
 `deploy/compatibility.example.json` defines the release bill-of-materials shape.
-Release automation must resolve its image variables to the same digests, attach
-the source revisions and sign both images and manifest. The all-zero digests and
-`replace-me` secrets are deliberate fail-closed placeholders, not runnable
-defaults.
+The Compatibility Release workflow accepts only exact source revisions and
+digest-pinned images, verifies that every image is a native amd64/arm64 index,
+and verifies each project image's GitHub provenance against its declared source
+repository, commit and signer workflow. It then emits a deterministic manifest,
+checksum and signed GitHub artifact attestation. The deployment validator rejects
+an environment whose image values differ from that manifest. The all-zero
+digests and `replace-me` secrets are deliberate fail-closed placeholders, not
+runnable defaults.
 
 `printer-fleet` and `printhub-ipp` are released by the root repository's
 container pipeline because their source currently lives here. The pipeline
