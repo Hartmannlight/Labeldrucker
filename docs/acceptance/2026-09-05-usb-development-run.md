@@ -54,6 +54,14 @@ printer responses are intentionally excluded.
    visible. User-measured white margins were 0.6 mm left, 1.35 mm right, 1.3 mm
    top and 1.0 mm bottom. The largest deviation from the mean is about 0.4 mm,
    or roughly three device dots, so no further manual correction was applied.
+9. A later PrintAgent container restart preserved the hardened runtime and the
+   exact USB device mapping. The restarted Agent reported the same pinned build,
+   rediscovered one printer and read the saved device configuration as
+   `LEFT POSITION +6`, `LABEL TOP +4`, 212-dot label length and 400-dot print
+   width. PrinterFleet completed a new bidirectional status request and reported
+   the Zebra ready. This verifies container-restart recovery only; the printer
+   itself remained powered and a physical power-cycle persistence test is still
+   required.
 
 ## Correlation and remaining gates
 
@@ -70,6 +78,22 @@ refresh, a filtered browser-dialog print, color/dither output, A4 fit release,
 sanitized visual evidence and independent review. Direct RAW TCP
 and serial-over-TCP require separate representative hardware and cannot inherit
 this USB result.
+
+## PrintAgent container restart recovery
+
+The existing PrintAgent container was restarted without changing its image,
+configuration volume or USB mapping. It returned with exit code 0 and retained
+UID/GID 999, a read-only root filesystem, all capabilities dropped,
+`no-new-privileges` and exactly one mapped USB device. Its identity endpoint
+reported Agent `acceptance-pc`, storage mode `full` and the exact ZebraTamer
+revision `1ccaace73fc66bb53dd0045efaa83725eb6943f6`.
+
+After startup, an authenticated device readback reported `LEFT POSITION +6`,
+`LABEL TOP +4`, a 212-dot label length and a 400-dot print width. A separate
+PrinterFleet status operation reached the device and normalized it as ready,
+model `Zebra LP 2824 Plus`. No print job was submitted during this check. This
+is evidence for application/container restart recovery, not for persistence
+across printer power loss, USB detachment or an ambiguous in-flight delivery.
 
 ## Revision-bound control run
 

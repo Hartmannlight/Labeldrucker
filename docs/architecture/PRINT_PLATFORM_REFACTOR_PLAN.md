@@ -889,3 +889,17 @@ independent retry loops from producing duplicate labels.
   production profile did not pass the hostname through. Both profiles now map
   the configured name to `127.0.0.1` and `::1`; production passes it explicitly,
   and CI boots the integration platform with a non-default hostname.
+
+### 2026-09-05: PrintAgent restart recovery
+
+- Restarting the hardened PrintAgent container preserved its exact image,
+  non-root identity, read-only root filesystem, dropped capabilities,
+  `no-new-privileges` setting and single-device USB mapping.
+- The restarted Agent reported the pinned ZebraTamer revision, rediscovered the
+  USB printer and read back the saved 50 x 25 mm device settings (`LEFT
+  POSITION +6`, `LABEL TOP +4`, 212-dot length and 400-dot width).
+- PrinterFleet subsequently reached the Zebra bidirectionally and reported it
+  ready. No label was emitted by the restart verification.
+- This closes only the container-restart recovery check. Physical printer power
+  cycling, USB disconnect ambiguity and in-flight response loss remain explicit
+  manual gates for action 10.
