@@ -11,6 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends avahi-daemon ca-certificates cups-ipp-utils dbus-daemon \
     && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y pip setuptools wheel jaraco.context \
     && useradd --uid 10002 --create-home --shell /usr/sbin/nologin appuser \
     && mkdir -p /app /run/printhub-ipp /var/spool/printhub-ipp \
     && chown -R appuser:appuser /app /run/printhub-ipp /var/spool/printhub-ipp

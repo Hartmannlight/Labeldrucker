@@ -8,7 +8,8 @@ RUN python -m venv /opt/venv \
 FROM python:3.11-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser \
+RUN python -m pip uninstall -y pip setuptools wheel jaraco.context \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser \
     && mkdir -p /data /app/config \
     && chown -R appuser:appuser /data /app/config
 COPY --from=dependencies /opt/venv /opt/venv

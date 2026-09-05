@@ -154,6 +154,12 @@ def test_security_gate_reports_blocked_identifier_without_secret_match(
     assert "Code" not in sanitized["Results"][0]["Secrets"][0]
 
 
+def test_runtime_images_remove_python_build_tooling() -> None:
+    for path in (ROOT / "printer-fleet" / "Dockerfile", ROOT / "ipp-gateway" / "Dockerfile"):
+        document = path.read_text(encoding="utf-8")
+        assert "python -m pip uninstall -y pip setuptools wheel jaraco.context" in document
+
+
 def compatibility_values() -> dict[str, str]:
     values = {
         key: f"ghcr.io/hartmannlight/{key.lower()}@sha256:{format(index, 'x') * 64}"
