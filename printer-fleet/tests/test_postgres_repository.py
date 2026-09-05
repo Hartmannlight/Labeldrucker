@@ -86,6 +86,10 @@ def test_postgres_preserves_registry_queue_lease_and_event_contracts():
     assert [event["state"] for event in repository.get_delivery(first["id"])["events"]] == [
         "queued", "connecting", "transmitting", "transport_accepted"
     ]
+    assert repository.metrics_snapshot() == {
+        "printers": 1,
+        "deliveries": {"queued": 1, "transport_accepted": 1},
+    }
     assert repository.claim_delivery(second["id"], now=now) is not None
 
 

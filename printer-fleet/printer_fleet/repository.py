@@ -210,7 +210,9 @@ class FleetRepository:
 
     def metrics_snapshot(self) -> dict[str, Any]:
         with self._connection() as db:
-            printer_count = int(db.execute("SELECT COUNT(*) FROM printers").fetchone()[0])
+            printer_count = int(
+                db.execute("SELECT COUNT(*) AS count FROM printers").fetchone()["count"]
+            )
             rows = db.execute(
                 "SELECT state, COUNT(*) AS count FROM deliveries GROUP BY state"
             ).fetchall()
