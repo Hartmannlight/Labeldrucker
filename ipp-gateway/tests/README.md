@@ -75,9 +75,9 @@ docker compose exec ipp-gateway ipptool -t `
 ```
 
 Erwartetes Ergebnis: zwei bestandene `ipptool`-Tests. Der neueste Eintrag unter
-`GET http://localhost:8001/v1/print-jobs` hat `source_kind: "raster"`, den
+`GET http://localhost:8001/v1/print-jobs` hat `source_kind: "document"`, den
 Status `sent` und eine positive Zahl in `bytes_sent`. Das beweist den Weg
-PDF → IPP → Raster-API → 1-Bit-Raster → ZPL → virtueller Zebra.
+PDF → IPP → Document-API → 1-Bit-Raster → ZPL → virtueller Zebra.
 
 ## A4 auf einem 50 × 50-mm-Label prüfen
 

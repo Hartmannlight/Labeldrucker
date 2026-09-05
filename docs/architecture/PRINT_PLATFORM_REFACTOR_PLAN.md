@@ -185,7 +185,7 @@ independent retry loops from producing duplicate labels.
 - [ ] 5. Evolve ZebraTamer into a vendor-neutral PrintAgent protocol. Keep direct
   network printers server-side and add agent-side Zebra plus Niimbot driver
   slots for USB/Bluetooth/serial devices.
-- [ ] 6. Thin the IPP gateway so it only advertises capabilities, receives
+- [x] 6. Thin the IPP gateway so it only advertises capabilities, receives
   documents, maps IPP tickets and reports PrintHub state. Move PDF/PostScript
   policy and raster decisions into PrintHub.
 - [ ] 7. Replace Thingdex synchronous label calls with a transactional outbox,
@@ -304,3 +304,15 @@ independent retry loops from producing duplicate labels.
   their existing environment markers. Compose configuration validates. Rust
   compilation and Docker end-to-end execution remain pending because Cargo is
   absent and the local Docker engine is not responsive.
+
+### 2026-09-05: Thin IPP ingress
+
+- The gateway now forwards the unchanged PDF, PostScript, image, PWG Raster or
+  Apple Raster payload with a mapped IPP ticket to PrintHub's document-job API.
+  It no longer rasterizes, chooses target DPI, enforces page mismatch policy or
+  creates normalized page uploads.
+- PrintHub durably stores the original source document before processing and
+  owns page inspection, conversion, page limits, fit/fill/hold, grayscale,
+  dithering and preview. Held source documents are reconverted when released.
+- Poppler, Ghostscript and libcups move to the PrintHub runtime. The IPP image
+  retains only the packages required to publish and receive IPP jobs.

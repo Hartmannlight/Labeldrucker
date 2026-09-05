@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-import ctypes
+import base64
 import os
 from pathlib import Path
 import unittest
@@ -21,13 +21,9 @@ def load_module(name: str, filename: str):
 
 entrypoint = load_module("ipp_gateway_entrypoint", "entrypoint.py")
 submit_job = load_module("ipp_gateway_submit", "submit_job.py")
-pwg_raster = load_module("ipp_gateway_pwg_raster", "pwg_raster.py")
 
 
 class GatewayTests(unittest.TestCase):
-    def test_cups_page_header_matches_libcups_abi(self) -> None:
-        self.assertEqual(ctypes.sizeof(pwg_raster.CupsPageHeader2), 1796)
-
     def test_ppd_reports_exact_loaded_label(self) -> None:
         ppd = entrypoint.build_ppd(
             {
@@ -43,18 +39,6 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('*DefaultResolution: 203dpi', ppd)
         self.assertIn('*Resolution 203dpi/203 dpi:', ppd)
         self.assertIn('*ColorDevice: False', ppd)
-
-    def test_pdf_info_preserves_page_dimensions(self) -> None:
-        count, sizes = submit_job.parse_pdf_info(
-            "Pages:           2\n"
-            "Page 1 size:     141.732 x 141.732 pts\n"
-            "Page 2 size:     595.276 x 841.89 pts\n"
-        )
-        self.assertEqual(count, 2)
-        self.assertAlmostEqual(sizes[0][0], 50.0, places=2)
-        self.assertAlmostEqual(sizes[0][1], 50.0, places=2)
-        self.assertAlmostEqual(sizes[1][0], 210.0, places=2)
-        self.assertAlmostEqual(sizes[1][1], 297.0, places=2)
 
     def test_scaling_defaults_to_hold_but_honors_explicit_ipp_choice(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -90,6 +74,30 @@ class GatewayTests(unittest.TestCase):
                 submit_job.idempotency_key(first, "queue"),
                 submit_job.idempotency_key(second, "queue"),
             )
+
+    def test_gateway_forwards_original_document_and_ticket(self) -> None:
+        job = ROOT / "tests" / "fixtures" / "label-50mm.pdf"
+        accepted = {"id": "job-1", "status": "queued", "page_count": None}
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "CONTENT_TYPE": "application/pdf",
+                    "PRINTHUB_IPP_PRINTER_ID": "shipping",
+                    "IPP_PRINT_SCALING": "fit",
+                },
+                clear=True,
+            ),
+            patch.object(submit_job, "api_request", return_value=accepted) as request,
+        ):
+            submit_job.main(["submit", str(job)])
+        (path,) = request.call_args.args
+        payload = request.call_args.kwargs["payload"]
+        self.assertEqual(path, "/v1/print-jobs/documents")
+        self.assertEqual(payload["printer_id"], "shipping")
+        self.assertEqual(payload["mime_type"], "application/pdf")
+        self.assertEqual(payload["scaling"], "fit")
+        self.assertEqual(base64.b64decode(payload["data_base64"]), job.read_bytes())
 
 
 if __name__ == "__main__":

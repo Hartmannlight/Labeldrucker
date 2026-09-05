@@ -16,10 +16,10 @@ handling, scaling, preview or job persistence.
 Chrome / CUPS
       │ IPP Everywhere (PDF, PostScript, PWG/Apple Raster, JPEG)
       ▼
-IPP gateway ── validates and normalizes pages ──► Raster job API
-                                                      │
-                  persistent source + ticket + state  ▼
-                                                Raster service
+IPP gateway ── maps ticket + forwards original ──► Document job API
+                                                        │
+                persistent source + ticket + state      ▼
+                                          document preparation
                                              ┌────────┴────────┐
                                              │ common pipeline │
                                              │ size policy     │
@@ -35,8 +35,9 @@ IPP gateway ── validates and normalizes pages ──► Raster job API
                               raw9100/ZebraTamer              driver-agent transport
 ```
 
-The gateway owns IPP protocol details and PDF/PWG decoding. The backend owns
-durable job state, loaded-media validation and printing policy. Drivers only
+The gateway owns only IPP protocol details, capability advertisement and ticket
+mapping. PrintHub owns PDF/PostScript/PWG decoding, durable job state,
+loaded-media validation and printing policy. Drivers only
 turn an already prepared monochrome page into a device artifact. Backends only
 deliver that artifact. No driver may independently resize a page or invent its
 own preview.
@@ -95,7 +96,8 @@ document-format list without duplicating IPP attributes. The PPD is never
 offered to clients: the public queue remains driverless and passes the standard
 IPP conformance check.
 
-The persistent raster job stores the normalized source document separately
-from its manifest. Retrying or releasing reprocesses that source against the
+The persistent document job stores the unchanged source document separately
+from its manifest. Retrying or releasing reconverts that source against the
 current authoritative media. Idempotency keys prevent a CUPS retry from
-printing the same submission twice.
+printing the same submission twice. Converter binaries belong to the PrintHub
+runtime; the IPP image contains no PDF, PostScript or PWG conversion policy.

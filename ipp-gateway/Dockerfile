@@ -9,13 +9,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PRINTHUB_IPP_MISMATCH_POLICY=hold
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends avahi-daemon ca-certificates cups-ipp-utils dbus-daemon ghostscript poppler-utils \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends avahi-daemon ca-certificates cups-ipp-utils dbus-daemon \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10002 --create-home --shell /usr/sbin/nologin appuser \
     && mkdir -p /app /run/printhub-ipp /var/spool/printhub-ipp \
     && chown -R appuser:appuser /app /run/printhub-ipp /var/spool/printhub-ipp
 
-COPY --chown=appuser:appuser --chmod=0555 entrypoint.py submit_job.py pwg_raster.py tcp_proxy.py /app/
+COPY --chown=appuser:appuser --chmod=0555 entrypoint.py submit_job.py tcp_proxy.py /app/
 
 EXPOSE 8631
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
