@@ -169,7 +169,10 @@ one correlated software path:
 - Final Fleet and Agent state: `transport_accepted`
 - Fleet attempts: 1
 
-Physical count and appearance await operator confirmation.
+The operator confirmed that exactly one physical label was produced and that
+its appearance and alignment were correct. This passes the label-sized PDF
+portion of the development IPP run. It does not substitute for a filtered
+Chrome print, color/dither comparison or explicit A4 `fit` release.
 
 The existing A4 fixture, SHA-256
 `0ee5f9667653cafe6ae5cacdae98b7f8f1be08b673333e1d6e4f364de5505874`,

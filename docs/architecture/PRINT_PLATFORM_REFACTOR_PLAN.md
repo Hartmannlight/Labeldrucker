@@ -876,8 +876,9 @@ independent retry loops from producing duplicate labels.
   subsequently created a driverless queue with `lpadmin -m everywhere`; its
   generated queue exposed the loaded 50 x 25 mm medium and monochrome output.
 - A verified 50 x 25 mm PDF traversed IPP, PrintHub, PrinterFleet and PrintAgent
-  in one attempt and ended in `transport_accepted`; physical confirmation is
-  pending.
+  in one attempt and ended in `transport_accepted`. The operator confirmed
+  exactly one physical label with correct appearance and alignment, completing
+  the label-sized PDF portion of this development run.
 - An A4 PDF submitted through the same endpoint was held with an explicit
   210 x 297 mm versus 50 x 25 mm mismatch and created no Fleet delivery or
   Agent job. A second submission through the actual CUPS queue with `lp -o raw`
