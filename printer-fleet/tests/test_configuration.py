@@ -20,6 +20,7 @@ def test_raw_tcp_defaults_are_normalized_at_registry_boundary() -> None:
         "port": 9100,
         "timeout_ms": 5000,
     }
+    assert printer["site_id"] == "default"
 
 
 def test_serial_bridge_requires_its_actual_tcp_port() -> None:

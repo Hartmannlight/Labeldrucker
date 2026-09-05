@@ -79,6 +79,13 @@ permissions than job submission, are correlated and audited, and are serialized
 with delivery for the same device. Network credentials and vendor secrets never
 cross into PrintHub, Thingdex or browser storage.
 
+Authentication resolves into a transport-independent Fleet principal with
+roles and allowed sites. Structured bearer credentials implement that contract
+first; an OIDC verifier can replace the authenticator without changing domain or
+route policy. Site filtering is enforced server-side for catalogs, deliveries
+and status. Cross-site misses return not-found, while global audit, metrics,
+agent enrollment and registry transfer require a global administrator.
+
 ## Evolution rule
 
 Start with the API and worker in one Fleet image, because they share one bounded

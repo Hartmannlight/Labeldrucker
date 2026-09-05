@@ -5,10 +5,20 @@ owns printer endpoints, device capabilities, delivery records, drivers and
 transports. It deliberately does not own templates, inventory data or document
 layout.
 
-Set `PRINTER_FLEET_API_TOKEN` in non-development deployments. When configured,
-all `/v1/*` requests require the matching bearer token; `/health` remains open
-for orchestration. Every response carries `X-Correlation-ID`, preserving a
-valid caller-supplied value or generating one at the boundary.
+For new non-development deployments, mount a JSON credential document and set
+`PRINTER_FLEET_CREDENTIALS_FILE`. Each credential declares a stable principal,
+one or more `admin`, `observer` or `submitter` roles, and explicit site IDs or
+the single global `*` scope. `PRINTER_FLEET_CREDENTIALS_JSON` is available for
+secret-injection systems that cannot mount files. The legacy
+`PRINTER_FLEET_API_TOKEN` still maps to a global administrator during migration;
+combining legacy and structured credentials fails startup.
+
+All `/v1/*` requests require a recognized bearer credential when authentication
+is configured; `/health` remains open for orchestration. Every response carries
+`X-Correlation-ID`, preserving a valid caller-supplied value or generating one
+at the boundary. The authentication interface is independent from the bearer
+adapter so a later OIDC verifier can produce the same `FleetPrincipal` without
+changing route authorization.
 
 Mutating requests and rejected API calls are recorded durably in Fleet's own
 `audit_records` table without request bodies, artifact bytes or credentials.
@@ -59,6 +69,12 @@ Important API groups:
 - `/v1/deliveries` durably accepts immutable artifacts and exposes state history.
 - `/v1/agents` discovers and registers devices reachable through PrintAgent.
 - `/v1/printer-registry/import` performs an atomic add-only configuration import.
+
+Every printer has a `site_id` (`default` when omitted). Catalog and delivery
+lookups are filtered by the authenticated principal's sites and use not-found
+responses across the boundary. Only a global administrator can inspect global
+metrics, audit records, agents or full registry import/export. A normal PrintHub
+credential needs `observer` plus `submitter` only for its assigned sites.
 
 This directory incubates an independently deployable service. It is intended
 to become its own repository once its v1 contract is stable.

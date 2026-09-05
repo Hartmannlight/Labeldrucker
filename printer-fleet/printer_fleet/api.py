@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 import os
 from pathlib import Path
 import re
-import secrets
 from typing import Any
 import uuid
 
@@ -14,6 +13,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import yaml
 
+from .auth import BearerCredentialAuthenticator, FleetAuthenticator, FleetPrincipal
 from .domain import DeliveryConflict, FleetError, PrintArtifact, RegistryConflict
 from .discovery import AgentDiscoveryService
 from .repository import FleetRepository
@@ -50,8 +50,12 @@ class AgentPrinterRegistrationRequest(BaseModel):
     name: str | None = Field(default=None, max_length=200)
 
 
-def create_app(repository: FleetRepository | None = None) -> FastAPI:
+def create_app(
+    repository: FleetRepository | None = None,
+    authenticator: FleetAuthenticator | None = None,
+) -> FastAPI:
     repo = repository or FleetRepository(os.getenv("PRINTER_FLEET_DATABASE", "/data/fleet.sqlite3"))
+    auth = authenticator or BearerCredentialAuthenticator.from_environment()
     service = DeliveryService(
         repo,
         max_parallel_printers=int(os.getenv("PRINTER_FLEET_MAX_PARALLEL_PRINTERS", "4")),
@@ -88,8 +92,6 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             worker.stop()
 
     app = FastAPI(title="PrinterFleet API", version="0.1.0", lifespan=lifespan)
-    api_token = os.getenv("PRINTER_FLEET_API_TOKEN", "").strip()
-    caller_id = os.getenv("PRINTER_FLEET_API_CALLER_ID", "printhub").strip() or "printhub"
 
     @app.middleware("http")
     async def service_boundary(request: Request, call_next):
@@ -100,18 +102,15 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             else str(uuid.uuid4())
         )
         protected = request.url.path.startswith("/v1/") or request.url.path == "/metrics"
-        if protected and api_token:
-            authorization = request.headers.get("Authorization", "")
-            expected = f"Bearer {api_token}"
-            if not secrets.compare_digest(authorization, expected):
-                response = JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid PrinterFleet service credential"},
-                    headers={"X-Correlation-ID": correlation_id},
-                )
-            else:
-                response = await call_next(request)
+        principal = auth.authenticate(request.headers.get("Authorization", ""))
+        if protected and principal is None:
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid PrinterFleet service credential"},
+                headers={"X-Correlation-ID": correlation_id},
+            )
         else:
+            request.state.fleet_principal = principal
             response = await call_next(request)
         response.headers["X-Correlation-ID"] = correlation_id
         if request.url.path.startswith("/v1/") and (
@@ -119,7 +118,7 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
         ):
             repo.append_audit_record(
                 correlation_id=correlation_id,
-                actor=caller_id if response.status_code != 401 else "anonymous",
+                actor=principal.id if principal is not None else "anonymous",
                 method=request.method,
                 path=request.url.path,
                 status_code=response.status_code,
@@ -131,6 +130,34 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
     app.state.status_service = status_service
     app.state.discovery_service = discovery_service
 
+    def request_principal(request: Request) -> FleetPrincipal:
+        principal = getattr(request.state, "fleet_principal", None)
+        if not isinstance(principal, FleetPrincipal):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        return principal
+
+    def require_roles(request: Request, *roles: str) -> FleetPrincipal:
+        principal = request_principal(request)
+        if not principal.has_any_role(*roles):
+            raise HTTPException(status_code=403, detail="Fleet role is not permitted")
+        return principal
+
+    def require_global_admin(request: Request) -> FleetPrincipal:
+        principal = request_principal(request)
+        if not principal.is_global_admin:
+            raise HTTPException(status_code=403, detail="Global Fleet administrator required")
+        return principal
+
+    def scoped_printer(request: Request, printer_id: str, *roles: str) -> dict[str, Any]:
+        principal = require_roles(request, *roles)
+        try:
+            printer = repo.get_printer(printer_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Printer not found") from None
+        if not principal.allows_site(str(printer.get("site_id") or "default")):
+            raise HTTPException(status_code=404, detail="Printer not found")
+        return printer
+
     def catalog_view(printer: dict[str, Any]) -> dict[str, Any]:
         return {key: value for key, value in printer.items() if key != "connection"}
 
@@ -139,7 +166,8 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/metrics", response_class=PlainTextResponse)
-    def metrics() -> str:
+    def metrics(request: Request) -> str:
+        require_global_admin(request)
         snapshot = repo.metrics_snapshot()
         lines = [
             "# HELP printer_fleet_printers Registered physical printers.",
@@ -155,21 +183,29 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
         return "\n".join(lines) + "\n"
 
     @app.get("/v1/printers")
-    def list_printers() -> list[dict[str, Any]]:
-        return [catalog_view(printer) for printer in repo.list_printers()]
+    def list_printers(request: Request) -> list[dict[str, Any]]:
+        principal = require_roles(request, "observer", "submitter")
+        return [
+            catalog_view(printer)
+            for printer in repo.list_printers()
+            if principal.allows_site(str(printer.get("site_id") or "default"))
+        ]
 
     @app.get("/v1/audit-records")
-    def list_audit_records(limit: int = 100) -> list[dict[str, Any]]:
+    def list_audit_records(request: Request, limit: int = 100) -> list[dict[str, Any]]:
+        require_global_admin(request)
         if limit < 1 or limit > 500:
             raise HTTPException(status_code=422, detail="limit must be between 1 and 500")
         return repo.list_audit_records(limit=limit)
 
     @app.get("/v1/printer-registry/export")
-    def export_printers() -> dict[str, Any]:
+    def export_printers(request: Request) -> dict[str, Any]:
+        require_global_admin(request)
         return repo.export_printers()
 
     @app.post("/v1/printer-registry/import")
-    def import_printers(document: dict[str, Any]) -> dict[str, Any]:
+    def import_printers(document: dict[str, Any], request: Request) -> dict[str, Any]:
+        require_global_admin(request)
         try:
             repo.import_printers(document)
             return repo.export_printers()
@@ -179,17 +215,17 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/v1/printers/{printer_id}")
-    def get_printer(printer_id: str) -> dict[str, Any]:
-        try:
-            return catalog_view(repo.get_printer(printer_id))
-        except KeyError:
-            raise HTTPException(status_code=404, detail="Printer not found") from None
+    def get_printer(printer_id: str, request: Request) -> dict[str, Any]:
+        return catalog_view(scoped_printer(request, printer_id, "observer", "submitter"))
 
     @app.put("/v1/printers/{printer_id}")
-    def put_printer(printer_id: str, printer: dict[str, Any]) -> dict[str, Any]:
+    def put_printer(printer_id: str, printer: dict[str, Any], request: Request) -> dict[str, Any]:
+        principal = require_roles(request, "admin")
         if printer.get("id", printer_id) != printer_id:
             raise HTTPException(status_code=400, detail="Printer id must match path")
         printer["id"] = printer_id
+        if not principal.allows_site(str(printer.get("site_id") or "default")):
+            raise HTTPException(status_code=403, detail="Printer site is not permitted")
         try:
             return repo.put_printer(printer)
         except RegistryConflict as exc:
@@ -198,9 +234,18 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.patch("/v1/printers/{printer_id}")
-    def patch_printer(printer_id: str, request: PrinterPatchRequest) -> dict[str, Any]:
+    def patch_printer(
+        printer_id: str,
+        payload: PrinterPatchRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        principal = require_roles(request, "admin")
         try:
-            return repo.patch_printer(printer_id, request.settings, request.revision)
+            current = scoped_printer(request, printer_id, "admin")
+            target_site = str(payload.settings.get("site_id", current.get("site_id") or "default"))
+            if not principal.allows_site(target_site):
+                raise HTTPException(status_code=403, detail="Printer site is not permitted")
+            return repo.patch_printer(printer_id, payload.settings, payload.revision)
         except KeyError:
             raise HTTPException(status_code=404, detail="Printer not found") from None
         except RegistryConflict as exc:
@@ -209,10 +254,10 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/v1/printers/{printer_id}/status")
-    def get_printer_status(printer_id: str) -> dict[str, Any]:
+    def get_printer_status(printer_id: str, request: Request) -> dict[str, Any]:
         operation_owner: str | None = None
         try:
-            printer = repo.get_printer(printer_id)
+            printer = scoped_printer(request, printer_id, "observer")
             timeout_ms = int((printer.get("connection") or {}).get("timeout_ms", 3000))
             operation_owner = repo.acquire_printer_operation(
                 printer_id,
@@ -233,13 +278,15 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
                 repo.release_printer_operation(printer_id, operation_owner)
 
     @app.get("/v1/agents")
-    def list_agents() -> list[dict[str, Any]]:
+    def list_agents(request: Request) -> list[dict[str, Any]]:
+        require_global_admin(request)
         return repo.list_agents()
 
     @app.post("/v1/agents/discover")
-    def discover_agents(request: AgentDiscoveryRequest) -> dict[str, Any]:
+    def discover_agents(payload: AgentDiscoveryRequest, request: Request) -> dict[str, Any]:
+        require_global_admin(request)
         try:
-            return app.state.discovery_service.discover(request.urls)
+            return app.state.discovery_service.discover(payload.urls)
         except (ValueError, RegistryConflict) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -247,14 +294,16 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
     def register_agent_printer(
         agent_id: str,
         device_id: str,
-        request: AgentPrinterRegistrationRequest,
+        payload: AgentPrinterRegistrationRequest,
+        request: Request,
     ) -> dict[str, Any]:
+        require_global_admin(request)
         try:
             return app.state.discovery_service.register(
                 agent_id=agent_id,
                 device_id=device_id,
-                public_id=request.public_id,
-                name=request.name,
+                public_id=payload.public_id,
+                name=payload.name,
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=f"Not found: {exc.args[0]}") from None
@@ -266,19 +315,20 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     @app.post("/v1/deliveries", status_code=202)
-    def create_delivery(request: DeliveryRequest) -> dict[str, Any]:
+    def create_delivery(payload_request: DeliveryRequest, request: Request) -> dict[str, Any]:
+        scoped_printer(request, payload_request.printer_id, "submitter")
         try:
-            payload = base64.b64decode(request.artifact.payload_base64, validate=True)
+            payload = base64.b64decode(payload_request.artifact.payload_base64, validate=True)
             return app.state.delivery_service.deliver(
-                printer_id=request.printer_id,
-                idempotency_key=request.idempotency_key,
+                printer_id=payload_request.printer_id,
+                idempotency_key=payload_request.idempotency_key,
                 artifact=PrintArtifact(
-                    mime_type=request.artifact.mime_type,
+                    mime_type=payload_request.artifact.mime_type,
                     payload=payload,
-                    description=request.artifact.description,
+                    description=payload_request.artifact.description,
                 ),
-                declared_checksum=request.artifact.checksum,
-                max_attempts=request.max_attempts,
+                declared_checksum=payload_request.artifact.checksum,
+                max_attempts=payload_request.max_attempts,
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=f"Not found: {exc.args[0]}") from None
@@ -290,11 +340,16 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     @app.get("/v1/deliveries/{delivery_id}")
-    def get_delivery(delivery_id: str) -> dict[str, Any]:
+    def get_delivery(delivery_id: str, request: Request) -> dict[str, Any]:
+        principal = require_roles(request, "observer", "submitter")
         try:
-            return repo.get_delivery(delivery_id)
+            delivery = repo.get_delivery(delivery_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="Delivery not found") from None
+        printer = repo.get_printer(str(delivery["printer_id"]))
+        if not principal.allows_site(str(printer.get("site_id") or "default")):
+            raise HTTPException(status_code=404, detail="Delivery not found")
+        return delivery
 
     return app
 

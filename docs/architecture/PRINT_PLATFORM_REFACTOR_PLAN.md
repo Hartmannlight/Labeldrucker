@@ -505,3 +505,20 @@ independent retry loops from producing duplicate labels.
   image variables and this signed bill of materials.
 - The workflow is ready, but action 8 remains open until the component release
   branches publish their real images and the first attested manifest is created.
+
+### 2026-09-05: Fleet principals and site boundaries
+
+- Fleet authentication now resolves credentials through an injectable
+  authenticator port into a stable principal containing roles and allowed site
+  IDs. This keeps route policy unchanged when bearer credentials are later
+  replaced by an OIDC verifier.
+- Structured credentials support separate `submitter`, `observer` and `admin`
+  roles. Printer catalogs, delivery submission/history and status are filtered
+  by site; cross-site identifiers return not-found rather than leaking fleet
+  membership.
+- Global metrics, audit history, agent enrollment and registry transfer require
+  a global administrator. PrintHub can operate with only observe/submit access
+  to its assigned sites.
+- The single global token remains as a migration-only compatibility adapter and
+  cannot be configured together with structured credentials. The complete Fleet
+  suite now has 37 passing tests.

@@ -53,6 +53,10 @@ def normalize_printer(printer: Mapping[str, Any]) -> dict[str, Any]:
     if not _IDENTIFIER.fullmatch(printer_id):
         raise ValueError("Printer id must be a portable 1-120 character identifier")
     normalized["id"] = printer_id
+    site_id = str(normalized.get("site_id") or "default").strip()
+    if not _IDENTIFIER.fullmatch(site_id):
+        raise ValueError("Printer site_id must be a portable 1-120 character identifier")
+    normalized["site_id"] = site_id
 
     driver = str(normalized.get("driver") or "").strip()
     if not _DRIVER.fullmatch(driver):
