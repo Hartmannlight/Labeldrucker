@@ -215,9 +215,20 @@ independent retry loops from producing duplicate labels.
 - [x] 9. Add enterprise controls: OIDC-ready identities, service credentials,
   signed events, tenant/site scoping, audit records, correlation IDs, metrics,
   resource limits, backups and PostgreSQL migration paths.
-- [ ] 10. Run contract, migration, failure-injection and real-device acceptance
-  suites; remove beta compatibility endpoints; publish the first stable API and
-  deployment compatibility matrix.
+- [ ] 10. Qualify and publish the first stable platform release.
+  - [x] Run the cross-component contract suite against the pinned component
+    revisions.
+  - [x] Run database migration, backup/restore and failure-injection suites.
+  - [x] Remove migration-only PrintHub device-administration endpoints and
+    runtime protocol aliases after their consumers have migrated.
+  - [x] Publish candidate multi-architecture images with SBOM and provenance
+    attestations for both supported CPU architectures.
+  - [ ] Record independently reviewed acceptance against at least one real
+    Zebra transport for the exact candidate revision. Every transport claimed
+    by the release must have its own passing record.
+  - [ ] Dispatch the stable Compatibility Release using that checked-in
+    hardware record, then verify the signed API/deployment compatibility
+    manifest and its immutable image digests.
 
 ## Validation gates
 
