@@ -23,13 +23,14 @@ PrintHub ---> PrinterFleet API ---> durable per-printer queues ---> drivers
              Fleet Console                           :9100      :config    local I/O
 ```
 
-`PrinterFleet API` and its delivery workers form one product and may ship in one
-container while the current workload is modest. They still use separate modules,
-database transactions and worker leases so workers can be split horizontally
-without changing the contract. The API transaction ends after the immutable
-artifact is durably queued; only a delivery worker opens the normal printer
-connection. Co-location is therefore a packaging choice rather than a
-synchronous code dependency. Fleet Console is a separate static web image.
+`PrinterFleet API` and its delivery workers form one product and ship from the
+same image. The compact development profile co-locates them; production runs two
+processes so device latency and worker restarts are isolated from the control
+plane. They use separate modules, database transactions and worker leases, so
+the deployment split does not introduce another service contract. The API
+transaction ends after the immutable artifact is durably queued; only a delivery
+worker opens the normal printer connection. Fleet Console is a separate static
+web image.
 PrintAgent is a separate process installed only where direct network reachability
 is impossible or where USB, Bluetooth or local serial access is required.
 
@@ -99,16 +100,16 @@ agent enrollment and registry transfer require a global administrator.
 
 ## Evolution rule
 
-Start with the API and worker in one Fleet image, because they share one bounded
-context and transactional state. Split the worker deployment only for scaling or
-failure isolation; do not create a second service contract merely to obtain a
-second process. Keep Fleet Console and PrintAgent separate because they have
-different trust, release and deployment boundaries.
+Keep the API and worker in one Fleet image and bounded context, but run the
+production worker as a separate process for scaling and failure isolation. Do
+not create a second HTTP service contract merely to obtain that process split.
+Keep Fleet Console and PrintAgent separate because they have different trust,
+release and deployment boundaries.
 
 Persistence follows the same boundary rule. Delivery orchestration and agent
-discovery consume narrow repository ports; the composition root chooses the
-SQLite adapter today. A PostgreSQL adapter must implement idempotency insertion,
-oldest-per-printer claims, device leases and state/event writes as atomic
-transactions before it can replace SQLite. Migration uses one authoritative
-writer: verify a source backup, stop acceptance, import and compare records,
-then switch the API and workers together. Indefinite dual-write is forbidden.
+discovery consume narrow repository ports; the composition root chooses SQLite
+for compact deployments and PostgreSQL for production. Both implement atomic
+idempotency insertion, oldest-per-printer claims, device leases and state/event
+writes. Migration uses one authoritative writer: verify a source backup, stop
+acceptance, import and compare records, then switch the API and workers together.
+Indefinite dual-write is forbidden.

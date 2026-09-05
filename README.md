@@ -6,9 +6,13 @@ Entwicklung baut die ausgecheckten Quellen mit `compose.yaml`. Die getrennten,
 image-basierten Produktions- und Thingdex-Integrationsprofile sind in
 [`docs/architecture/DEPLOYMENT_PROFILES.md`](docs/architecture/DEPLOYMENT_PROFILES.md)
 dokumentiert; deren Platzhalter sind absichtlich nicht produktiv startbar.
+Die aktuelle Zuordnung stabiler und nur vorübergehend weitergereichter APIs steht
+in [`docs/architecture/API_COMPATIBILITY_MATRIX.md`](docs/architecture/API_COMPATIBILITY_MATRIX.md).
 
-Diese Variante betreibt nur die Etiketten- und Druckfunktionen. Sie enthält
-keine Thingdex-API, keine Inventardatenbank und kein PostgreSQL.
+Das Quellcodeprofil betreibt nur die Etiketten- und Druckfunktionen. Es enthält
+keine Thingdex-API und nutzt für Fleet lokal SQLite. Das eigenständige
+Produktionsprofil nutzt Fleet-PostgreSQL; das optionale Thingdex-Profil besitzt
+eine davon vollständig getrennte PostgreSQL-Datenbank.
 
 ## Repository-Aufteilung und Submodule
 
@@ -28,26 +32,28 @@ Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
 - `LabelArchitect`: Studio-Oberfläche für Vorschau und Jobfreigabe
 - `ZPL-II-Printer-Emulator`: virtueller Drucker für Entwicklung und Tests
 
-Die fünf ausführbaren bzw. gebauten Abhängigkeiten sind unter `components/` als
+Die sieben ausführbaren bzw. gebauten Abhängigkeiten sind unter `components/` als
 Git-Submodule eingebunden. Ein `Labeldrucker`-Commit speichert ihre exakten
 Commit-IDs, während ihre Quelldateien und Historien in den jeweiligen
 Repositories bleiben.
 
 | Repository | Branch | Zweck | geprüfter Commit |
 | --- | --- | --- | --- |
-| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer, Quick Print und Druckerübersicht | `4d4c62f` |
-| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `c1a634f` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | API, Vorlagen, langlebige Druckjobs und Drucker-Registry | `8024b56` |
+| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `9e1b77d` |
+| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `c80fc4a` |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `d1d788d` |
 | [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `d6df4d6` |
-| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler Agent für reale Zebra-Drucker | `8f7fb62` |
+| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `d27ea6c` |
+| [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `2fa71dc` |
+| [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext | `9721643` |
 
 Die Änderungen des Studio-Rewrites sind auf `main` zusammengeführt. Die
 aufgeführten Commits bilden den gemeinsam geprüften Stand.
 
-Nicht benötigt werden `Thingdex`, `Thingdex-Home-Inventory`, `ThingdexUI`,
-`thingdex-sdk` und PostgreSQL. `LabelGallery` wird ebenfalls nicht benötigt:
-dessen Operator-Workflow ist in PrintHub Studio
-aufgegangen.
+Thingdex und Thingdex-Home-Inventory sind im eigenständigen Druckprofil nicht
+laufzeitnotwendig, bleiben aber als exakt versionierter Integrationskontext
+eingebunden. `ThingdexUI`, `thingdex-sdk` und `LabelGallery` werden für diesen
+Stack nicht gebaut.
 
 ## Verzeichnisstruktur und Checkout
 
@@ -59,6 +65,8 @@ Labeldrucker/
 │   ├── LabelArchitect/             # Git-Submodule
 │   ├── printhub-sdk/               # Git-Submodule
 │   ├── PrintHub-ZPL-ll/            # Git-Submodule
+│   ├── Thingdex/                    # Git-Submodule, optionale Integration
+│   ├── Thingdex-Home-Inventory/     # Git-Submodule, Produktkontext
 │   ├── ZebraTamer/                  # Git-Submodule, künftiger PrintAgent
 │   └── ZPL-II-Printer-Emulator/     # Git-Submodule
 ├── ipp-gateway/
@@ -284,6 +292,12 @@ Vor dem ersten Update das bestehende Volume und `config/printers.yml` sichern.
 Bei widersprüchlichen doppelten Geräten bricht die Migration sicher ab; die
 YAML bleibt unverändert. Vor einem Rollback auf die alte Version die aktuelle
 Registry als YAML exportieren, da ältere Versionen SQLite nicht lesen.
+
+Im Produktionsprofil sind Fleet-API und Fleet-Worker zwei Prozesse desselben
+Images. Der Worker allein besitzt Geräte-I/O und Crash-Recovery; ein Neustart
+der Verwaltungs-API verändert deshalb keinen laufenden Druckauftrag. Das lokale
+Quellcodeprofil hält beide Rollen für einen kleinen Entwicklungsstack weiterhin
+in einem Container.
 
 Logs und Stoppen:
 
