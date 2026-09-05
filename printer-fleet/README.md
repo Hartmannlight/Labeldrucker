@@ -30,6 +30,13 @@ Transient delivery failures use bounded exponential retry. If Fleet restarts
 while an outcome could already have reached a device, the delivery becomes
 `unconfirmed` and is not automatically resent.
 
+Delivery is FIFO and strictly serialized for each physical printer. Different
+printers are processed concurrently, so one slow or unavailable endpoint does
+not stop the rest of the fleet. Set `PRINTER_FLEET_MAX_PARALLEL_PRINTERS` to the
+maximum number of device endpoints a Fleet process may contact at once; the
+default is `4`. Database claims preserve the per-printer exclusion when more
+than one API request or worker process competes for work.
+
 The `print_agent` transport is the vendor-neutral successor to the compatible
 `zebra_tamer` alias. It forwards device payloads and a stable idempotency key to
 an edge agent. Direct Ethernet printers remain connected to Fleet itself and do

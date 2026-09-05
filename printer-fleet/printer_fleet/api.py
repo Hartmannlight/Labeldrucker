@@ -52,7 +52,10 @@ class AgentPrinterRegistrationRequest(BaseModel):
 
 def create_app(repository: FleetRepository | None = None) -> FastAPI:
     repo = repository or FleetRepository(os.getenv("PRINTER_FLEET_DATABASE", "/data/fleet.sqlite3"))
-    service = DeliveryService(repo)
+    service = DeliveryService(
+        repo,
+        max_parallel_printers=int(os.getenv("PRINTER_FLEET_MAX_PARALLEL_PRINTERS", "4")),
+    )
     status_service = PrinterStatusService()
     discovery_service = AgentDiscoveryService(
         repo,

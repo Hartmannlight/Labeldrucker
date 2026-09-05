@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
@@ -19,12 +20,16 @@ class DeliveryService:
         drivers: DriverRegistry | None = None,
         transports: TransportRegistry | None = None,
         retry_delay_seconds: float = 2.0,
+        max_parallel_printers: int = 4,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self.repository = repository
         self.drivers = drivers or DriverRegistry()
         self.transports = transports or TransportRegistry()
         self.retry_delay_seconds = retry_delay_seconds
+        if not 1 <= max_parallel_printers <= 64:
+            raise ValueError("max_parallel_printers must be between 1 and 64")
+        self.max_parallel_printers = max_parallel_printers
         self._now = now or (lambda: datetime.now(timezone.utc))
 
     def deliver(
@@ -128,7 +133,11 @@ class DeliveryService:
 
     def process_due(self, *, limit: int = 20) -> list[dict[str, Any]]:
         now = self._now().isoformat()
-        return [
-            self.process_delivery(delivery_id)
-            for delivery_id in self.repository.list_due_delivery_ids(now=now, limit=limit)
-        ]
+        delivery_ids = self.repository.list_due_delivery_ids(now=now, limit=limit)
+        if len(delivery_ids) < 2 or self.max_parallel_printers == 1:
+            return [self.process_delivery(delivery_id) for delivery_id in delivery_ids]
+        with ThreadPoolExecutor(
+            max_workers=min(self.max_parallel_printers, len(delivery_ids)),
+            thread_name_prefix="printer-fleet-device",
+        ) as executor:
+            return list(executor.map(self.process_delivery, delivery_ids))

@@ -29,6 +29,19 @@ class FailingTransport:
         raise OSError("printer is temporarily unreachable")
 
 
+class CoordinatedTransport:
+    def __init__(self, parties: int) -> None:
+        self.barrier = threading.Barrier(parties)
+        self.printers: list[str] = []
+        self.lock = threading.Lock()
+
+    def send(self, payload, printer):
+        with self.lock:
+            self.printers.append(str(printer["id"]))
+        self.barrier.wait(timeout=2)
+        return TransportReceipt(bytes_accepted=len(payload.payload))
+
+
 @pytest.fixture
 def repository(tmp_path: Path) -> FleetRepository:
     repository = FleetRepository(tmp_path / "fleet.sqlite3")
@@ -42,6 +55,28 @@ def repository(tmp_path: Path) -> FleetRepository:
         }
     )
     return repository
+
+
+def queue_delivery(
+    repository: FleetRepository,
+    *,
+    printer_id: str,
+    key: str,
+) -> dict:
+    artifact = PrintArtifact("application/zpl", f"^XA^FD{key}^FS^XZ".encode())
+    delivery, _created = repository.create_delivery(
+        idempotency_key=key,
+        request_hash=f"request-{key}",
+        printer_id=printer_id,
+        printer_snapshot={"id": printer_id, "driver": "zpl"},
+        route_snapshot=repository.get_printer(printer_id),
+        artifact_checksum=artifact.checksum,
+        artifact_mime_type=artifact.mime_type,
+        artifact_payload=artifact.payload,
+        artifact_description=artifact.description,
+        max_attempts=3,
+    )
+    return delivery
 
 
 def test_delivery_is_durable_idempotent_and_honest(repository):
@@ -149,6 +184,54 @@ def test_payload_survives_restart_and_retry_is_claimed_once(repository):
     assert completed[0]["attempt_count"] == 2
     assert accepting.payloads == [artifact.payload]
     assert restarted.process_due() == []
+
+
+def test_due_work_is_fifo_per_printer_and_parallel_across_printers(repository):
+    repository.put_printer(
+        {
+            "id": "zebra-2",
+            "driver": "zpl",
+            "connection": {"protocol": "raw_tcp", "host": "printer-2", "port": 9100},
+            "enabled": True,
+        }
+    )
+    first = queue_delivery(repository, printer_id="zebra-1", key="zebra-1/first")
+    second = queue_delivery(repository, printer_id="zebra-1", key="zebra-1/second")
+    other = queue_delivery(repository, printer_id="zebra-2", key="zebra-2/first")
+
+    due = repository.list_due_delivery_ids(
+        now=datetime.now(timezone.utc).isoformat(),
+        limit=20,
+    )
+    assert due == [first["id"], other["id"]]
+
+    transport = CoordinatedTransport(parties=2)
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": transport}),
+        max_parallel_printers=2,
+    )
+    completed = service.process_due()
+
+    assert {item["state"] for item in completed} == {"transport_accepted"}
+    assert set(transport.printers) == {"zebra-1", "zebra-2"}
+    assert repository.get_delivery(second["id"])["state"] == "queued"
+
+
+def test_claim_rejects_overlap_and_out_of_order_work_for_one_printer(repository):
+    first = queue_delivery(repository, printer_id="zebra-1", key="same/first")
+    second = queue_delivery(repository, printer_id="zebra-1", key="same/second")
+    now = datetime.now(timezone.utc).isoformat()
+
+    assert repository.claim_delivery(second["id"], now=now) is None
+    assert repository.claim_delivery(first["id"], now=now) is not None
+    assert repository.claim_delivery(second["id"], now=now) is None
+
+
+@pytest.mark.parametrize("workers", [0, 65])
+def test_parallel_printer_limit_is_bounded(repository, workers):
+    with pytest.raises(ValueError, match="between 1 and 64"):
+        DeliveryService(repository, max_parallel_printers=workers)
 
 
 def test_delivery_stops_after_configured_attempt_limit(repository):

@@ -492,16 +492,33 @@ class FleetRepository:
     def list_due_delivery_ids(self, *, now: str, limit: int = 20) -> list[str]:
         with self._connection() as db:
             rows = db.execute(
-                """SELECT id FROM deliveries
-                   WHERE state IN (?, ?)
-                     AND artifact_payload IS NOT NULL
-                     AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
-                   ORDER BY created_at
+                """WITH pending AS (
+                       SELECT id, printer_id, created_at,
+                              ROW_NUMBER() OVER (
+                                  PARTITION BY printer_id ORDER BY created_at, id
+                              ) AS printer_position
+                       FROM deliveries
+                       WHERE state IN (?, ?)
+                         AND artifact_payload IS NOT NULL
+                   )
+                   SELECT pending.id
+                   FROM pending
+                   JOIN deliveries current ON current.id = pending.id
+                   WHERE pending.printer_position = 1
+                     AND (current.next_attempt_at IS NULL OR current.next_attempt_at <= ?)
+                     AND NOT EXISTS (
+                         SELECT 1 FROM deliveries active
+                         WHERE active.printer_id = pending.printer_id
+                           AND active.state IN (?, ?)
+                     )
+                   ORDER BY pending.created_at, pending.id
                    LIMIT ?""",
                 (
                     DeliveryState.QUEUED.value,
                     DeliveryState.RETRY_SCHEDULED.value,
                     now,
+                    DeliveryState.CONNECTING.value,
+                    DeliveryState.TRANSMITTING.value,
                     limit,
                 ),
             ).fetchall()
@@ -543,6 +560,32 @@ class FleetRepository:
             if row["artifact_payload"] is None:
                 return None
             if row["next_attempt_at"] and row["next_attempt_at"] > now:
+                return None
+            blocking = db.execute(
+                """SELECT 1 FROM deliveries
+                   WHERE printer_id = ? AND id != ?
+                     AND artifact_payload IS NOT NULL
+                     AND (
+                         state IN (?, ?)
+                         OR (
+                             state IN (?, ?)
+                             AND (created_at < ? OR (created_at = ? AND id < ?))
+                         )
+                     )
+                   LIMIT 1""",
+                (
+                    row["printer_id"],
+                    delivery_id,
+                    DeliveryState.CONNECTING.value,
+                    DeliveryState.TRANSMITTING.value,
+                    DeliveryState.QUEUED.value,
+                    DeliveryState.RETRY_SCHEDULED.value,
+                    row["created_at"],
+                    row["created_at"],
+                    delivery_id,
+                ),
+            ).fetchone()
+            if blocking is not None:
                 return None
             db.execute(
                 """UPDATE deliveries

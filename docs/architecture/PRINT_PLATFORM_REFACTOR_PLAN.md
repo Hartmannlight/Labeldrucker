@@ -470,3 +470,17 @@ independent retry loops from producing duplicate labels.
   dependencies, smoke-tests them with PostgreSQL, scans them and publishes only
   the exact tested archives with SBOM and provenance attestations. A real
   cross-repository digest manifest is still required before action 8 closes.
+
+### 2026-09-05: Per-printer delivery scheduling
+
+- Fleet now selects only the oldest pending delivery for each physical printer.
+  A database-serialized claim rejects overlapping or out-of-order sends even
+  when concurrent API requests or worker processes compete.
+- The worker processes different printer heads concurrently with a bounded
+  thread pool. A slow network Zebra therefore cannot block unrelated devices,
+  while bytes for one device remain strictly FIFO.
+- `PRINTER_FLEET_MAX_PARALLEL_PRINTERS` configures the per-process endpoint
+  concurrency and fails closed outside the range 1–64. Development and
+  production Compose expose the same setting with a conservative default of 4.
+- The complete PrinterFleet suite has 21 passing tests, including a coordinated
+  concurrency test and claim-order regression coverage.
