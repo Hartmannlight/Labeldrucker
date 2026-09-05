@@ -1042,3 +1042,25 @@ independent retry loops from producing duplicate labels.
 - Candidate 3 is superseded because this changes both Fleet and PrintHub source.
   Candidate 4 must resolve new immutable digests and repeat all applicable
   physical gates; candidate-3 evidence remains an audit trail only.
+
+### 2026-09-06: Candidate 4 created from reconciled job contracts
+
+- Root CI, platform integration and multi-architecture container publication
+  passed for platform revision `800b542a968ad27ed04db9389a928b3be4436c90`.
+  PrintHub publication passed independently for revision
+  `18fb325d82970eaa91519aeb12a1aba9d341cff6`.
+- The persistent qualification stack was upgraded in place using immutable
+  digests. Its eight services and all defined healthchecks are healthy. The
+  exact 50 x 25 mm public printer catalog and official CUPS capability test
+  passed without submitting a job.
+- Reading candidate 3's persisted baseline through candidate 4 reconciled the
+  formerly stale logical job to the authoritative Fleet
+  `transport_accepted` state and 238 accepted bytes.
+- Exactly one candidate-4 baseline was submitted. PrintHub, Fleet and Agent
+  produced one linked job each; PrintHub reconciled one downstream entry to
+  `transport_accepted` with 242 bytes. Repeating the identical idempotent
+  request returned the same identifiers without another delivery.
+- The immutable bill of materials and sanitized evidence are recorded in
+  `docs/acceptance/2026-09-06-v1.0.0-candidate-4.md`. Physical emission and
+  visual inspection still require operator confirmation; remaining destructive
+  and browser/color/A4 hardware gates stay open.
