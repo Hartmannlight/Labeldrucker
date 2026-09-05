@@ -53,3 +53,6 @@ The first stable compatibility bill of materials requires:
 Niimbot B1 hardware acceptance is intentionally outside the first stable Zebra
 release. Its driver slot and raster contract are reserved, but its wire protocol
 must not be declared supported without representative hardware and media tests.
+
+The evidence template and destructive-test limits are defined in
+[`../acceptance/REAL_PRINTER_ACCEPTANCE.md`](../acceptance/REAL_PRINTER_ACCEPTANCE.md).

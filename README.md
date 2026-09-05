@@ -8,6 +8,8 @@ image-basierten Produktions- und Thingdex-Integrationsprofile sind in
 dokumentiert; deren Platzhalter sind absichtlich nicht produktiv startbar.
 Die aktuelle Zuordnung stabiler und nur vorübergehend weitergereichter APIs steht
 in [`docs/architecture/API_COMPATIBILITY_MATRIX.md`](docs/architecture/API_COMPATIBILITY_MATRIX.md).
+Die Freigabe mit echten Zebra-/Bridge-/Agent-Geräten folgt
+[`docs/acceptance/REAL_PRINTER_ACCEPTANCE.md`](docs/acceptance/REAL_PRINTER_ACCEPTANCE.md).
 
 Das Quellcodeprofil betreibt nur die Etiketten- und Druckfunktionen. Es enthält
 keine Thingdex-API und nutzt für Fleet lokal SQLite. Das eigenständige

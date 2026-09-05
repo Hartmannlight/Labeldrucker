@@ -661,6 +661,8 @@ independent retry loops from producing duplicate labels.
 - It then proves that an A4 page is held without transmission, explicitly
   releases the same job with `fit`, and requires both payloads to arrive through
   PrinterFleet at the RAW-9100 Zebra emulator.
+- [Platform Integration run 33952391884](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33952391884)
+  passed the complete gate with the pinned subrepository revisions.
 - Failure output is limited to container state; unfiltered application logs are
   not uploaded. Real-device and agent-disconnect acceptance remain manual gates.
 
@@ -673,3 +675,6 @@ independent retry loops from producing duplicate labels.
 - The recovered Fleet delivery retains the single downstream job ID and honest
   `transport_accepted` state. Real hardware disconnect timing remains part of
   the manual acceptance gate.
+- Action 10 remains open: Studio and SDK still consume the migration-only
+  PrintHub printer-administration facade, a Fleet Console does not yet replace
+  that workflow, and no real Zebra/bridge/PrintAgent acceptance record exists.
