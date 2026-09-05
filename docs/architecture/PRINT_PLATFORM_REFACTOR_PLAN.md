@@ -423,3 +423,7 @@ independent retry loops from producing duplicate labels.
 - Action 8 remains open until Thingdex adopts equivalent attestation gates and
   a real cross-repository compatibility manifest is assembled from published
   digests.
+- Thingdex's first release-hardening slice pins its Python runtime base,
+  PostgreSQL CI service, checkout/setup actions, runner image and Poetry
+  version. Its publish workflow still needs the tested-candidate and
+  attestation stages before action 8 can close.
