@@ -45,6 +45,14 @@ Transient delivery failures use bounded exponential retry. If Fleet restarts
 while an outcome could already have reached a device, the delivery becomes
 `unconfirmed` and is not automatically resent.
 
+`POST /v1/deliveries` only validates and durably queues an artifact before
+returning HTTP 202. It never opens a printer connection in the request path.
+The delivery worker is the normal owner of device I/O, so printer latency and
+outages do not consume API requests. The embedded worker is enabled by default
+for a compact single-container deployment and can be disabled with
+`PRINTER_FLEET_DELIVERY_WORKER_ENABLED=0` when API and worker processes are
+operated separately.
+
 Delivery is FIFO and strictly serialized for each physical printer. Different
 printers are processed concurrently, so one slow or unavailable endpoint does
 not stop the rest of the fleet. Set `PRINTER_FLEET_MAX_PARALLEL_PRINTERS` to the

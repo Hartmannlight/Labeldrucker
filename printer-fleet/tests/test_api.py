@@ -4,6 +4,7 @@ import base64
 import hashlib
 
 from fastapi.testclient import TestClient
+import pytest
 
 from printer_fleet.api import create_app
 from printer_fleet.auth import BearerCredentialAuthenticator, FleetPrincipal
@@ -14,7 +15,11 @@ from printer_fleet.transports import TransportRegistry
 
 
 class AcceptingTransport:
+    def __init__(self):
+        self.calls = 0
+
     def send(self, payload, _printer):
+        self.calls += 1
         return TransportReceipt(bytes_accepted=len(payload.payload))
 
 
@@ -23,13 +28,19 @@ class UnexpectedStatusService:
         raise AssertionError("Busy printers must not receive a status command")
 
 
+@pytest.fixture(autouse=True)
+def disable_background_delivery_worker(monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_DELIVERY_WORKER_ENABLED", "0")
+
+
 def test_api_catalog_and_delivery(tmp_path, monkeypatch):
     monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
     repository = FleetRepository(tmp_path / "fleet.sqlite3")
     app = create_app(repository)
+    transport = AcceptingTransport()
     app.state.delivery_service = DeliveryService(
         repository,
-        transports=TransportRegistry({"raw_tcp": AcceptingTransport()}),
+        transports=TransportRegistry({"raw_tcp": transport}),
     )
     with TestClient(app) as client:
         printer = {
@@ -67,7 +78,12 @@ def test_api_catalog_and_delivery(tmp_path, monkeypatch):
             },
         )
         assert response.status_code == 202, response.text
-        assert response.json()["state"] == "transport_accepted"
+        assert response.json()["state"] == "queued"
+        assert transport.calls == 0
+        completed = app.state.delivery_service.process_due()
+        assert completed[0]["id"] == response.json()["id"]
+        assert completed[0]["state"] == "transport_accepted"
+        assert transport.calls == 1
 
 
 def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
@@ -256,6 +272,7 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
             },
         )
         assert accepted.status_code == 202
+        assert accepted.json()["state"] == "queued"
         paris = client.post(
             "/v1/deliveries",
             headers=headers("global-admin-token"),
@@ -271,7 +288,7 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
         )
         assert paris.status_code == 202
         visible_deliveries = client.get(
-            "/v1/deliveries?limit=1&state=transport_accepted",
+            "/v1/deliveries?limit=1&state=queued",
             headers=headers("berlin-submit-token"),
         )
         assert visible_deliveries.status_code == 200

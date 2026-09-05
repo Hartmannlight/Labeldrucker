@@ -32,7 +32,7 @@ class DeliveryService:
         self.max_parallel_printers = max_parallel_printers
         self._now = now or (lambda: datetime.now(timezone.utc))
 
-    def deliver(
+    def submit(
         self,
         *,
         printer_id: str,
@@ -61,7 +61,7 @@ class DeliveryService:
                 sort_keys=True,
             ).encode("utf-8")
         ).hexdigest()
-        delivery, created = self.repository.create_delivery(
+        delivery, _created = self.repository.create_delivery(
             idempotency_key=idempotency_key,
             request_hash=request_hash,
             printer_id=printer_id,
@@ -78,10 +78,7 @@ class DeliveryService:
             max_attempts=max_attempts,
             accepted_at=self._now().isoformat(),
         )
-        if not created:
-            return delivery
-
-        return self.process_delivery(str(delivery["id"]))
+        return delivery
 
     def process_delivery(self, delivery_id: str) -> dict[str, Any]:
         now = self._now()

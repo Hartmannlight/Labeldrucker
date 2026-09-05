@@ -567,3 +567,16 @@ independent retry loops from producing duplicate labels.
 - All 45 Fleet tests pass, including API role/site policy, migration, restart,
   pause/resume and queued-work regressions. Richer operator workflows, retention
   policy and production database scaling remain open parts of action 9.
+
+### 2026-09-05: Asynchronous Fleet acceptance boundary
+
+- Fleet delivery submission now commits the immutable artifact and returns HTTP
+  202 in `queued` state without opening a device connection in the API request.
+  PrintHub therefore depends only on durable Fleet acceptance, not port-9100
+  latency or reachability.
+- The delivery worker is the sole normal device-I/O path. It remains enabled in
+  the compact single-container profile, while an explicit switch permits API
+  and worker process separation later without another service contract.
+- Fleet API tests prove zero transport calls before the response and successful
+  worker delivery afterward. The PrintHub contract test accepts `queued` as the
+  authoritative receipt instead of assuming immediate socket acceptance.

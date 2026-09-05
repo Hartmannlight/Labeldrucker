@@ -26,7 +26,10 @@ PrintHub ---> PrinterFleet API ---> durable per-printer queues ---> drivers
 `PrinterFleet API` and its delivery workers form one product and may ship in one
 container while the current workload is modest. They still use separate modules,
 database transactions and worker leases so workers can be split horizontally
-without changing the contract. Fleet Console is a separate static web image.
+without changing the contract. The API transaction ends after the immutable
+artifact is durably queued; only a delivery worker opens the normal printer
+connection. Co-location is therefore a packaging choice rather than a
+synchronous code dependency. Fleet Console is a separate static web image.
 PrintAgent is a separate process installed only where direct network reachability
 is impossible or where USB, Bluetooth or local serial access is required.
 

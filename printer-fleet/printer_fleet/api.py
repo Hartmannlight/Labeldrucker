@@ -84,6 +84,7 @@ def create_app(
         discovery_service,
         interval_seconds=float(os.getenv("PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS", "30")),
     )
+    delivery_worker_enabled = os.getenv("PRINTER_FLEET_DELIVERY_WORKER_ENABLED", "1") == "1"
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -94,13 +95,15 @@ def create_app(
             document = yaml.safe_load(Path(seed_path).read_text(encoding="utf-8")) or {}
             for printer in document.get("printers", []):
                 repo.put_printer(printer)
-        worker.start()
+        if delivery_worker_enabled:
+            worker.start()
         discovery_worker.start()
         try:
             yield
         finally:
             discovery_worker.stop()
-            worker.stop()
+            if delivery_worker_enabled:
+                worker.stop()
 
     app = FastAPI(title="PrinterFleet API", version="0.1.0", lifespan=lifespan)
 
@@ -349,7 +352,7 @@ def create_app(
         scoped_printer(request, payload_request.printer_id, "submitter")
         try:
             payload = base64.b64decode(payload_request.artifact.payload_base64, validate=True)
-            return app.state.delivery_service.deliver(
+            return app.state.delivery_service.submit(
                 printer_id=payload_request.printer_id,
                 idempotency_key=payload_request.idempotency_key,
                 artifact=PrintArtifact(

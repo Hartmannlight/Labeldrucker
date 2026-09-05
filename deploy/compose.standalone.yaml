@@ -6,6 +6,7 @@ services:
     environment:
       PRINTER_FLEET_DATABASE: /data/fleet.sqlite3
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
+      PRINTER_FLEET_DELIVERY_WORKER_ENABLED: ${PRINTER_FLEET_DELIVERY_WORKER_ENABLED:-1}
       PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
       PRINTER_FLEET_CREDENTIALS_FILE: /run/secrets/printer_fleet_credentials
     volumes: [printer_fleet_data:/data]

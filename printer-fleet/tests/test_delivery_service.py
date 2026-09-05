@@ -93,21 +93,22 @@ def test_delivery_is_durable_idempotent_and_honest(repository):
     )
     artifact = PrintArtifact("application/zpl", b"^XA^XZ", "test")
 
-    first = service.deliver(
+    first = service.submit(
         printer_id="zebra-1",
         idempotency_key="job-1/attempt-1",
         artifact=artifact,
         declared_checksum=artifact.checksum,
     )
-    second = service.deliver(
+    second = service.submit(
         printer_id="zebra-1",
         idempotency_key="job-1/attempt-1",
         artifact=artifact,
         declared_checksum=artifact.checksum,
     )
 
-    assert first["state"] == "transport_accepted"
+    assert first["state"] == "queued"
     assert second["id"] == first["id"]
+    assert service.process_due()[0]["state"] == "transport_accepted"
     assert transport.payloads == [b"^XA^XZ"]
     stored = repository.get_delivery(first["id"])
     assert stored["printer_snapshot"]["driver"] == "zpl"
@@ -125,14 +126,14 @@ def test_idempotency_key_cannot_be_reused_for_another_payload(repository):
     service = DeliveryService(repository, transports=TransportRegistry({"raw_tcp": transport}))
     first = PrintArtifact("application/zpl", b"first")
     second = PrintArtifact("application/zpl", b"second")
-    service.deliver(
+    service.submit(
         printer_id="zebra-1",
         idempotency_key="same-key",
         artifact=first,
         declared_checksum=first.checksum,
     )
     with pytest.raises(DeliveryConflict):
-        service.deliver(
+        service.submit(
             printer_id="zebra-1",
             idempotency_key="same-key",
             artifact=second,
@@ -145,7 +146,7 @@ def test_checksum_mismatch_is_rejected_before_delivery(repository):
     service = DeliveryService(repository, transports=TransportRegistry({"raw_tcp": transport}))
     artifact = PrintArtifact("application/zpl", b"payload")
     with pytest.raises(ValueError, match="checksum"):
-        service.deliver(
+        service.submit(
             printer_id="zebra-1",
             idempotency_key="bad-checksum",
             artifact=artifact,
@@ -164,12 +165,14 @@ def test_payload_survives_restart_and_retry_is_claimed_once(repository):
         now=lambda: current[0],
     )
 
-    scheduled = first_service.deliver(
+    queued = first_service.submit(
         printer_id="zebra-1",
         idempotency_key="durable/1",
         artifact=artifact,
         declared_checksum=artifact.checksum,
     )
+    assert queued["state"] == "queued"
+    scheduled = first_service.process_due()[0]
     assert scheduled["state"] == "retry_scheduled"
     assert scheduled["attempt_count"] == 1
     assert "artifact_payload" not in scheduled
@@ -268,7 +271,7 @@ def test_paused_queue_rejects_new_work_and_resumes_existing_fifo_work(repository
     artifact = PrintArtifact("application/zpl", b"^XA^FDnew^FS^XZ")
 
     with pytest.raises(PrinterPaused, match="paused"):
-        service.deliver(
+        service.submit(
             printer_id="zebra-1",
             idempotency_key="paused/new",
             artifact=artifact,
@@ -311,13 +314,15 @@ def test_delivery_stops_after_configured_attempt_limit(repository):
         retry_delay_seconds=0,
         now=lambda: current[0],
     )
-    first = service.deliver(
+    queued = service.submit(
         printer_id="zebra-1",
         idempotency_key="limited/1",
         artifact=artifact,
         declared_checksum=artifact.checksum,
         max_attempts=2,
     )
+    assert queued["state"] == "queued"
+    first = service.process_due()[0]
     assert first["state"] == "retry_scheduled"
 
     final = service.process_due()[0]
