@@ -44,6 +44,16 @@ def drop_privileges(*paths: Path) -> None:
     os.setuid(account.pw_uid)
 
 
+def prepare_runtime_privileges(*paths: Path) -> None:
+    mdns_enabled = os.getenv("PRINTHUB_IPP_MDNS_ENABLED", "1") == "1"
+    if mdns_enabled:
+        if os.geteuid() != 0:
+            raise RuntimeError("mDNS mode requires root only during guarded startup")
+        start_discovery_services()
+    if os.geteuid() == 0:
+        drop_privileges(*paths)
+
+
 def start_container_proxy(port: str) -> subprocess.Popen[bytes] | None:
     """Expose a loopback-bound ippeveprinter on the container network interface."""
     bind_address = os.getenv("PRINTHUB_IPP_CONTAINER_BIND", "").strip()
@@ -161,8 +171,7 @@ def main() -> None:
     ppd_path = runtime_dir / "printer.ppd"
     ppd_path.write_text(build_ppd(printer), encoding="ascii")
 
-    start_discovery_services()
-    drop_privileges(runtime_dir, spool_dir, ppd_path)
+    prepare_runtime_privileges(runtime_dir, spool_dir, ppd_path)
 
     executable = shutil.which("ippeveprinter")
     if executable is None:

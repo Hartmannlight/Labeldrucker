@@ -49,6 +49,7 @@ services:
       PRINTHUB_IPP_PORT: "8631"
       PRINTHUB_IPP_PRINTER_ID: ${PRINTHUB_IPP_PRINTER_ID:?Set PRINTHUB_IPP_PRINTER_ID}
       PRINTHUB_IPP_MISMATCH_POLICY: hold
+      PRINTHUB_IPP_MDNS_ENABLED: "0"
     ports:
       - ${PRINTHUB_IPP_BIND:-127.0.0.1}:${PRINTHUB_IPP_PORT:-8631}:8631
     volumes: [ipp_spool:/var/spool/printhub-ipp]

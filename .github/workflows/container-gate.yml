@@ -1,0 +1,84 @@
+name: Candidate Containers
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: ${{ matrix.component }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: printer-fleet
+            context: printer-fleet
+            dockerfile: printer-fleet/Dockerfile
+            arch: amd64
+            runner: ubuntu-24.04
+          - component: printer-fleet
+            context: printer-fleet
+            dockerfile: printer-fleet/Dockerfile
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - component: printhub-ipp
+            context: ipp-gateway
+            dockerfile: ipp-gateway/Dockerfile
+            arch: amd64
+            runner: ubuntu-24.04
+          - component: printhub-ipp
+            context: ipp-gateway
+            dockerfile: ipp-gateway/Dockerfile
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Select native runner
+        if: matrix.arch == 'arm64'
+        run: |
+          if [ "$(uname -m)" != "aarch64" ]; then
+            echo "arm64 candidate requires a native arm64 runner" >&2
+            exit 1
+          fi
+      - name: Build exact candidate
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          push: false
+          provenance: false
+          pull: true
+          tags: candidate:${{ matrix.component }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Runtime smoke test
+        run: python3 scripts/container_smoke.py "${{ matrix.component }}" "candidate:${{ matrix.component }}"
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+          cache: true
+      - name: Scan candidate and create SBOM
+        run: |
+          mkdir -p artifacts
+          trivy image --scanners vuln,secret --format json --output scan.json "candidate:${{ matrix.component }}"
+          python3 scripts/security_gate.py scan.json
+          trivy image --format spdx-json --output artifacts/sbom.spdx.json "candidate:${{ matrix.component }}"
+          docker save "candidate:${{ matrix.component }}" -o artifacts/image.tar
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.component }}-candidate-${{ matrix.arch }}
+          path: |
+            artifacts/image.tar
+            artifacts/sbom.spdx.json
+          retention-days: 3
+          compression-level: 0

@@ -24,6 +24,25 @@ submit_job = load_module("ipp_gateway_submit", "submit_job.py")
 
 
 class GatewayTests(unittest.TestCase):
+    def test_production_mode_runs_without_root_or_discovery_daemons(self) -> None:
+        with (
+            patch.dict(os.environ, {"PRINTHUB_IPP_MDNS_ENABLED": "0"}, clear=True),
+            patch.object(entrypoint.os, "geteuid", return_value=10002, create=True),
+            patch.object(entrypoint, "start_discovery_services") as discovery,
+            patch.object(entrypoint, "drop_privileges") as drop,
+        ):
+            entrypoint.prepare_runtime_privileges(Path("runtime"))
+        discovery.assert_not_called()
+        drop.assert_not_called()
+
+    def test_mdns_mode_fails_closed_when_startup_is_not_root(self) -> None:
+        with (
+            patch.dict(os.environ, {"PRINTHUB_IPP_MDNS_ENABLED": "1"}, clear=True),
+            patch.object(entrypoint.os, "geteuid", return_value=10002, create=True),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "mDNS mode requires root"):
+                entrypoint.prepare_runtime_privileges(Path("runtime"))
+
     def test_ppd_reports_exact_loaded_label(self) -> None:
         ppd = entrypoint.build_ppd(
             {

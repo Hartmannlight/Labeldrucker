@@ -199,6 +199,12 @@ Gateway besitzt derzeit keine Anmeldung; der Port darf daher nur in ein
 vertrauenswürdiges Netz oder hinter eine geeignete Zugriffskontrolle freigegeben
 werden.
 
+Im Produktionsprofil ist mDNS bewusst deaktiviert und der IPP-Prozess läuft ab
+Containerstart als UID 10002 ohne Linux-Capabilities. Die Queue wird dort über
+ihre explizite `ipp://`-Adresse eingerichtet. Nur das Quellcode-
+Entwicklungsprofil startet für D-Bus/Avahi kurzzeitig privilegiert und senkt den
+eigentlichen IPP-Prozess anschließend auf UID 10002 ab.
+
 Mehrzeilige Werte bleiben im API- und Render-Layer normale JSON-Strings mit
 Zeilenumbrüchen. Die Felddefinition `{"type":"textarea","rows":4}` steuert nur
 die Darstellung des Formulars in Studio. Dadurch braucht ein Template wie

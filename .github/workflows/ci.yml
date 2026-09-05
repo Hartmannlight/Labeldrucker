@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test root-owned services and release policy
+        env:
+          PYTHONPATH: printer-fleet
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r printer-fleet/requirements-dev.txt
+          .venv/bin/python -m pytest -q tests printer-fleet/tests ipp-gateway/tests/test_gateway.py
+          python3 scripts/security_gate.py --self-test
+          python3 -m py_compile scripts/container_smoke.py scripts/release_component.py scripts/validate_release_env.py
+      - name: Validate source Compose
+        run: docker compose config --quiet
+  containers:
+    needs: test
+    uses: ./.github/workflows/container-gate.yml

@@ -107,6 +107,8 @@ services:
       PRINTHUB_IPP_NAME: ${PRINTHUB_IPP_NAME:-PrintHub Label Printer}
       PRINTHUB_IPP_MISMATCH_POLICY: ${PRINTHUB_IPP_MISMATCH_POLICY:-hold}
       PRINTHUB_IPP_MAX_PAGES: ${PRINTHUB_IPP_MAX_PAGES:-100}
+      PRINTHUB_IPP_MDNS_ENABLED: "1"
+    user: "0:0"
     extra_hosts:
       - "${PRINTHUB_IPP_HOSTNAME:-localhost}:127.0.0.1"
     ports:

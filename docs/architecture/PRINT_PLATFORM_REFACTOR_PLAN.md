@@ -406,3 +406,20 @@ independent retry loops from producing duplicate labels.
   seven Thingdex outbox tests pass, the generated TypeScript SDK contract is
   current, strict Thingdex documentation builds, and both integrated Compose
   profiles validate.
+
+### 2026-09-05: Root-owned image release gates
+
+- PrinterFleet and the IPP gateway now have the same test-before-publish model
+  as PrintHub and Studio: native amd64/arm64 candidates, runtime smoke tests,
+  fail-closed vulnerability/secret scanning, SBOM export, immutable platform
+  tags, a validated multiarch index and GitHub provenance/SBOM attestations.
+- Release code refuses non-main/non-semver sources and existing immutable tags.
+  Unit tests cover the platform matrix, digest policy, ref restriction and
+  security gate; the combined root suite has 30 passing tests.
+- The IPP production profile no longer requires startup capabilities. mDNS is
+  disabled there and PID 1 starts as UID 10002. Development can explicitly run
+  the entrypoint as root for D-Bus/Avahi initialization, after which it drops
+  permanently to UID 10002.
+- Action 8 remains open until Thingdex adopts equivalent attestation gates and
+  a real cross-repository compatibility manifest is assembled from published
+  digests.

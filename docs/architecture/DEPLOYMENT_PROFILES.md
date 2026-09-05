@@ -42,6 +42,20 @@ the source revisions and sign both images and manifest. The all-zero digests and
 `replace-me` secrets are deliberate fail-closed placeholders, not runnable
 defaults.
 
+`printer-fleet` and `printhub-ipp` are released by the root repository's
+container pipeline because their source currently lives here. The pipeline
+builds and smoke-tests native amd64 and arm64 candidates, scans them, exports
+SBOMs, publishes exactly those tested archives, creates a multi-architecture
+index and attaches GitHub build-provenance and SBOM attestations. Immutable
+source/run tags are never overwritten. PrintHub and Studio retain the same
+two-stage release pattern in their owning repositories.
+
+Production IPP deliberately disables mDNS and runs from container start as UID
+10002 with all Linux capabilities dropped. Add its explicit `ipp://` URL to
+CUPS. The source-based development profile may start as root solely to launch
+D-Bus and Avahi, then its PID 1 drops permanently to UID 10002 before accepting
+jobs. This keeps discovery convenience out of the production privilege model.
+
 State is isolated in service-owned volumes. Back up `printhub_data`,
 `printer_fleet_data`, `ipp_spool` when IPP is enabled, and `thingdex_postgres`
 before upgrades. Restore testing and signature verification are release gates,
