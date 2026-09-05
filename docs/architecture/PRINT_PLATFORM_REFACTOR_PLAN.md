@@ -920,3 +920,8 @@ independent retry loops from producing duplicate labels.
   installed system queue is therefore ready for a manual Chrome dialog check,
   but `cups_browser` remains an explicit open acceptance scenario until a real
   filtered job and its physical result are recorded.
+- A versioned, script-free one-page HTML fixture now declares an exact 50 x
+  25 mm CSS page and carries the unique marker `CHROME IPP`. Its automated test
+  prevents accidental size or script changes, while the manual checklist binds
+  Chrome's dialog, one physical label and the three downstream job IDs into one
+  reproducible acceptance result.

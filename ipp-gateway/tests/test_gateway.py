@@ -59,6 +59,15 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('*Resolution 203dpi/203 dpi:', ppd)
         self.assertIn('*ColorDevice: False', ppd)
 
+    def test_chrome_acceptance_fixture_declares_one_exact_label_page(self) -> None:
+        fixture = (ROOT / "tests" / "fixtures" / "chrome-label-50x25.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("size: 50mm 25mm", fixture)
+        self.assertIn("width: 50mm", fixture)
+        self.assertIn("height: 25mm", fixture)
+        self.assertNotIn("<script", fixture.lower())
+
     def test_scaling_defaults_to_hold_but_honors_explicit_ipp_choice(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(submit_job.selected_scaling(), "hold")

@@ -63,6 +63,36 @@ docker compose run --rm --no-deps `
   /tests/network_probe.py host.docker.internal 8631 localhost
 ```
 
+## Chrome-Systemdialog manuell prüfen
+
+Die Datei `fixtures/chrome-label-50x25.html` ist eine statische, skriptfreie
+Ein-Seiten-Vorlage mit `@page { size: 50mm 25mm; margin: 0; }`. Sie verhindert,
+dass der Browsertest von einer zufälligen Webseite oder einem nicht
+reproduzierbaren Dokument abhängt.
+
+Unter Windows 11 zuerst in einer administrativen PowerShell die lokale Queue
+einrichten:
+
+```powershell
+Add-Printer -Name "PrintHub 50x25 Label" `
+  -IppURL "http://localhost:8631/ipp/print"
+```
+
+Danach die HTML-Datei in Chrome öffnen, `Strg+P` wählen und zunächst nur den
+Dialog kontrollieren:
+
+1. Ziel ist `PrintHub 50x25 Label`.
+2. Papierformat ist 50 × 25 mm und die Vorschau zeigt genau eine Seite.
+3. Ränder stehen auf `Keine`; Skalierung bleibt bei 100 %.
+4. Der Dialog bietet keinen Farbdruck und keine Duplexausgabe an.
+
+Nur wenn Größe und Vorschau stimmen, genau eine Kopie senden. Der anschließend
+angelegte PrintHub-Job, die Fleet-Zustellung, der Agent-Job und die physische
+Kennzeichnung `CHROME IPP` werden gemeinsam im Hardware-Nachweis festgehalten.
+Zeigt der Dialog A4 oder eine unbekannte Größe, nicht drucken: Mit der
+Gateway-Standardrichtlinie `hold` wäre der Auftrag zwar geschützt, der
+Client-Fähigkeitstest wäre dennoch fehlgeschlagen.
+
 ## Echtes PDF durch die gesamte Pipeline senden
 
 Die Testdatei ist ein gültiges einseitiges PDF mit 50 × 50 mm Seitengröße.

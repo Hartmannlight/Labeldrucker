@@ -193,6 +193,11 @@ Chrome verwendet unter Windows diese Systemqueue. Zum späteren Entfernen dient
 PowerShell. Die Queue ist nicht der Standarddrucker, solange dies nicht separat
 im Betriebssystem geändert wird.
 
+Für einen reproduzierbaren Chrome-Test steht die exakt einseitige Datei
+[`ipp-gateway/tests/fixtures/chrome-label-50x25.html`](ipp-gateway/tests/fixtures/chrome-label-50x25.html)
+bereit. Die Dialog- und Abnahmeschritte sind in
+[`ipp-gateway/tests/README.md`](ipp-gateway/tests/README.md) beschrieben.
+
 Danach erscheint die Queue im Systemdruckdialog von Chrome. Das Gateway
 meldet die aus PrinterFleet gelesene Rollenbreite,
 Rollenhöhe, Auflösung und den monochromen Farbraum an CUPS. Bei einer Änderung
