@@ -45,6 +45,12 @@ Fleet combines `agent_id` and the local ID into a globally unique physical
 identity. Discovery observes devices but never registers an unknown device
 without an explicit operator action.
 
+`GET /v1/drivers` exposes each compiled driver, its accepted MIME types and
+whether it is available. Reserved descriptors are not executable: configuring
+one fails startup validation until the implementation is part of that agent
+build. This prevents arbitrary binary data from being written through a
+nominal driver name.
+
 ## Delivery
 
 Fleet submits bytes to `POST /v1/printers/{local_id}/jobs` with:

@@ -182,13 +182,13 @@ independent retry loops from producing duplicate labels.
 - [x] 4. Move physical printer CRUD, discovery, RAW 9100, Zebra status and
   delivery retries from PrintHub to PrinterFleet. Keep a time-limited PrintHub
   compatibility facade for existing Studio and SDK clients.
-- [ ] 5. Evolve ZebraTamer into a vendor-neutral PrintAgent protocol. Keep direct
+- [x] 5. Evolve ZebraTamer into a vendor-neutral PrintAgent protocol. Keep direct
   network printers server-side and add agent-side Zebra plus Niimbot driver
   slots for USB/Bluetooth/serial devices.
 - [x] 6. Thin the IPP gateway so it only advertises capabilities, receives
   documents, maps IPP tickets and reports PrintHub state. Move PDF/PostScript
   policy and raster decisions into PrintHub.
-- [ ] 7. Replace Thingdex synchronous label calls with a transactional outbox,
+- [x] 7. Replace Thingdex synchronous label calls with a transactional outbox,
   idempotent PrintHub connector and replay-safe status inbox. Remove every
   direct ZebraTamer/PrintAgent to Thingdex dependency.
 - [ ] 8. Replace production sibling builds and Git submodules with signed,
@@ -299,6 +299,10 @@ independent retry loops from producing duplicate labels.
   compilation because neither runtime was available on the current host.
 - The versioned PrintAgent contract and the future Niimbot raster/driver split
   are recorded in `docs/architecture/PRINT_AGENT_PROTOCOL.md`.
+- A driver-descriptor endpoint declares accepted device-payload MIME types.
+  ZPL is executable and the Niimbot B1 contract is reserved but fails closed;
+  it cannot be configured until an agent build contains the tested encoder and
+  hardware implementation.
 - Automated status after this slice: all 16 PrinterFleet tests and all 117
   active PrintHub tests pass; 159 optional PrintHub tests remain skipped by
   their existing environment markers. Compose configuration validates. Rust
@@ -316,3 +320,27 @@ independent retry loops from producing duplicate labels.
   dithering and preview. Held source documents are reconverted when released.
 - Poppler, Ghostscript and libcups move to the PrintHub runtime. The IPP image
   retains only the packages required to publish and receive IPP jobs.
+
+### 2026-09-05: Asynchronous Thingdex integration
+
+- Thingdex now records a versioned `PrintIntent` in the same PostgreSQL
+  transaction as the inventory mutation. Ordinary inventory writes therefore
+  remain available while PrintHub is offline.
+- A separate worker claims outbox rows with a lease, submits them with stable
+  idempotency keys and applies bounded retries. Operator retries start a fresh
+  bounded attempt budget rather than creating a second logical intent.
+- PrintHub status updates enter Thingdex through an HMAC-authenticated,
+  replay-safe inbox with immutable event IDs and monotonically increasing
+  sequences. PrintAgent has no Thingdex dependency.
+- Print intent administration is a fail-closed bearer-protected API and omits
+  the captured variable payload from its responses.
+- The PrintHub OpenAPI export now resolves the checked-out application rather
+  than an installed package, and the TypeScript SDK exposes the document-job
+  contract generated from that canonical schema.
+- The Thingdex integration distribution starts API and print worker separately
+  and wires PrintHub to PrinterFleet. Production image pinning and release
+  compatibility metadata remain action 8.
+- Automated status: six database-independent outbox tests, OpenAPI drift check,
+  complete offline Alembic SQL generation and strict documentation build pass.
+  The latest full suite has 6 passing and 23 PostgreSQL-dependent skipped tests;
+  a live PostgreSQL and Docker run remains pending on this host.

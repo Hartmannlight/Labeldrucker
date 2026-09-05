@@ -18,3 +18,11 @@
 	path = components/ZebraTamer
 	url = https://github.com/Hartmannlight/ZebraTamer.git
 	branch = main
+[submodule "components/Thingdex-Home-Inventory"]
+	path = components/Thingdex-Home-Inventory
+	url = https://github.com/Hartmannlight/Thingdex-Home-Inventory.git
+	branch = main
+[submodule "components/Thingdex"]
+	path = components/Thingdex
+	url = https://github.com/Hartmannlight/Thingdex.git
+	branch = main
