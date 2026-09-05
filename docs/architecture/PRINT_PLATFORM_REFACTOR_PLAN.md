@@ -550,3 +550,20 @@ independent retry loops from producing duplicate labels.
 - All 42 Fleet tests pass, including Windows restore locking, tamper detection,
   non-overwrite and future-schema regressions. Scheduled off-host backups and a
   PostgreSQL repository implementation remain open parts of action 9.
+
+### 2026-09-05: Durable queue administration
+
+- Fleet exposes a site-scoped delivery inventory with printer, state and bounded
+  result filters. Authorization is applied in the database selection before the
+  limit, so jobs from another site cannot hide visible work or leak identifiers.
+- Site administrators can persistently pause and resume one physical printer.
+  A pause rejects new work, prevents workers from claiming queued deliveries and
+  preserves the queue for FIFO continuation after resume. It deliberately does
+  not imply cancellation of a transmission that may already have reached the
+  printer.
+- Pause state, operator reason and timestamp live in Fleet's authoritative
+  database rather than process memory. Schema generation 2 migrates existing
+  generation-1 databases forward and includes controls in verified backups.
+- All 45 Fleet tests pass, including API role/site policy, migration, restart,
+  pause/resume and queued-work regressions. Richer operator workflows, retention
+  policy and production database scaling remain open parts of action 9.

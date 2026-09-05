@@ -7,7 +7,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from printer_fleet.domain import DeliveryConflict, PrintArtifact, RegistryConflict, TransportReceipt
+from printer_fleet.domain import (
+    DeliveryConflict,
+    PrinterPaused,
+    PrintArtifact,
+    RegistryConflict,
+    TransportReceipt,
+)
 from printer_fleet.drivers import ZplDriver
 from printer_fleet.ports import DeviceTransport
 from printer_fleet.repository import FleetRepository
@@ -250,6 +256,44 @@ def test_external_printer_operation_defers_delivery(repository):
     assert repository.acquire_printer_operation("zebra-1", kind="other") is None
     repository.release_printer_operation("zebra-1", owner)
     assert service.process_due()[0]["state"] == "transport_accepted"
+
+
+def test_paused_queue_rejects_new_work_and_resumes_existing_fifo_work(repository):
+    queued = queue_delivery(repository, printer_id="zebra-1", key="paused/queued")
+    repository.set_printer_paused("zebra-1", paused=True, reason="Media change")
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": RecordingTransport()}),
+    )
+    artifact = PrintArtifact("application/zpl", b"^XA^FDnew^FS^XZ")
+
+    with pytest.raises(PrinterPaused, match="paused"):
+        service.deliver(
+            printer_id="zebra-1",
+            idempotency_key="paused/new",
+            artifact=artifact,
+            declared_checksum=artifact.checksum,
+        )
+    assert service.process_due() == []
+    assert repository.get_delivery(queued["id"])["state"] == "queued"
+
+    repository.set_printer_paused("zebra-1", paused=False)
+    completed = service.process_due()
+    assert completed[0]["id"] == queued["id"]
+    assert completed[0]["state"] == "transport_accepted"
+
+
+def test_paused_control_survives_repository_restart(repository):
+    repository.set_printer_paused("zebra-1", paused=True, reason="Operator maintenance")
+
+    restarted = FleetRepository(repository.path)
+    restarted.initialize()
+
+    assert restarted.get_printer("zebra-1")["control"] == {
+        "paused": True,
+        "reason": "Operator maintenance",
+        "updated_at": repository.get_printer("zebra-1")["control"]["updated_at"],
+    }
 
 
 @pytest.mark.parametrize("workers", [0, 65])

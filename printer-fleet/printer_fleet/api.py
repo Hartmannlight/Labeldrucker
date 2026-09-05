@@ -14,7 +14,14 @@ from pydantic import BaseModel, Field
 import yaml
 
 from .auth import BearerCredentialAuthenticator, FleetAuthenticator, FleetPrincipal
-from .domain import DeliveryConflict, FleetError, PrintArtifact, RegistryConflict
+from .domain import (
+    DeliveryConflict,
+    DeliveryState,
+    FleetError,
+    PrinterPaused,
+    PrintArtifact,
+    RegistryConflict,
+)
 from .discovery import AgentDiscoveryService
 from .repository import FleetRepository
 from .service import DeliveryService
@@ -39,6 +46,10 @@ class DeliveryRequest(BaseModel):
 class PrinterPatchRequest(BaseModel):
     revision: int = Field(ge=1)
     settings: dict[str, Any]
+
+
+class PausePrinterRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class AgentDiscoveryRequest(BaseModel):
@@ -253,6 +264,25 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/v1/printers/{printer_id}/pause")
+    def pause_printer(
+        printer_id: str,
+        payload: PausePrinterRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        scoped_printer(request, printer_id, "admin")
+        try:
+            return catalog_view(
+                repo.set_printer_paused(printer_id, paused=True, reason=payload.reason)
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/v1/printers/{printer_id}/resume")
+    def resume_printer(printer_id: str, request: Request) -> dict[str, Any]:
+        scoped_printer(request, printer_id, "admin")
+        return catalog_view(repo.set_printer_paused(printer_id, paused=False))
+
     @app.get("/v1/printers/{printer_id}/status")
     def get_printer_status(printer_id: str, request: Request) -> dict[str, Any]:
         operation_owner: str | None = None
@@ -334,10 +364,41 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"Not found: {exc.args[0]}") from None
         except DeliveryConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except PrinterPaused as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except (ValueError, FleetError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    @app.get("/v1/deliveries")
+    def list_deliveries(
+        request: Request,
+        printer_id: str | None = None,
+        state: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        principal = require_roles(request, "observer", "submitter")
+        if limit < 1 or limit > 500:
+            raise HTTPException(status_code=422, detail="limit must be between 1 and 500")
+        if state is not None and state not in {item.value for item in DeliveryState}:
+            raise HTTPException(status_code=422, detail="Unknown delivery state")
+        if printer_id:
+            scoped_printer(request, printer_id, "observer", "submitter")
+        allowed_printer_ids = None
+        if "*" not in principal.sites:
+            allowed_printer_ids = {
+                str(printer["id"])
+                for printer in repo.list_printers()
+                if principal.allows_site(str(printer.get("site_id") or "default"))
+            }
+        deliveries = repo.list_deliveries(
+            printer_id=printer_id,
+            printer_ids=allowed_printer_ids,
+            state=state,
+            limit=limit,
+        )
+        return deliveries
 
     @app.get("/v1/deliveries/{delivery_id}")
     def get_delivery(delivery_id: str, request: Request) -> dict[str, Any]:

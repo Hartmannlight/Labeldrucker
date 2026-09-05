@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
-from .domain import DeliveryState, FleetError, PrintArtifact
+from .domain import DeliveryState, FleetError, PrinterPaused, PrintArtifact
 from .drivers import DriverRegistry
 from .repository import FleetRepository
 from .transports import TransportRegistry
@@ -48,6 +48,8 @@ class DeliveryService:
         printer = self.repository.get_printer(printer_id)
         if not printer.get("enabled", True):
             raise ValueError("Printer is disabled")
+        if (printer.get("control") or {}).get("paused", False):
+            raise PrinterPaused("Printer queue is paused")
         request_hash = hashlib.sha256(
             json.dumps(
                 {

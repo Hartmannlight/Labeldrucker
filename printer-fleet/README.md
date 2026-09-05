@@ -58,6 +58,13 @@ transmitting instead of risking command bytes being interleaved with a print
 stream. Only the lease owner can release it, and abandoned leases expire after
 a bounded interval.
 
+Operators can persistently pause and resume an individual printer queue through
+`POST /v1/printers/{id}/pause` and `POST /v1/printers/{id}/resume`. Pausing
+rejects new submissions and leaves already queued work untouched until resume;
+it does not claim to recall a job that may already be in flight at the physical
+device. The pause reason and timestamp are exposed in the printer's `control`
+object and survive service restarts.
+
 The `print_agent` transport is the vendor-neutral successor to the compatible
 `zebra_tamer` alias. It forwards device payloads and a stable idempotency key to
 an edge agent. Direct Ethernet printers remain connected to Fleet itself and do
@@ -66,7 +73,8 @@ not require an agent.
 Important API groups:
 
 - `/v1/printers` owns the physical catalog and revision-checked configuration.
-- `/v1/deliveries` durably accepts immutable artifacts and exposes state history.
+- `/v1/deliveries` durably accepts immutable artifacts and exposes site-scoped,
+  filterable state history (`printer_id`, `state`, and a bounded `limit`).
 - `/v1/agents` discovers and registers devices reachable through PrintAgent.
 - `/v1/printer-registry/import` performs an atomic add-only configuration import.
 
@@ -108,5 +116,6 @@ python -m printer_fleet.backup restore \
 
 Restore verifies the manifest and SQLite integrity before atomically creating
 the target. It never overwrites an existing database. Fleet records an explicit
-schema version and refuses databases created by newer software rather than
-silently downgrading them.
+schema version, migrates version 1 databases forward to version 2 with
+persistent printer controls, and refuses databases created by newer software
+rather than silently downgrading them.

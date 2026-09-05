@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
-from typing import Any, Iterator, Mapping
+from typing import Any, Collection, Iterator, Mapping
 import uuid
 
 from .configuration import normalize_printer
 from .domain import DeliveryConflict, DeliveryState, RegistryConflict
 
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def _now() -> str:
@@ -116,6 +116,12 @@ class FleetRepository:
                     kind TEXT NOT NULL,
                     acquired_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS printer_controls (
+                    printer_id TEXT PRIMARY KEY REFERENCES printers(id) ON DELETE CASCADE,
+                    paused INTEGER NOT NULL DEFAULT 0,
+                    reason TEXT,
+                    updated_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS audit_records (
                     id TEXT PRIMARY KEY,
@@ -296,8 +302,10 @@ class FleetRepository:
         with self._connection() as db:
             row = db.execute(
                 """SELECT p.payload_json, p.revision, o.media_json, o.alignment_json,
-                          o.capabilities_json, o.source, o.observed_at
+                          o.capabilities_json, o.source, o.observed_at,
+                          c.paused, c.reason AS pause_reason, c.updated_at AS control_updated_at
                    FROM printers p LEFT JOIN printer_observations o ON o.printer_id = p.id
+                   LEFT JOIN printer_controls c ON c.printer_id = p.id
                    WHERE p.id = ?""",
                 (printer_id,),
             ).fetchone()
@@ -318,7 +326,36 @@ class FleetRepository:
                 "source": row["source"],
                 "observed_at": row["observed_at"],
             }
+        if "paused" in row.keys():
+            printer["control"] = {
+                "paused": bool(row["paused"]) if row["paused"] is not None else False,
+                "reason": row["pause_reason"],
+                "updated_at": row["control_updated_at"],
+            }
         return printer
+
+    def set_printer_paused(
+        self,
+        printer_id: str,
+        *,
+        paused: bool,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        self.get_printer(printer_id)
+        normalized_reason = str(reason).strip() if reason is not None else None
+        if normalized_reason and len(normalized_reason) > 500:
+            raise ValueError("Pause reason must not exceed 500 characters")
+        now = _now()
+        with self._connection() as db:
+            db.execute(
+                """INSERT INTO printer_controls(printer_id, paused, reason, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(printer_id) DO UPDATE SET
+                       paused=excluded.paused, reason=excluded.reason,
+                       updated_at=excluded.updated_at""",
+                (printer_id, int(paused), normalized_reason if paused else None, now),
+            )
+        return self.get_printer(printer_id)
 
     @staticmethod
     def _delivery(row: sqlite3.Row) -> dict[str, Any]:
@@ -579,7 +616,9 @@ class FleetRepository:
                    SELECT pending.id
                    FROM pending
                    JOIN deliveries current ON current.id = pending.id
+                   LEFT JOIN printer_controls control ON control.printer_id = pending.printer_id
                    WHERE pending.printer_position = 1
+                     AND COALESCE(control.paused, 0) = 0
                      AND (current.next_attempt_at IS NULL OR current.next_attempt_at <= ?)
                      AND NOT EXISTS (
                          SELECT 1 FROM deliveries active
@@ -598,6 +637,38 @@ class FleetRepository:
                 ),
             ).fetchall()
         return [str(row["id"]) for row in rows]
+
+    def list_deliveries(
+        self,
+        *,
+        printer_id: str | None = None,
+        printer_ids: Collection[str] | None = None,
+        state: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        if printer_id:
+            clauses.append("printer_id = ?")
+            parameters.append(printer_id)
+        elif printer_ids is not None:
+            allowed = sorted(set(printer_ids))
+            if not allowed:
+                return []
+            clauses.append(f"printer_id IN ({','.join('?' for _ in allowed)})")
+            parameters.extend(allowed)
+        if state:
+            clauses.append("state = ?")
+            parameters.append(state)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        parameters.append(limit)
+        with self._connection() as db:
+            rows = db.execute(
+                f"""SELECT * FROM deliveries {where}
+                    ORDER BY created_at DESC, id DESC LIMIT ?""",
+                parameters,
+            ).fetchall()
+        return [self._delivery(row) for row in rows]
 
     def recover_interrupted_deliveries(self) -> int:
         """Fail closed when a crash makes the physical outcome unknowable."""

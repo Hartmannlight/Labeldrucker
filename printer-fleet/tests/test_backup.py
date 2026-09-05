@@ -7,6 +7,7 @@ import pytest
 
 from printer_fleet.backup import create_backup, restore_backup, verify_backup
 from printer_fleet.repository import FleetRepository
+from printer_fleet.repository import CURRENT_SCHEMA_VERSION
 
 
 @pytest.fixture
@@ -34,7 +35,7 @@ def test_backup_is_consistent_verifiable_and_restorable(database: Path, tmp_path
     restore_backup(backup, restored, manifest)
 
     assert verified["format"] == "printer-fleet-sqlite-backup-v1"
-    assert verified["schemaVersion"] == 1
+    assert verified["schemaVersion"] == CURRENT_SCHEMA_VERSION
     assert verified["counts"]["printers"] == 1
     assert FleetRepository(restored).get_printer("zebra-1")["site_id"] == "warehouse"
 

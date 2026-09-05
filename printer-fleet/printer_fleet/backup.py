@@ -20,6 +20,7 @@ REQUIRED_TABLES = {
     "agent_devices",
     "printer_observations",
     "printer_operation_leases",
+    "printer_controls",
     "audit_records",
 }
 

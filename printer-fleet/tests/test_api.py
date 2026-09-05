@@ -256,6 +256,61 @@ def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, mon
             },
         )
         assert accepted.status_code == 202
+        paris = client.post(
+            "/v1/deliveries",
+            headers=headers("global-admin-token"),
+            json={
+                "printer_id": "paris-zebra",
+                "idempotency_key": "scoped/paris",
+                "artifact": {
+                    "mime_type": "application/zpl",
+                    "payload_base64": base64.b64encode(payload).decode("ascii"),
+                    "checksum": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                },
+            },
+        )
+        assert paris.status_code == 202
+        visible_deliveries = client.get(
+            "/v1/deliveries?limit=1&state=transport_accepted",
+            headers=headers("berlin-submit-token"),
+        )
+        assert visible_deliveries.status_code == 200
+        assert [item["printer_id"] for item in visible_deliveries.json()] == ["berlin-zebra"]
+        assert client.get(
+            "/v1/deliveries?state=not-a-state",
+            headers=headers("berlin-submit-token"),
+        ).status_code == 422
+        assert client.get(
+            "/v1/deliveries?printer_id=paris-zebra",
+            headers=headers("berlin-submit-token"),
+        ).status_code == 404
+
+        paused = client.post(
+            "/v1/printers/berlin-zebra/pause",
+            headers=headers("berlin-admin-token"),
+            json={"reason": "Label roll replacement"},
+        )
+        assert paused.status_code == 200
+        assert paused.json()["control"]["paused"] is True
+        assert paused.json()["control"]["reason"] == "Label roll replacement"
+        rejected_while_paused = client.post(
+            "/v1/deliveries",
+            headers=headers("berlin-submit-token"),
+            json={
+                "printer_id": "berlin-zebra",
+                "idempotency_key": "scoped/paused",
+                "artifact": {
+                    "mime_type": "application/zpl",
+                    "payload_base64": base64.b64encode(payload).decode("ascii"),
+                    "checksum": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                },
+            },
+        )
+        assert rejected_while_paused.status_code == 409
+        assert client.post(
+            "/v1/printers/berlin-zebra/resume",
+            headers=headers("berlin-admin-token"),
+        ).json()["control"]["paused"] is False
         assert client.post(
             "/v1/deliveries",
             headers=headers("berlin-submit-token"),

@@ -56,6 +56,10 @@ class RegistryConflict(FleetError):
     pass
 
 
+class PrinterPaused(FleetError):
+    pass
+
+
 class UnsupportedDriver(FleetError):
     pass
 
