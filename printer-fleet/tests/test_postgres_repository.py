@@ -76,7 +76,7 @@ def test_postgres_preserves_registry_queue_lease_and_event_contracts():
             artifact_payload=b"different", artifact_description="conflict", max_attempts=3,
         )
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = "2026-09-05T12:00:00+00:00"
     assert repository.claim_delivery(second["id"], now=now) is None
     claimed = repository.claim_delivery(first["id"], now=now)
     assert claimed and claimed["_artifact_payload"].startswith(b"^XA")

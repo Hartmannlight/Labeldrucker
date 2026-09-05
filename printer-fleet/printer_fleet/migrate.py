@@ -126,7 +126,8 @@ def migrate_sqlite_to_postgres(source: Path, database_url: str) -> dict[str, Any
                     sql.SQL(", ").join(sql.Placeholder() for _ in columns),
                 )
                 if source_rows[table]:
-                    target_db.executemany(insert, source_rows[table])
+                    with target_db.cursor() as cursor:
+                        cursor.executemany(insert, source_rows[table])
             target_db.execute(
                 """SELECT setval(
                        pg_get_serial_sequence('delivery_events', 'sequence'),
