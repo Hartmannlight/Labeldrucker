@@ -13,6 +13,20 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15@sha256:9b1d34adbce1dd07ee6e94b4a2cf698884b89bd44a6c9c12f5da8f3acbfe4957
+        env:
+          POSTGRES_USER: printer_fleet
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: printer_fleet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U printer_fleet -d printer_fleet_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -20,6 +34,7 @@ jobs:
       - name: Test root-owned services and release policy
         env:
           PYTHONPATH: printer-fleet
+          PRINTER_FLEET_TEST_POSTGRES_URL: postgresql://printer_fleet:test-only@127.0.0.1:5432/printer_fleet_test
         run: |
           python3 -m venv .venv
           .venv/bin/pip install -r printer-fleet/requirements-dev.txt

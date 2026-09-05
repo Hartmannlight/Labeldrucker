@@ -24,7 +24,8 @@ from .domain import (
 )
 from .discovery import AgentDiscoveryService
 from .maintenance import PrinterMaintenanceService
-from .repository import FleetRepository
+from .composition import repository_from_environment
+from .ports import FleetRepositoryPort
 from .service import DeliveryService
 from .worker import AgentDiscoveryWorker, DeliveryWorker
 from .status import PrinterStatusService
@@ -63,10 +64,10 @@ class AgentPrinterRegistrationRequest(BaseModel):
 
 
 def create_app(
-    repository: FleetRepository | None = None,
+    repository: FleetRepositoryPort | None = None,
     authenticator: FleetAuthenticator | None = None,
 ) -> FastAPI:
-    repo = repository or FleetRepository(os.getenv("PRINTER_FLEET_DATABASE", "/data/fleet.sqlite3"))
+    repo = repository or repository_from_environment()
     auth = authenticator or BearerCredentialAuthenticator.from_environment()
     service = DeliveryService(
         repo,

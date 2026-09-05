@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol
+from typing import Any, Collection, Mapping, Protocol
 
 from .domain import DeliveryState, DevicePayload, PrintArtifact, TransportReceipt
 
@@ -83,3 +83,52 @@ class AgentRepository(Protocol):
         capabilities: Mapping[str, Any],
         source: str,
     ) -> dict[str, Any]: ...
+
+
+class FleetRepositoryPort(DeliveryRepository, AgentRepository, Protocol):
+    """Complete persistence contract used by the Fleet composition root."""
+
+    def initialize(self) -> None: ...
+
+    def recover_interrupted_deliveries(self) -> int: ...
+
+    def list_printers(self) -> list[dict[str, Any]]: ...
+
+    def export_printers(self) -> dict[str, Any]: ...
+
+    def import_printers(self, document: Mapping[str, Any]) -> None: ...
+
+    def patch_printer(
+        self, printer_id: str, settings: Mapping[str, Any], expected_revision: int
+    ) -> dict[str, Any]: ...
+
+    def set_printer_paused(
+        self, printer_id: str, *, paused: bool, reason: str | None = None
+    ) -> dict[str, Any]: ...
+
+    def acquire_printer_operation(
+        self, printer_id: str, *, kind: str, lease_seconds: float = 300
+    ) -> str | None: ...
+
+    def list_deliveries(
+        self,
+        *,
+        printer_id: str | None = None,
+        printer_ids: Collection[str] | None = None,
+        state: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]: ...
+
+    def append_audit_record(
+        self,
+        *,
+        correlation_id: str,
+        actor: str,
+        method: str,
+        path: str,
+        status_code: int,
+    ) -> None: ...
+
+    def list_audit_records(self, *, limit: int = 100) -> list[dict[str, Any]]: ...
+
+    def metrics_snapshot(self) -> dict[str, Any]: ...

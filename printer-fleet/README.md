@@ -106,12 +106,13 @@ and [media calibration reference](https://docs.zebra.com/us/en/printers/software
 This directory incubates an independently deployable service. It is intended
 to become its own repository once its v1 contract is stable.
 
-Delivery orchestration and PrintAgent discovery depend on the structural
-`DeliveryRepository` and `AgentRepository` ports, not on SQLite. The API module
-is the composition root that currently selects `FleetRepository` as its local,
-single-node adapter. A future PostgreSQL adapter must preserve the same atomic
-idempotency, per-printer claim, operation-lease and ordered-event guarantees;
-changing storage must not change the HTTP or driver contracts.
+Delivery orchestration and PrintAgent discovery depend on structural repository
+ports, not on a concrete database. The API composition root selects SQLite
+through `PRINTER_FLEET_DATABASE` or PostgreSQL through
+`PRINTER_FLEET_DATABASE_URL` / `_FILE`. SQLite is the compact single-node
+option; PostgreSQL is the production option. Both preserve atomic idempotency,
+oldest-job-per-printer claims, operation leases and ordered events without
+changing the HTTP or driver contracts.
 
 ## Backup and restore
 
@@ -145,3 +146,28 @@ the target. It never overwrites an existing database. Fleet records an explicit
 schema version, migrates version 1 databases forward to version 2 with
 persistent printer controls, and refuses databases created by newer software
 rather than silently downgrading them.
+
+## PostgreSQL production and SQLite cutover
+
+Production Compose uses a dedicated `fleet-postgres` database with separate
+ownership from Thingdex. Its URL and password are mounted as deployment
+secrets. Fleet serializes schema initialization with a PostgreSQL advisory lock
+and refuses schemas created by newer software.
+
+For an existing SQLite installation, stop every Fleet API/worker process before
+cutover. Point the migration at an empty PostgreSQL Fleet schema; the command
+holds the SQLite writer lock, imports every authoritative table in one target
+transaction, compares row counts and SHA-256 content fingerprints, and commits
+only after verification succeeds:
+
+```sh
+python -m printer_fleet.migrate \
+  --source /data/fleet.sqlite3 \
+  --target-url-file /run/secrets/printer_fleet_database_url
+```
+
+The tool refuses non-current SQLite schemas and non-empty targets. Keep the
+source backup until the new deployment has passed its acceptance window; do
+not enable dual writes. PostgreSQL backups use the normal platform tooling,
+for example `pg_dump --format=custom`, and must be restore-tested on an
+independent database on the operator's backup schedule.

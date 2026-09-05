@@ -247,8 +247,9 @@ YAML-Datei ist danach kein Laufzeitspeicher mehr.
 
 ## Zentrale Druckerverwaltung und Migration
 
-PrinterFleet verwaltet Drucker und physische Zustellungen in
-`/data/fleet.sqlite3` im eigenen `printer_fleet_data`-Volume. PrintHub behält
+PrinterFleet verwaltet Drucker und physische Zustellungen. Das lokale
+Quellcodeprofil nutzt `/data/fleet.sqlite3`; das Produktionsprofil nutzt eine
+eigene PostgreSQL-Datenbank mit eigenem Benutzer und Volume. PrintHub behält
 vorübergehend seine bisherige Registry als Kompatibilitätsfassade für alte
 Studio-/SDK-Endpunkte; neue Katalogabfragen und Druckzustellungen laufen bereits
 über PrinterFleet. Diese Übergangsphase vermeidet einen nicht rückrollbaren
@@ -374,5 +375,7 @@ Eine Agent-URL konfiguriert nur die Discovery, nicht automatisch Drucker.
   Erzeugen und Versenden von ZPL nicht erforderlich.
 - `TZ`: Zeitzone für zeitabhängige Template-Makros.
 
-In dieser Konfiguration existieren bewusst weder `DATABASE_URL` noch
-PostgreSQL-Zugangsdaten. Die SQLite-Registry liegt im vorhandenen Datenvolume.
+Im lokalen Quellcodeprofil existieren bewusst weder `DATABASE_URL` noch
+PostgreSQL-Zugangsdaten. Für das Produktionsprofil werden Fleet-Passwort und
+Fleet-Datenbank-URL getrennt als Dateien eingebunden; Thingdex besitzt weiterhin
+seine eigene Datenbank und kann Fleet-Tabellen weder lesen noch schreiben.

@@ -1,22 +1,43 @@
 name: printhub-production
 
 services:
+  fleet-postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an immutable digest}
+    environment:
+      POSTGRES_USER: printer_fleet
+      POSTGRES_PASSWORD_FILE: /run/secrets/printer_fleet_postgres_password
+      POSTGRES_DB: printer_fleet
+    volumes: [printer_fleet_postgres:/var/lib/postgresql/data]
+    secrets: [printer_fleet_postgres_password]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U printer_fleet -d printer_fleet]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    restart: unless-stopped
+    networks: [print-platform]
+
   printer-fleet:
     image: ${PRINTER_FLEET_IMAGE:?Set PRINTER_FLEET_IMAGE to an immutable digest}
     environment:
-      PRINTER_FLEET_DATABASE: /data/fleet.sqlite3
+      PRINTER_FLEET_DATABASE_URL_FILE: /run/secrets/printer_fleet_database_url
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
       PRINTER_FLEET_DELIVERY_WORKER_ENABLED: ${PRINTER_FLEET_DELIVERY_WORKER_ENABLED:-1}
       PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
       PRINTER_FLEET_CREDENTIALS_FILE: /run/secrets/printer_fleet_credentials
-    volumes: [printer_fleet_data:/data]
-    secrets: [printer_fleet_credentials]
+    secrets: [printer_fleet_credentials, printer_fleet_database_url]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 256
     mem_limit: 512m
+    depends_on:
+      fleet-postgres: {condition: service_healthy}
     restart: unless-stopped
     networks: [print-platform]
 
@@ -87,12 +108,16 @@ networks:
   print-platform:
 
 secrets:
+  printer_fleet_postgres_password:
+    file: ${PRINTER_FLEET_POSTGRES_PASSWORD_SOURCE:?Set PRINTER_FLEET_POSTGRES_PASSWORD_SOURCE}
+  printer_fleet_database_url:
+    file: ${PRINTER_FLEET_DATABASE_URL_SOURCE:?Set PRINTER_FLEET_DATABASE_URL_SOURCE}
   printer_fleet_credentials:
     file: ${PRINTER_FLEET_CREDENTIALS_SOURCE:?Set PRINTER_FLEET_CREDENTIALS_SOURCE}
   printhub_fleet_token:
     file: ${PRINTHUB_FLEET_TOKEN_SOURCE:?Set PRINTHUB_FLEET_TOKEN_SOURCE}
 
 volumes:
-  printer_fleet_data:
+  printer_fleet_postgres:
   printhub_data:
   ipp_spool:

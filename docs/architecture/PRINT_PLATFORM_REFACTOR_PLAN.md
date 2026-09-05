@@ -593,6 +593,25 @@ independent retry loops from producing duplicate labels.
   PostgreSQL adapter and an automated migration rehearsal still need to pass the
   same repository contract suite.
 
+### 2026-09-05: PostgreSQL Fleet implementation
+
+- The composition root now selects SQLite for compact local deployments or a
+  dedicated PostgreSQL adapter from an inline/file-backed database URL. The
+  complete API depends on `FleetRepositoryPort`, not either adapter class.
+- PostgreSQL initialization is versioned and advisory-lock serialized. Queue
+  creation uses atomic conflict handling; claims use row locks plus the durable
+  per-printer lease, preserving FIFO and excluding overlapping device I/O.
+- The offline cutover copies all Fleet-owned tables from a current SQLite
+  database into an empty PostgreSQL target in one transaction. Counts and
+  canonical SHA-256 fingerprints are compared before commit; indefinite dual
+  writes are deliberately unsupported.
+- CI now provisions PostgreSQL and exercises registry revisions, pause state,
+  concurrent idempotency, FIFO claims, ordered events, leases and the complete
+  SQLite-to-PostgreSQL migration rehearsal. Production Compose gives Fleet a
+  database and credentials separate from Thingdex.
+- Action 9 remains open until this PostgreSQL suite and the production container
+  gate have passed remotely and backup/restore operations are rehearsed.
+
 ### 2026-09-05: Allowlisted Zebra maintenance
 
 - Fleet now owns an explicit driver-scoped maintenance service instead of
