@@ -220,6 +220,21 @@ def test_production_print_agent_is_an_immutable_build_free_edge_overlay() -> Non
     ] == "http://print-agent:8080"
 
 
+def test_production_postgres_keeps_only_entrypoint_capabilities() -> None:
+    standalone = yaml.safe_load(
+        (ROOT / "deploy" / "compose.standalone.yaml").read_text(encoding="utf-8")
+    )["services"]["fleet-postgres"]
+    integrated = yaml.safe_load(
+        (ROOT / "deploy" / "compose.integrated.yaml").read_text(encoding="utf-8")
+    )["services"]["postgres"]
+    expected = ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
+
+    for database in (standalone, integrated):
+        assert database["cap_drop"] == ["ALL"]
+        assert database["cap_add"] == expected
+        assert database["security_opt"] == ["no-new-privileges:true"]
+
+
 def test_ipp_hostname_maps_both_loopbacks_in_source_and_production() -> None:
     source = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))[
         "services"

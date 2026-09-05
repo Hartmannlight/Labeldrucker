@@ -15,6 +15,7 @@ services:
       timeout: 5s
       retries: 12
     cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
     security_opt: [no-new-privileges:true]
     pids_limit: 256
     mem_limit: 1g

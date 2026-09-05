@@ -223,7 +223,7 @@ independent retry loops from producing duplicate labels.
     runtime protocol aliases after their consumers have migrated.
   - [x] Publish candidate multi-architecture images with SBOM and provenance
     attestations for both supported CPU architectures.
-  - [x] Resolve and record the exact candidate revision, component revisions
+  - [ ] Resolve and record the exact candidate revision, component revisions
     and immutable image digests that will undergo physical qualification.
   - [ ] Recreate the deployed stack from those candidate artifacts and repeat
     the public catalog, maintenance serialization and known-good Zebra
