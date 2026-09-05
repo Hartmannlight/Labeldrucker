@@ -188,7 +188,7 @@ independent retry loops from producing duplicate labels.
 - [x] 6. Thin the IPP gateway so it only advertises capabilities, receives
   documents, maps IPP tickets and reports PrintHub state. Move PDF/PostScript
   policy and raster decisions into PrintHub.
-- [x] 7. Replace Thingdex synchronous label calls with a transactional outbox,
+- [ ] 7. Replace Thingdex synchronous label calls with a transactional outbox,
   idempotent PrintHub connector and replay-safe status inbox. Remove every
   direct ZebraTamer/PrintAgent to Thingdex dependency.
 - [ ] 8. Replace production sibling builds and Git submodules with signed,
@@ -331,7 +331,8 @@ independent retry loops from producing duplicate labels.
   bounded attempt budget rather than creating a second logical intent.
 - PrintHub status updates enter Thingdex through an HMAC-authenticated,
   replay-safe inbox with immutable event IDs and monotonically increasing
-  sequences. PrintAgent has no Thingdex dependency.
+  sequences. PrintAgent has no Thingdex dependency. A durable PrintHub event
+  outbox still has to be connected before this action is complete.
 - Print intent administration is a fail-closed bearer-protected API and omits
   the captured variable payload from its responses.
 - The PrintHub OpenAPI export now resolves the checked-out application rather
