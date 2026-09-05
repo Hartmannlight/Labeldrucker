@@ -651,3 +651,15 @@ independent retry loops from producing duplicate labels.
 - This starts action 10. Automated release gates still need the full cross-repo
   contract matrix, removal of migration-only aliases, and recorded real-device
   acceptance before the first stable release.
+
+### 2026-09-05: Cross-component integration gate
+
+- A dedicated Linux workflow checks out the exact submodule revisions and builds
+  the complete source platform rather than smoke-testing images in isolation.
+- The gate uses CUPS `ipptool` to inspect driverless capabilities, sends a real
+  50 x 50 mm PDF through IPP, and verifies PrintHub's durable document job.
+- It then proves that an A4 page is held without transmission, explicitly
+  releases the same job with `fit`, and requires both payloads to arrive through
+  PrinterFleet at the RAW-9100 Zebra emulator.
+- Failure output is limited to container state; unfiltered application logs are
+  not uploaded. Real-device and agent-disconnect acceptance remain manual gates.

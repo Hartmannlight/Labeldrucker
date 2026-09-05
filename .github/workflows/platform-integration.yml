@@ -1,0 +1,67 @@
+name: Platform Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cups-to-raw-tcp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Build and start the pinned source platform
+        run: docker compose up --build --detach --wait --wait-timeout 240
+      - name: Verify advertised driverless IPP capabilities
+        run: >-
+          docker compose exec -T ipp-gateway
+          ipptool -t ipp://127.0.0.1:8631/ipp/print
+          /usr/share/cups/ipptool/get-printer-attributes.test
+      - name: Submit a label-sized PDF through IPP
+        run: |
+          docker compose cp ipp-gateway/tests/print-job.test ipp-gateway:/tmp/print-job.test
+          docker compose cp ipp-gateway/tests/fixtures/label-50mm.pdf ipp-gateway:/tmp/label-50mm.pdf
+          docker compose exec -T ipp-gateway ipptool -t -f /tmp/label-50mm.pdf ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
+          curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs |
+            jq --exit-status '.[0] | .source_kind == "document" and .status == "sent" and .bytes_sent > 0'
+      - name: Hold and explicitly release an A4-to-label mismatch
+        run: |
+          docker compose cp ipp-gateway/tests/fixtures/a4.pdf ipp-gateway:/tmp/a4.pdf
+          docker compose exec -T ipp-gateway ipptool -t -f /tmp/a4.pdf ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
+          job_id="$(curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs | jq --raw-output '.[0].id')"
+          curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs/"$job_id" |
+            jq --exit-status '.status == "held" and .bytes_sent == null and (.warning | contains("210") and contains("297") and contains("50"))'
+          curl --fail --silent --show-error --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"scaling":"fit"}' \
+            http://127.0.0.1:8001/v1/print-jobs/"$job_id"/release |
+            jq --exit-status '.status == "sent" and .bytes_sent > 0'
+      - name: Verify Fleet delivered jobs to the RAW-9100 emulator
+        run: |
+          deadline=$((SECONDS + 30))
+          while (( SECONDS < deadline )); do
+            if curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq --exit-status 'length >= 2' >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Expected at least two jobs in the virtual Zebra" >&2
+          exit 1
+      - name: Show container state on failure
+        if: failure()
+        run: docker compose ps --all
+      - name: Stop integration platform
+        if: always()
+        run: docker compose down --volumes --remove-orphans

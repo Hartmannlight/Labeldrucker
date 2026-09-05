@@ -4,6 +4,10 @@ Diese Tests sprechen den tatsächlich laufenden `ippeveprinter`, die PrintHub-
 API und den virtuellen Zebra-Drucker an. Sie sind damit mehr als Unit-Tests der
 Konvertierungsfunktionen.
 
+Der Workflow `.github/workflows/platform-integration.yml` führt denselben
+Kernpfad bei jedem `main`-Push und Pull Request unter Linux mit den exakt im
+Hauptrepository fixierten Submodule-Commits aus.
+
 ## Voraussetzungen
 
 Die vier Submodule unter `components/` sind wie in der Haupt-README beschrieben
