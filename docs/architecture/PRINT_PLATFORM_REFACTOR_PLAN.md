@@ -925,3 +925,8 @@ independent retry loops from producing duplicate labels.
   prevents accidental size or script changes, while the manual checklist binds
   Chrome's dialog, one physical label and the three downstream job IDs into one
   reproducible acceptance result.
+- The installed Chrome engine rendered that fixture to exactly one PDF page at
+  approximately 50.12 x 25.06 mm. Visual inspection at 203 dpi found no
+  clipping, overlap or extra page. This closes browser layout preflight only;
+  the Windows print ticket and physical queue path still require the manual
+  dialog test.

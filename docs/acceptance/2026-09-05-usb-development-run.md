@@ -205,3 +205,13 @@ active print configuration, but its PowerShell print API did not expose the
 custom media or resolution capabilities. Because the available browser-control
 session cannot access the installed Google Chrome instance, no print was sent
 from Chrome and `cups_browser` remains unpassed.
+
+As a non-printing browser preflight, the installed Google Chrome rendered the
+versioned `chrome-label-50x25.html` fixture headlessly. The resulting PDF had
+exactly one 142.08 x 71.04 pt page, approximately 50.12 x 25.06 mm. The maximum
+difference from the CSS dimensions is about one dot at 203 dpi. A 203-dpi PNG
+render was visually checked: the outer border, `CHROME IPP`, `50 x 25 mm` and
+`ONE PAGE` were complete with no clipping, overlap or second page. The temporary
+PDF and PNG were removed after inspection. This proves Chrome's document layout
+only; it does not prove Windows print-ticket capability display, spooler
+conversion or physical delivery, so `cups_browser` remains open.
