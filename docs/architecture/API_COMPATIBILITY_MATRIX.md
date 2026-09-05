@@ -25,7 +25,6 @@ Adding a driver must not change the Thingdex, IPP or PrintHub contracts.
 
 | Compatibility surface | Replacement | Known consumers | Removal gate |
 | --- | --- | --- | --- |
-| PrintHub printer CRUD, registry import/export and ZebraTamer discovery routes | PrinterFleet API plus the separately deployed Fleet Console | no pinned first-party consumer; retained for the next compatibility-removal release only | Fleet Console, Studio and SDK release gates pass at their pinned revisions |
 | PrintHub `LegacyFleetAdapter` and local writable printer registry | `HttpPrinterFleetAdapter` | compact source profile and rollback baseline | migration/export acceptance passes and every supported deployment includes PrinterFleet |
 | `zebra_tamer` connection protocol and `_zpl-agent._tcp` discovery name | `print_agent` and `_print-agent._tcp` | existing agent installations and stored registries | PrintAgent migration tool rewrites configuration and the release matrix contains no legacy agent |
 | `raw9100` protocol name | `raw_tcp` with default port 9100 | existing PrintHub registry exports and examples | registry migration rewrites every stored route and rollback no longer consumes the old format |
@@ -36,10 +35,15 @@ may remain as document-domain conveniences. They must return Fleet snapshots and
 must never regain endpoint addresses, device credentials, discovery or physical
 retry ownership.
 
-Retired on 2026-09-05: direct
-`POST /v1/printers/{id}/prints/template` submission. Thingdex, Studio and the SDK
-now create durable `/v1/print-jobs`; inline Studio drafts are immutable job
-snapshots.
+Retired on 2026-09-05:
+
+- Direct `POST /v1/printers/{id}/prints/template` submission. Thingdex, Studio
+  and the SDK now create durable `/v1/print-jobs`; inline Studio drafts are
+  immutable job snapshots.
+- PrintHub printer mutation, registry import/export, ZebraTamer discovery,
+  device status and raw-ZPL submission. Fleet Console and the PrinterFleet API
+  now own those workflows; PrintHub's Fleet adapter exposes only catalog reads
+  and immutable artifact delivery.
 
 ## Stable-release gate
 

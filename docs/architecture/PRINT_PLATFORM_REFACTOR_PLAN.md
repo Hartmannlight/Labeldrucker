@@ -735,8 +735,20 @@ independent retry loops from producing duplicate labels.
   snapshots. An architecture test prevents reintroduction of PrintHub printer
   administration methods.
 - Source builds, Studio and SDK tests, production Compose validation and a
-  non-root Studio container smoke test pass locally. The migration-only PrintHub
-  administration routes now have no pinned first-party caller and can be
-  removed after these component revisions pass their public release gates.
-- Action 10 remains open for that route removal, the deliberate stable breaking
-  release and recorded Zebra, serial-bridge and PrintAgent hardware acceptance.
+  non-root Studio container smoke test pass locally. The matching Studio
+  container release, CodeQL and SDK CI gates also pass publicly.
+- After those consumer gates passed, PrintHub removed printer mutation,
+  registry import/export, ZebraTamer discovery, device-status and raw-ZPL
+  routes from its public OpenAPI contract. Its Fleet port now contains only
+  read-only capability snapshots and immutable artifact delivery. The complete
+  PrintHub suite reports 127 passed tests and the built non-root container
+  returns 404 for the retired route.
+- Public verification passed in the
+  [Studio Container Release](https://github.com/Hartmannlight/LabelArchitect/actions/runs/33956046157),
+  [PrintHub Container Release](https://github.com/Hartmannlight/PrintHub-ZPL-ll/actions/runs/33956650624),
+  [PrintHub CodeQL](https://github.com/Hartmannlight/PrintHub-ZPL-ll/actions/runs/33956650185),
+  [SDK CI](https://github.com/Hartmannlight/printhub-sdk/actions/runs/33956626803)
+  and [SDK CodeQL](https://github.com/Hartmannlight/printhub-sdk/actions/runs/33956626838)
+  runs.
+- Action 10 remains open for the deliberate stable breaking release and recorded
+  Zebra, serial-bridge and PrintAgent hardware acceptance.
