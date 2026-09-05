@@ -137,6 +137,7 @@ services:
     environment:
       APP_BACKEND_API_BASE: /api
       APP_RENDER_API_BASE: /api
+      APP_FLEET_CONSOLE_BASE: http://localhost:${PRINTER_FLEET_CONSOLE_PORT:-8089}
       APP_API_UPSTREAM: http://printhub:8000
       APP_LABEL_SIZE_PRESETS: 50x25,40x30,20x10,50x50,50x30,30x20,72x26
     ports:

@@ -719,3 +719,24 @@ independent retry loops from producing duplicate labels.
   still needs replacement by Fleet Console, remaining aliases require a stable
   breaking release, and Zebra, serial-bridge and PrintAgent acceptance must be
   recorded against real hardware.
+
+### 2026-09-05: Fleet Console and Studio boundary cut
+
+- The separately deployable Fleet Console now administers physical printers,
+  direct RAW-9100 and serial-over-TCP endpoints, queues, status, allowlisted
+  maintenance, PrintAgent discovery and the Fleet audit trail. Its operator
+  credential remains browser-memory-only and its same-origin proxy preserves
+  the authorization boundary.
+- PrintHub Studio no longer contains physical discovery, configuration, status
+  or maintenance code. Its former printer screen is now a logical job review
+  screen; old `/#/printers` bookmarks land on `/#/jobs`, and an explicit
+  browser-facing runtime URL opens Fleet Console.
+- The curated PrintHub SDK printer client is restricted to read-only selection
+  snapshots. An architecture test prevents reintroduction of PrintHub printer
+  administration methods.
+- Source builds, Studio and SDK tests, production Compose validation and a
+  non-root Studio container smoke test pass locally. The migration-only PrintHub
+  administration routes now have no pinned first-party caller and can be
+  removed after these component revisions pass their public release gates.
+- Action 10 remains open for that route removal, the deliberate stable breaking
+  release and recorded Zebra, serial-bridge and PrintAgent hardware acceptance.

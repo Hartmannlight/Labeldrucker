@@ -115,6 +115,7 @@ services:
     environment:
       APP_BACKEND_API_BASE: /api
       APP_RENDER_API_BASE: /api
+      APP_FLEET_CONSOLE_BASE: ${PRINTER_FLEET_CONSOLE_PUBLIC_URL:-http://localhost:8089}
       APP_API_UPSTREAM: http://printhub:8000
     ports:
       - ${PRINTHUB_STUDIO_BIND:-127.0.0.1}:${PRINTHUB_STUDIO_PORT:-8088}:80
