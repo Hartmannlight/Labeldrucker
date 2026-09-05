@@ -223,12 +223,31 @@ independent retry loops from producing duplicate labels.
     runtime protocol aliases after their consumers have migrated.
   - [x] Publish candidate multi-architecture images with SBOM and provenance
     attestations for both supported CPU architectures.
-  - [ ] Record independently reviewed acceptance against at least one real
-    Zebra transport for the exact candidate revision. Every transport claimed
-    by the release must have its own passing record.
-  - [ ] Dispatch the stable Compatibility Release using that checked-in
-    hardware record, then verify the signed API/deployment compatibility
-    manifest and its immutable image digests.
+  - [ ] Resolve and record the exact candidate revision, component revisions
+    and immutable image digests that will undergo physical qualification.
+  - [ ] Recreate the deployed stack from those candidate artifacts and repeat
+    the public catalog, maintenance serialization and known-good Zebra
+    baseline checks.
+  - [ ] Exercise queue isolation while the physical Zebra path is unavailable
+    and prove that another printer continues independently and FIFO ordering is
+    retained without duplicate delivery.
+  - [ ] Exercise response-loss idempotency, Agent restart recovery and an
+    in-flight disconnect; record ambiguous transmission honestly as
+    `unconfirmed` and never resend it automatically.
+  - [ ] Change the declared/observed medium and prove that stale capability and
+    preflight data are invalidated before a later job can be released.
+  - [ ] Compare preview and physical output for a label-sized browser PDF, a
+    color/dither fixture and an A4 document that is first held and then
+    deliberately released with `fit`.
+  - [ ] Check in one sanitized, machine-readable hardware acceptance record for
+    every advertised transport, bound to the exact candidate revision and
+    reviewed by a different human from the tester.
+  - [ ] Validate the checked-in record with
+    `scripts/validate_hardware_acceptance.py` and retain the corresponding
+    correlation IDs and immutable evidence links.
+  - [ ] Dispatch the stable Compatibility Release using that checked-in record,
+    then verify the signed API/deployment compatibility manifest and all
+    immutable image digests.
 
 ## Validation gates
 
@@ -810,6 +829,20 @@ independent retry loops from producing duplicate labels.
   candidate images have undergone physical testing.
 - Action 10 remains open only for filling that record with real Zebra evidence
   and intentionally dispatching the first stable compatibility release.
+
+### 2026-09-05: Reproducible PrintAgent release boundary
+
+- Stable-gate review found that a physical `print_agent` qualification could
+  name Agent correlation IDs without binding the Agent executable to an
+  immutable image. The platform bill of materials therefore did not reproduce
+  the complete path it claimed to have tested.
+- PrintAgent now owns a native amd64/arm64 candidate-image gate and immutable
+  container publication in the ZebraTamer repository. Its source revision,
+  digest and owning signer workflow are first-class compatibility-manifest
+  inputs rather than an implicit root submodule detail.
+- A build-free production edge overlay gives only that separately released
+  process the resolved USB device node and read-only configuration. Central
+  PrinterFleet and PrintHub retain no device access.
 
 ### 2026-09-05: Docker Desktop USB hardware path
 

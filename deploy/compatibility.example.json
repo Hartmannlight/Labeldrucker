@@ -34,6 +34,13 @@
         "revision": "${PRINTHUB_SOURCE_REVISION}"
       }
     },
+    "printAgent": {
+      "image": "${PRINT_AGENT_IMAGE}",
+      "source": {
+        "repository": "https://github.com/Hartmannlight/ZebraTamer",
+        "revision": "${PRINT_AGENT_SOURCE_REVISION}"
+      }
+    },
     "printerFleet": {
       "image": "${PRINTER_FLEET_IMAGE}",
       "source": {

@@ -23,6 +23,14 @@ on:
         description: Published PrinterFleet Console image at sha256 digest
         required: true
         type: string
+      print_agent_image:
+        description: Published PrintAgent image at sha256 digest
+        required: true
+        type: string
+      print_agent_revision:
+        description: PrintAgent source commit represented by its image
+        required: true
+        type: string
       ipp_gateway_image:
         description: Published IPP gateway image at sha256 digest
         required: true
@@ -90,6 +98,8 @@ jobs:
           HARDWARE_ACCEPTANCE_PATH: ${{ inputs.hardware_acceptance_path }}
           PRINTER_FLEET_IMAGE: ${{ inputs.printer_fleet_image }}
           PRINTER_FLEET_CONSOLE_IMAGE: ${{ inputs.fleet_console_image }}
+          PRINT_AGENT_IMAGE: ${{ inputs.print_agent_image }}
+          PRINT_AGENT_SOURCE_REVISION: ${{ inputs.print_agent_revision }}
           PRINTHUB_IPP_IMAGE: ${{ inputs.ipp_gateway_image }}
           PRINTHUB_IMAGE: ${{ inputs.printhub_image }}
           PRINTHUB_SOURCE_REVISION: ${{ inputs.printhub_revision }}

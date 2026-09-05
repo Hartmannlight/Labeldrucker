@@ -36,6 +36,22 @@ configured as `serial_over_tcp` with its actual port. Deploy a PrintAgent only
 for USB, Bluetooth, local serial or a site network that is intentionally not
 routable from the central Fleet service.
 
+PrintAgent remains a separate edge process and release artifact even when it
+runs on the same Docker host for a USB acceptance test. Add the build-free edge
+overlay to a production command only at such a site:
+
+```sh
+docker compose --env-file /run/secrets/printhub-release.env \
+  -f deploy/compose.standalone.yaml \
+  -f deploy/compose.print-agent.yaml \
+  --profile ipp up -d
+```
+
+The overlay receives one resolved USB device node, one read-only Agent config
+and a dedicated data volume. A USB reconnect may change the Linux device node;
+resolve it again before recreating the Agent. Neither PrintHub nor PrinterFleet
+gets direct device access.
+
 The production Fleet API and delivery worker are separate processes built from
 the same image and sharing only Fleet's PostgreSQL contract. The API owns the
 catalog and queue interface; the worker owns recovery and physical device I/O.
@@ -92,7 +108,10 @@ builds and smoke-tests native amd64 and arm64 candidates, scans them, exports
 SBOMs, publishes exactly those tested archives, creates a multi-architecture
 index and attaches GitHub build-provenance and SBOM attestations. Immutable
 source/run tags are never overwritten. PrintHub and Studio retain the same
-two-stage release pattern in their owning repositories.
+two-stage release pattern in their owning repositories. PrintAgent is built,
+smoke-tested, scanned and published from its own ZebraTamer repository; the
+platform manifest binds its image digest to that repository's exact source
+revision and signer workflow.
 
 Production IPP deliberately disables mDNS and runs from container start as UID
 10002 with all Linux capabilities dropped. Add its explicit `ipp://` URL to

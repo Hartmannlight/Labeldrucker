@@ -197,6 +197,29 @@ def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
     assert "libusb-1.0-0" in dockerfile
 
 
+def test_production_print_agent_is_an_immutable_build_free_edge_overlay() -> None:
+    profile = yaml.safe_load(
+        (ROOT / "deploy" / "compose.print-agent.yaml").read_text(encoding="utf-8")
+    )
+    agent = profile["services"]["print-agent"]
+    device = agent["devices"][0]
+
+    assert agent["image"] == (
+        "${PRINT_AGENT_IMAGE:?Set PRINT_AGENT_IMAGE to an immutable digest}"
+    )
+    assert "build" not in agent
+    assert agent["user"] == "999:999"
+    assert agent["read_only"] is True
+    assert agent["cap_drop"] == ["ALL"]
+    assert agent["security_opt"] == ["no-new-privileges:true"]
+    assert "privileged" not in agent
+    assert "PRINT_AGENT_USB_DEVICE" in device
+    assert "/dev/bus/usb" not in device
+    assert profile["services"]["printer-fleet"]["environment"][
+        "PRINTER_FLEET_AGENT_URLS"
+    ] == "http://print-agent:8080"
+
+
 def test_ipp_hostname_maps_both_loopbacks_in_source_and_production() -> None:
     source = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))[
         "services"
@@ -245,6 +268,7 @@ def compatibility_values() -> dict[str, str]:
             "PRINTHUB_SOURCE_REVISION": "b" * 40,
             "STUDIO_SOURCE_REVISION": "c" * 40,
             "THINGDEX_SOURCE_REVISION": "d" * 40,
+            "PRINT_AGENT_SOURCE_REVISION": "e" * 40,
         }
     )
     return values
@@ -322,6 +346,7 @@ def test_compatibility_manifest_binds_images_sources_and_environment(tmp_path) -
 
     assert manifest["schemaVersion"] == 2
     assert manifest["components"]["printerFleet"]["source"]["revision"] == "a" * 40
+    assert manifest["components"]["printAgent"]["source"]["revision"] == "e" * 40
     assert manifest["hardwareAcceptance"]["supportedTransports"] == ["raw_tcp"]
     assert validate_manifest(values, manifest) == []
     assert len(output.with_suffix(".json.sha256").read_text().split()[0]) == 64

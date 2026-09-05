@@ -1,0 +1,25 @@
+services:
+  printer-fleet:
+    environment:
+      PRINTER_FLEET_AGENT_URLS: http://print-agent:8080
+
+  print-agent:
+    image: ${PRINT_AGENT_IMAGE:?Set PRINT_AGENT_IMAGE to an immutable digest}
+    user: "999:999"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 256m
+    devices:
+      - "${PRINT_AGENT_USB_DEVICE:?Set PRINT_AGENT_USB_DEVICE}:${PRINT_AGENT_USB_DEVICE:?Set PRINT_AGENT_USB_DEVICE}:rwm"
+    volumes:
+      - print_agent_data:/var/lib/zpl-agent
+      - ${PRINT_AGENT_CONFIG_SOURCE:?Set PRINT_AGENT_CONFIG_SOURCE}:/etc/zpl-agent/config.toml:ro
+    restart: unless-stopped
+    networks: [print-platform]
+
+volumes:
+  print_agent_data:
