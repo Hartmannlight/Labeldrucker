@@ -66,3 +66,27 @@ Fleet/Agent response-loss idempotency, USB disconnect ambiguity, media-change
 refresh, CUPS/browser output, color/dither output, A4 hold/fit, sanitized visual
 evidence and independent review. Direct RAW TCP and serial-over-TCP require
 separate representative hardware and cannot inherit this USB result.
+
+## Revision-bound control run
+
+After the implementation and CI fixes were published, the PrintAgent was rebuilt
+from the exact ZebraTamer revision
+`1ccaace73fc66bb53dd0045efaa83725eb6943f6`. Its `/v1/agent` response reported
+that revision after container replacement, and a Fleet status request reached
+the USB printer bidirectionally and reported it ready. Container isolation
+remained UID/GID 999, read-only root filesystem, all capabilities dropped,
+`no-new-privileges`, and one exact USB device node.
+
+At `2026-09-05T15:52:38Z`, a uniquely marked 50 x 25 mm control job was sent
+through the current platform working tree at revision
+`04b4eb02a5e02a48217be87244b94e1b3d1aa35b`:
+
+- PrintHub job: `b7426009-f430-4812-b2b3-2d86faeca946`
+- Fleet delivery: `15755600-1f02-480b-bfbc-11b3a5a3ddc4`
+- PrintAgent job: `1cb38394-2373-45b9-99d8-0421cdbeaa10`
+- Final software state: `transport_accepted`
+- Marker: `CANDIDATE 04B4` / `AGENT 1CCA`
+
+The idempotency chain resolved to exactly one Agent job. Physical count, border
+visibility and alignment are pending operator confirmation, so this control run
+is not promoted to stable-release evidence.

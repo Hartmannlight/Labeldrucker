@@ -327,6 +327,7 @@ Copy-Item deploy/secrets/print-agent-usb.toml.example `
 usbipd bind --busid BUS-ID                 # einmalig als Administrator
 usbipd attach --wsl docker-desktop --busid BUS-ID
 $env:PRINT_AGENT_USB_DEVICE = "/dev/bus/usb/001/002"
+$env:ZPL_AGENT_GIT_COMMIT = git -C components/ZebraTamer rev-parse HEAD
 wsl -d docker-desktop -u root -- chown 0:999 $env:PRINT_AGENT_USB_DEVICE
 wsl -d docker-desktop -u root -- chmod 0660 $env:PRINT_AGENT_USB_DEVICE
 docker compose -f compose.yaml -f compose.usb-agent.yaml up -d --build
@@ -339,6 +340,10 @@ ist über `deploy/secrets/*` von Git ausgeschlossen. Das Beispiel enthält keine
 einsatzfähige Geräteidentität. `usb_bulk` greift über `libusb` direkt auf die
 Printer-Class-Bulk-Endpunkte zu und funktioniert deshalb auch dann, wenn der
 Docker-Desktop-Kernel kein `usblp`-Modul und damit kein `/dev/usb/lp0` anbietet.
+Der vollständige `ZPL_AGENT_GIT_COMMIT` wird in die Agent-Identitäts- und
+Metrikantwort eingebettet. Ohne die Variable trägt ein gewöhnlicher lokaler
+Build bewusst den Marker `development`; für revisionsgebundene Hardwaretests
+ist der aus dem gepinnten Submodule gelesene SHA verpflichtend.
 
 Wenn PrinterFleet und PrintAgent nicht zuverlässig per mDNS miteinander sprechen
 können, die Agenten explizit in

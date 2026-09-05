@@ -182,6 +182,9 @@ def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
     assert "privileged" not in agent
     assert "PRINT_AGENT_USB_DEVICE" in device
     assert "/dev/bus/usb" not in device
+    assert agent["build"]["args"]["ZPL_AGENT_GIT_COMMIT"] == (
+        "${ZPL_AGENT_GIT_COMMIT:-development}"
+    )
 
     dockerfile = (ROOT / "components" / "ZebraTamer" / "Dockerfile").read_text(
         encoding="utf-8"

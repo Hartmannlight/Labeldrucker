@@ -841,3 +841,19 @@ independent retry loops from producing duplicate labels.
   templates. Final visual measurement, power-cycle persistence, disconnect
   ambiguity, CUPS/browser, color/dither and independent review remain open; no
   stable compatibility release is authorized by this development run alone.
+
+### 2026-09-05: Revision-bound USB control run
+
+- The PrintAgent development image was rebuilt with the exact pinned ZebraTamer
+  revision embedded instead of the non-auditable `unknown` build identifier.
+  After replacement, its identity API reported `1ccaace73fc66bb53dd0045efaa83725eb6943f6`.
+- PrinterFleet then completed a fresh bidirectional status request to the USB
+  Zebra and reported it ready. The narrow device mapping and hardened runtime
+  settings remained unchanged.
+- A uniquely marked 50 x 25 mm job traversed the current platform revision
+  `04b4eb02a5e02a48217be87244b94e1b3d1aa35b` through PrintHub, Fleet and one
+  idempotently identified Agent job. Every software boundary ended in honest
+  `transport_accepted` state.
+- Operator confirmation of physical count and appearance is still pending.
+  Stable evidence also remains gated on the other declared hardware scenarios,
+  published candidate digests and a different human reviewer.
