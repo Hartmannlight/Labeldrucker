@@ -86,6 +86,7 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
 
     app = FastAPI(title="PrinterFleet API", version="0.1.0", lifespan=lifespan)
     api_token = os.getenv("PRINTER_FLEET_API_TOKEN", "").strip()
+    caller_id = os.getenv("PRINTER_FLEET_API_CALLER_ID", "printhub").strip() or "printhub"
 
     @app.middleware("http")
     async def service_boundary(request: Request, call_next):
@@ -99,13 +100,26 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             authorization = request.headers.get("Authorization", "")
             expected = f"Bearer {api_token}"
             if not secrets.compare_digest(authorization, expected):
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=401,
                     content={"detail": "Invalid PrinterFleet service credential"},
                     headers={"X-Correlation-ID": correlation_id},
                 )
-        response = await call_next(request)
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
         response.headers["X-Correlation-ID"] = correlation_id
+        if request.url.path.startswith("/v1/") and (
+            request.method not in {"GET", "HEAD", "OPTIONS"} or response.status_code >= 400
+        ):
+            repo.append_audit_record(
+                correlation_id=correlation_id,
+                actor=caller_id if response.status_code != 401 else "anonymous",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+            )
         return response
 
     app.state.repository = repo
@@ -123,6 +137,12 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
     @app.get("/v1/printers")
     def list_printers() -> list[dict[str, Any]]:
         return [catalog_view(printer) for printer in repo.list_printers()]
+
+    @app.get("/v1/audit-records")
+    def list_audit_records(limit: int = 100) -> list[dict[str, Any]]:
+        if limit < 1 or limit > 500:
+            raise HTTPException(status_code=422, detail="limit must be between 1 and 500")
+        return repo.list_audit_records(limit=limit)
 
     @app.get("/v1/printer-registry/export")
     def export_printers() -> dict[str, Any]:

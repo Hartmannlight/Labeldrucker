@@ -377,5 +377,8 @@ independent retry loops from producing duplicate labels.
   token. Production Compose requires a deployment secret and the release
   validator rejects an example value.
 - Seventeen PrinterFleet tests and four focused PrintHub adapter tests pass.
-  OIDC workload identities, durable audit storage, metrics and site/tenant
-  policy remain part of action 9.
+  OIDC workload identities, metrics and site/tenant policy remain part of
+  action 9.
+- Fleet stores mutating calls and rejected access attempts in a durable audit
+  journal with actor, status and correlation ID. Request payloads, credentials
+  and print artifacts are deliberately excluded from audit rows.

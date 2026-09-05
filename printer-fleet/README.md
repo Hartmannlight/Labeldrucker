@@ -10,6 +10,12 @@ all `/v1/*` requests require the matching bearer token; `/health` remains open
 for orchestration. Every response carries `X-Correlation-ID`, preserving a
 valid caller-supplied value or generating one at the boundary.
 
+Mutating requests and rejected API calls are recorded durably in Fleet's own
+`audit_records` table without request bodies, artifact bytes or credentials.
+Authorized operators can inspect the bounded journal through
+`GET /v1/audit-records?limit=100`. `PRINTER_FLEET_API_CALLER_ID` names the
+current service principal and defaults to `printhub`.
+
 The first vertical slice supports ZPL artifacts over `raw_tcp`, the legacy
 `raw9100` spelling and `serial_over_tcp`. A successful socket write is recorded
 as `transport_accepted`, never as a confirmed physical print.

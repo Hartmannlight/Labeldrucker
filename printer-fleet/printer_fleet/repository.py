@@ -100,9 +100,54 @@ class FleetRepository:
                     source TEXT NOT NULL,
                     observed_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS audit_records (
+                    id TEXT PRIMARY KEY,
+                    correlation_id TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    status_code INTEGER NOT NULL,
+                    occurred_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS audit_records_time_idx
+                    ON audit_records(occurred_at, id);
                 """
             )
             self._ensure_delivery_columns(db)
+
+    def append_audit_record(
+        self,
+        *,
+        correlation_id: str,
+        actor: str,
+        method: str,
+        path: str,
+        status_code: int,
+    ) -> None:
+        with self._connection() as db:
+            db.execute(
+                """INSERT INTO audit_records(
+                       id, correlation_id, actor, method, path, status_code, occurred_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(uuid.uuid4()),
+                    correlation_id,
+                    actor,
+                    method,
+                    path,
+                    status_code,
+                    _now(),
+                ),
+            )
+
+    def list_audit_records(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as db:
+            rows = db.execute(
+                """SELECT id, correlation_id, actor, method, path, status_code, occurred_at
+                   FROM audit_records ORDER BY occurred_at DESC, id DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     @staticmethod
     def _ensure_delivery_columns(db: sqlite3.Connection) -> None:

@@ -84,3 +84,28 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
         )
         assert accepted.status_code == 200
         assert accepted.headers["X-Correlation-ID"] == "thingdex-print-123"
+
+        created = client.put(
+            "/v1/printers/audited",
+            headers={
+                "Authorization": "Bearer fleet-secret",
+                "X-Correlation-ID": "audit-123",
+            },
+            json={
+                "id": "audited",
+                "driver": "zpl",
+                "connection": {"protocol": "raw_tcp", "host": "printer.test"},
+            },
+        )
+        assert created.status_code == 200
+        audit = client.get(
+            "/v1/audit-records",
+            headers={"Authorization": "Bearer fleet-secret"},
+        ).json()
+        assert any(
+            record["correlation_id"] == "audit-123"
+            and record["path"] == "/v1/printers/audited"
+            and record["status_code"] == 200
+            for record in audit
+        )
+        assert any(record["actor"] == "anonymous" and record["status_code"] == 401 for record in audit)
