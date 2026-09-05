@@ -237,12 +237,29 @@ Gateway besitzt derzeit keine Anmeldung; der Port darf daher nur in ein
 vertrauenswürdiges Netz oder hinter eine geeignete Zugriffskontrolle freigegeben
 werden.
 
-Die Windows-Einrichtung kann zunächst versuchen, die Verbindung auf HTTPS
-anzuheben. Da das lokale Entwicklungs-Gateway kein TLS-Zertifikat besitzt,
-bleibt die tatsächlich konfigurierte URL bei `http://localhost:8631`. Diese
-Variante ist nur für die Loopback-Bindung vorgesehen; für LAN- oder
-Produktionszugriff ist TLS an einem vorgeschalteten, authentifizierenden
-Ingress erforderlich.
+Das Gateway bietet neben `ipp://` auch IPPS auf demselben Port an. CUPS erzeugt
+dafür beim ersten TLS-Zugriff ein selbstsigniertes Zertifikat. Schlüssel und
+Zertifikat liegen im nur für den Gateway-Benutzer zugänglichen Volume
+`ipp_gateway_tls`; die TLS-Identität bleibt deshalb bei Image- und
+Container-Neubauten erhalten. Die Windows-Einrichtung darf zunächst die
+angegebene `http://localhost:8631`-URL verwenden und für den eigentlichen
+Drucktransport auf das beworbene TLS wechseln.
+
+Ein Windows-Auftrag, der mit PrintService-Ereignis 372 und HRESULT
+`0x80040003` endet, während das Gateway nur erfolgreiche
+`Get-Printer-Attributes`-Anfragen sieht, weist auf einen abgebrochenen lokalen
+IPP/TLS-Transport hin. Zuerst `docker compose logs ipp-gateway` prüfen: Auf
+`Starting HTTPS session` muss `Connection now encrypted` folgen. Die Meldung
+`Server credentials not set` bedeutet, dass der TLS-Speicher fehlt oder für
+UID 10002 nicht schreibbar ist. Danach nur das Gateway neu bauen und starten;
+bereits als abgeschlossen/fehlerhaft markierte Windows-Jobs werden dabei nicht
+erneut gesendet.
+
+Die Loopback-Variante ist nur für lokale Entwicklung vorgesehen. Für LAN- oder
+Produktionszugriff sind ein verwaltetes Zertifikat, eine eindeutige
+Client-erreichbare Adresse und Authentifizierung beziehungsweise ein
+entsprechend abgesicherter Ingress erforderlich. Das automatisch erzeugte
+Zertifikat ist dafür kein Ersatz.
 
 Der Compose-Stack ordnet denselben Namen innerhalb des Gateway-Containers sowohl
 `127.0.0.1` als auch `::1` zu. Diese interne Loopback-Zuordnung ist erforderlich,
@@ -428,6 +445,8 @@ Registrierung.
   Host-Ports, falls die Defaults bereits belegt sind.
 - `PRINTHUB_IPP_PORT`, `PRINTHUB_IPP_BIND`, `PRINTHUB_IPP_HOSTNAME`:
   Port, Bind-Adresse und die gegenüber CUPS gemeldete Adresse des IPP-Druckers.
+- `PRINTHUB_IPP_TLS_DIR`: persistenter CUPS-Schlüssel- und Zertifikatsspeicher;
+  standardmäßig `/var/lib/printhub-ipp/tls` im Volume `ipp_gateway_tls`.
 - `PRINTHUB_IPP_PRINTER_ID`: der als IPP-Queue veröffentlichte PrintHub-Drucker.
 - `PRINTHUB_IPP_MISMATCH_POLICY`: `hold` (sicherer Standard), `fit` oder
   `fill` für abweichende Dokument- und Labelgrößen.

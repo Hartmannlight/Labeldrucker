@@ -946,3 +946,22 @@ independent retry loops from producing duplicate labels.
   clipping, overlap or extra page. This closes browser layout preflight only;
   the Windows print ticket and physical queue path still require the manual
   dialog test.
+
+### 2026-09-05: Persistent IPPS endpoint identity
+
+- Two Chrome submissions reached the Windows system queue but failed locally
+  before an IPP job operation reached Docker. PrintService event 372 reported
+  HRESULT `0x80040003` (`OLE_E_ADVISENOTSUPPORTED`); the gateway saw only
+  successful capability queries.
+- The gateway advertised both IPP and IPPS, but its development startup changed
+  from root to UID 10002 without changing the inherited root identity
+  environment. CUPS consequently had no usable server credentials when Windows
+  upgraded the job connection to TLS.
+- Privilege dropping now updates UID, GID, supplementary groups and the
+  `HOME`/`USER`/`LOGNAME` environment as one operation. `ippeveprinter` also
+  receives an explicit mode-0700 credential directory, backed by a dedicated
+  named volume in development and standalone production Compose.
+- A real `ipps://localhost:8631/ipp/print` capability request now completes over
+  an encrypted connection. The certificate fingerprint remains unchanged over
+  a gateway restart. A fresh Chrome submission and physical label are still
+  required before closing the `cups_browser` acceptance gate.

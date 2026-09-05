@@ -231,9 +231,7 @@ Windows 11 also accepted `http://localhost:8631/ipp/print` as the system queue
 The gateway recorded repeated successful `Get-Printer-Attributes` operations;
 the queue was not made the default printer. Windows reported monochrome as the
 active print configuration, but its PowerShell print API did not expose the
-custom media or resolution capabilities. Because the available browser-control
-session cannot access the installed Google Chrome instance, no print was sent
-from Chrome and `cups_browser` remains unpassed.
+custom media or resolution capabilities.
 
 As a non-printing browser preflight, the installed Google Chrome rendered the
 versioned `chrome-label-50x25.html` fixture headlessly. The resulting PDF had
@@ -244,3 +242,20 @@ render was visually checked: the outer border, `CHROME IPP`, `50 x 25 mm` and
 PDF and PNG were removed after inspection. This proves Chrome's document layout
 only; it does not prove Windows print-ticket capability display, spooler
 conversion or physical delivery, so `cups_browser` remains open.
+
+The operator then confirmed that Chrome displayed the expected preview and
+submitted the job twice. Windows retained both 13,534-byte jobs as completed
+failures, with zero physical pages. PrintService event 372 returned HRESULT
+`0x80040003` (`OLE_E_ADVISENOTSUPPORTED`). No `Create-Job`, `Send-Document` or
+`Print-Job` appeared in the gateway log and no PrintHub/Fleet/Agent record was
+created, proving that both attempts stopped inside the Windows print path.
+
+Inspection found that `ippeveprinter` advertised `ipps://` and TLS but logged
+`Unable to encrypt connection: Server credentials not set`. The development
+profile had started as root for Avahi, dropped to UID 10002, and retained
+`HOME=/root`; CUPS therefore could not create credentials for the effective
+user. The corrected gateway passes an explicit persistent credential directory
+and updates the identity environment during privilege dropping. A real IPPS
+`Get-Printer-Attributes` request now passes with `Connection now encrypted`, and
+the certificate fingerprint is stable over a gateway restart. This is transport
+evidence only: one fresh Chrome submission and its physical result remain open.

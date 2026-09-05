@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     LC_ALL=C \
     PRINTHUB_API_URL=http://printhub:8000 \
     PRINTHUB_IPP_PORT=8631 \
+    PRINTHUB_IPP_TLS_DIR=/var/lib/printhub-ipp/tls \
     PRINTHUB_IPP_PRINTER_ID=virtual-zebra \
     PRINTHUB_IPP_MISMATCH_POLICY=hold
 
@@ -13,8 +14,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip uninstall -y pip setuptools wheel jaraco.context \
     && useradd --uid 10002 --create-home --shell /usr/sbin/nologin appuser \
-    && mkdir -p /app /run/printhub-ipp /var/spool/printhub-ipp \
-    && chown -R appuser:appuser /app /run/printhub-ipp /var/spool/printhub-ipp
+    && mkdir -p /app /run/printhub-ipp /var/lib/printhub-ipp/tls /var/spool/printhub-ipp \
+    && chmod 0700 /var/lib/printhub-ipp/tls \
+    && chown -R appuser:appuser /app /run/printhub-ipp /var/lib/printhub-ipp /var/spool/printhub-ipp
 
 COPY --chown=appuser:appuser --chmod=0555 entrypoint.py submit_job.py tcp_proxy.py /app/
 

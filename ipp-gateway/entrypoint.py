@@ -42,6 +42,12 @@ def drop_privileges(*paths: Path) -> None:
     os.setgroups([])
     os.setgid(account.pw_gid)
     os.setuid(account.pw_uid)
+    # Compose starts the development profile as root so that Avahi can be
+    # initialized. Keep the environment consistent after switching users;
+    # CUPS uses HOME to locate and create its TLS credentials.
+    os.environ["HOME"] = account.pw_dir
+    os.environ["USER"] = account.pw_name
+    os.environ["LOGNAME"] = account.pw_name
 
 
 def prepare_runtime_privileges(*paths: Path) -> None:
@@ -160,27 +166,17 @@ def build_ppd(printer: dict[str, Any]) -> str:
 '''
 
 
-def main() -> None:
-    api_url = os.getenv("PRINTHUB_API_URL", "http://printhub:8000")
-    printer_id = os.getenv("PRINTHUB_IPP_PRINTER_ID", "virtual-zebra")
-    printer = fetch_printer(api_url, printer_id)
-    runtime_dir = Path(os.getenv("PRINTHUB_IPP_RUNTIME_DIR", "/run/printhub-ipp"))
-    spool_dir = Path(os.getenv("PRINTHUB_IPP_SPOOL_DIR", "/var/spool/printhub-ipp"))
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    spool_dir.mkdir(parents=True, exist_ok=True)
-    ppd_path = runtime_dir / "printer.ppd"
-    ppd_path.write_text(build_ppd(printer), encoding="ascii")
-
-    prepare_runtime_privileges(runtime_dir, spool_dir, ppd_path)
-
-    executable = shutil.which("ippeveprinter")
-    if executable is None:
-        raise RuntimeError("ippeveprinter is not installed")
-    port = os.getenv("PRINTHUB_IPP_PORT", "8631")
-    hostname = os.getenv("PRINTHUB_IPP_HOSTNAME", socket.gethostname())
-    service_name = os.getenv("PRINTHUB_IPP_NAME", f"PrintHub - {printer.get('name', printer_id)}")
-    start_container_proxy(port)
-    command = [
+def build_ipp_command(
+    executable: str,
+    *,
+    ppd_path: Path,
+    spool_dir: Path,
+    tls_dir: Path,
+    hostname: str,
+    port: str,
+    service_name: str,
+) -> list[str]:
+    return [
         executable,
         "--no-web-forms",
         "-P",
@@ -189,12 +185,48 @@ def main() -> None:
         "/app/submit_job.py",
         "-d",
         str(spool_dir),
+        "-K",
+        str(tls_dir),
         "-n",
         hostname,
         "-p",
         port,
         service_name,
     ]
+
+
+def main() -> None:
+    api_url = os.getenv("PRINTHUB_API_URL", "http://printhub:8000")
+    printer_id = os.getenv("PRINTHUB_IPP_PRINTER_ID", "virtual-zebra")
+    printer = fetch_printer(api_url, printer_id)
+    runtime_dir = Path(os.getenv("PRINTHUB_IPP_RUNTIME_DIR", "/run/printhub-ipp"))
+    spool_dir = Path(os.getenv("PRINTHUB_IPP_SPOOL_DIR", "/var/spool/printhub-ipp"))
+    tls_dir = Path(os.getenv("PRINTHUB_IPP_TLS_DIR", "/var/lib/printhub-ipp/tls"))
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    spool_dir.mkdir(parents=True, exist_ok=True)
+    tls_dir.mkdir(parents=True, exist_ok=True)
+    tls_dir.chmod(0o700)
+    ppd_path = runtime_dir / "printer.ppd"
+    ppd_path.write_text(build_ppd(printer), encoding="ascii")
+
+    prepare_runtime_privileges(runtime_dir, spool_dir, tls_dir, ppd_path)
+
+    executable = shutil.which("ippeveprinter")
+    if executable is None:
+        raise RuntimeError("ippeveprinter is not installed")
+    port = os.getenv("PRINTHUB_IPP_PORT", "8631")
+    hostname = os.getenv("PRINTHUB_IPP_HOSTNAME", socket.gethostname())
+    service_name = os.getenv("PRINTHUB_IPP_NAME", f"PrintHub - {printer.get('name', printer_id)}")
+    start_container_proxy(port)
+    command = build_ipp_command(
+        executable,
+        ppd_path=ppd_path,
+        spool_dir=spool_dir,
+        tls_dir=tls_dir,
+        hostname=hostname,
+        port=port,
+        service_name=service_name,
+    )
     os.execv(executable, command)
 
 

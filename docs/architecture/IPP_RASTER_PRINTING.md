@@ -66,6 +66,10 @@ driver may independently resize a page or invent its own preview.
 - Source byte, page, pixel and decoded-image limits are enforced before
   expensive processing. IPP is loopback-only by default because the gateway
   does not currently authenticate clients.
+- Every advertised transport is operational. In particular, advertising
+  `ipps://` and `uri-security-supported=tls` requires usable server credentials;
+  capability discovery must never promise a TLS path that job submission cannot
+  use.
 
 ## Extension point for Niimbot B1
 
@@ -91,6 +95,16 @@ it again for every job before validation. Restart the gateway after changing a r
 already open print dialogs can refresh their advertised media. A future gateway
 supervisor may republish capabilities automatically; this does not affect the
 raster or driver contracts.
+
+The gateway owns a dedicated persistent TLS volume and passes its directory to
+`ippeveprinter` explicitly. Development startup may begin as root solely to
+initialize D-Bus/Avahi, then changes UID, GID and the process identity
+environment together before CUPS starts. This avoids an invalid mixed identity
+where the unprivileged process searches for credentials below `/root`. The
+private credential directory is mode `0700`, and keeping the volume across
+container replacement preserves the endpoint identity. Production deployments
+should replace the generated development identity with managed credentials and
+an authenticated network boundary.
 
 The bundled CUPS 2.4 `ippeveprinter` is configured from a generated internal
 PPD because that version cannot combine its attribute-file mode with a custom

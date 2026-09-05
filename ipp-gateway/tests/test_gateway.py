@@ -4,6 +4,7 @@ import importlib.util
 import base64
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -24,6 +25,46 @@ submit_job = load_module("ipp_gateway_submit", "submit_job.py")
 
 
 class GatewayTests(unittest.TestCase):
+    def test_ipp_server_uses_explicit_persistent_tls_directory(self) -> None:
+        command = entrypoint.build_ipp_command(
+            "/usr/sbin/ippeveprinter",
+            ppd_path=Path("/run/printer.ppd"),
+            spool_dir=Path("/var/spool/jobs"),
+            tls_dir=Path("/var/lib/printhub-ipp/tls"),
+            hostname="printer.example.test",
+            port="8631",
+            service_name="PrintHub Label",
+        )
+        key_option = command.index("-K")
+        self.assertEqual(
+            Path(command[key_option + 1]), Path("/var/lib/printhub-ipp/tls")
+        )
+
+    def test_privilege_drop_updates_identity_environment_for_cups_tls(self) -> None:
+        account = SimpleNamespace(
+            pw_uid=10002,
+            pw_gid=10002,
+            pw_dir="/home/appuser",
+            pw_name="appuser",
+        )
+        with (
+            patch.object(entrypoint, "pwd") as pwd_module,
+            patch.object(entrypoint.os, "chown", create=True),
+            patch.object(entrypoint.os, "setgroups", create=True),
+            patch.object(entrypoint.os, "setgid", create=True),
+            patch.object(entrypoint.os, "setuid", create=True),
+            patch.dict(
+                entrypoint.os.environ,
+                {"HOME": "/root", "USER": "root", "LOGNAME": "root"},
+                clear=True,
+            ),
+        ):
+            pwd_module.getpwuid.return_value = account
+            entrypoint.drop_privileges(Path("tls"))
+            self.assertEqual(entrypoint.os.environ["HOME"], "/home/appuser")
+            self.assertEqual(entrypoint.os.environ["USER"], "appuser")
+            self.assertEqual(entrypoint.os.environ["LOGNAME"], "appuser")
+
     def test_production_mode_runs_without_root_or_discovery_daemons(self) -> None:
         with (
             patch.dict(os.environ, {"PRINTHUB_IPP_MDNS_ENABLED": "0"}, clear=True),
