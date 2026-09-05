@@ -43,7 +43,7 @@ Repositories bleiben.
 | --- | --- | --- | --- |
 | [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `880d76b` |
 | [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `f33b456` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `32841e1` |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `8e1dd41` |
 | [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `6dd643c` |
 | [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `6b6ffad` |
 | [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `a1f8483` |
