@@ -904,3 +904,19 @@ independent retry loops from producing duplicate labels.
 - This closes only the container-restart recovery check. Physical printer power
   cycling, USB disconnect ambiguity and in-flight response loss remain explicit
   manual gates for action 10.
+
+### 2026-09-05: Windows driverless IPP registration
+
+- Windows 11 registered the loopback gateway as a normal system printer using
+  `Add-Printer -IppURL` and selected the built-in Microsoft IPP Class Driver.
+  No Zebra client driver or new platform adapter was needed.
+- The gateway received repeated successful `Get-Printer-Attributes` requests,
+  while the Windows queue retained monochrome output and was not made the
+  default printer.
+- The Windows PowerShell print API did not surface the custom page-media and
+  resolution lists, so those capabilities cannot be claimed from this client
+  inspection alone. Linux CUPS had already exposed both values correctly.
+- Google Chrome is not available to the current browser-control session. The
+  installed system queue is therefore ready for a manual Chrome dialog check,
+  but `cups_browser` remains an explicit open acceptance scenario until a real
+  filtered job and its physical result are recorded.

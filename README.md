@@ -177,7 +177,23 @@ sudo lpadmin -p printhub-label -E \
 lpstat -p printhub-label
 ```
 
-Danach erscheint `printhub-label` im Systemdruckdialog von Chrome. Das Gateway
+Unter Windows 11 kann derselbe lokale Gateway aus einer als Administrator
+gestarteten PowerShell als systemweite IPP-Queue eingerichtet werden:
+
+```powershell
+Add-Printer -Name "PrintHub 50x25 Label" `
+  -IppURL "http://localhost:8631/ipp/print"
+Get-Printer -Name "PrintHub 50x25 Label"
+```
+
+Windows verwendet dafür den integrierten `Microsoft IPP Class Driver`; ein
+herstellerspezifischer Zebra-Treiber ist auf dem Client nicht erforderlich.
+Chrome verwendet unter Windows diese Systemqueue. Zum späteren Entfernen dient
+`Remove-Printer -Name "PrintHub 50x25 Label"` in einer administrativen
+PowerShell. Die Queue ist nicht der Standarddrucker, solange dies nicht separat
+im Betriebssystem geändert wird.
+
+Danach erscheint die Queue im Systemdruckdialog von Chrome. Das Gateway
 meldet die aus PrinterFleet gelesene Rollenbreite,
 Rollenhöhe, Auflösung und den monochromen Farbraum an CUPS. Bei einer Änderung
 des eingelegten Mediums das Gateway neu starten, damit bereits geöffnete
@@ -215,6 +231,13 @@ Option nicht vorgesehen. Das
 Gateway besitzt derzeit keine Anmeldung; der Port darf daher nur in ein
 vertrauenswürdiges Netz oder hinter eine geeignete Zugriffskontrolle freigegeben
 werden.
+
+Die Windows-Einrichtung kann zunächst versuchen, die Verbindung auf HTTPS
+anzuheben. Da das lokale Entwicklungs-Gateway kein TLS-Zertifikat besitzt,
+bleibt die tatsächlich konfigurierte URL bei `http://localhost:8631`. Diese
+Variante ist nur für die Loopback-Bindung vorgesehen; für LAN- oder
+Produktionszugriff ist TLS an einem vorgeschalteten, authentifizierenden
+Ingress erforderlich.
 
 Der Compose-Stack ordnet denselben Namen innerhalb des Gateway-Containers sowohl
 `127.0.0.1` als auch `::1` zu. Diese interne Loopback-Zuordnung ist erforderlich,

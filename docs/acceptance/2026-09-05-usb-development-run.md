@@ -196,3 +196,12 @@ PrintHub job `c0984a88-abf9-4486-8a34-765cd05dfeaf` was again held with no bytes
 Fleet delivery or Agent job. This verifies a real CUPS queue and preserves the
 platform-side A4 safety decision. A normal filtered Chrome job remains open
 because desktop CUPS may transform its input before the gateway receives it.
+
+Windows 11 also accepted `http://localhost:8631/ipp/print` as the system queue
+`PrintHub 50x25 Label` and selected its built-in `Microsoft IPP Class Driver`.
+The gateway recorded repeated successful `Get-Printer-Attributes` operations;
+the queue was not made the default printer. Windows reported monochrome as the
+active print configuration, but its PowerShell print API did not expose the
+custom media or resolution capabilities. Because the available browser-control
+session cannot access the installed Google Chrome instance, no print was sent
+from Chrome and `cups_browser` remains unpassed.
