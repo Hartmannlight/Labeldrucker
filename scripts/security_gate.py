@@ -56,6 +56,12 @@ def main() -> int:
         Path("artifacts").mkdir(exist_ok=True)
         Path("artifacts", Path(name).name).write_text(json.dumps(report, indent=2), encoding="utf-8")
         blocked.extend(failed)
+    for identifier, package in blocked:
+        print(
+            f"Blocked fixable HIGH/CRITICAL finding: {identifier or 'unknown'} "
+            f"({package or 'unknown target'})",
+            file=sys.stderr,
+        )
     return 1 if blocked else 0
 
 

@@ -14,7 +14,7 @@ from scripts.build_compatibility_manifest import (
     verify_images,
     write_manifest,
 )
-from scripts.security_gate import findings
+from scripts.security_gate import findings, main as security_gate_main
 from scripts.validate_release_env import (
     IMAGE_KEYS,
     SECRET_FILE_KEYS,
@@ -118,6 +118,40 @@ def test_security_policy_blocks_fixable_high_findings() -> None:
         ]
     }
     assert findings(report)[0] == [("CVE-TEST", "fixture")]
+
+
+def test_security_gate_reports_blocked_identifier_without_secret_match(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    report = tmp_path / "scan.json"
+    report.write_text(
+        json.dumps(
+            {
+                "Results": [
+                    {
+                        "Target": "candidate",
+                        "Secrets": [
+                            {
+                                "ID": "private-key",
+                                "Severity": "CRITICAL",
+                                "Match": "sensitive material",
+                                "Code": {"Lines": []},
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["security_gate.py", str(report)])
+
+    assert security_gate_main() == 1
+    assert "private-key (candidate)" in capsys.readouterr().err
+    sanitized = json.loads((tmp_path / "artifacts" / "scan.json").read_text())
+    assert "Match" not in sanitized["Results"][0]["Secrets"][0]
+    assert "Code" not in sanitized["Results"][0]["Secrets"][0]
 
 
 def compatibility_values() -> dict[str, str]:
