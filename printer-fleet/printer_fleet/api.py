@@ -10,7 +10,7 @@ from typing import Any
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import yaml
 
@@ -96,7 +96,8 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", supplied_id)
             else str(uuid.uuid4())
         )
-        if request.url.path.startswith("/v1/") and api_token:
+        protected = request.url.path.startswith("/v1/") or request.url.path == "/metrics"
+        if protected and api_token:
             authorization = request.headers.get("Authorization", "")
             expected = f"Bearer {api_token}"
             if not secrets.compare_digest(authorization, expected):
@@ -133,6 +134,22 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/metrics", response_class=PlainTextResponse)
+    def metrics() -> str:
+        snapshot = repo.metrics_snapshot()
+        lines = [
+            "# HELP printer_fleet_printers Registered physical printers.",
+            "# TYPE printer_fleet_printers gauge",
+            f"printer_fleet_printers {snapshot['printers']}",
+            "# HELP printer_fleet_deliveries Delivery records by current state.",
+            "# TYPE printer_fleet_deliveries gauge",
+        ]
+        lines.extend(
+            f'printer_fleet_deliveries{{state="{state}"}} {count}'
+            for state, count in sorted(snapshot["deliveries"].items())
+        )
+        return "\n".join(lines) + "\n"
 
     @app.get("/v1/printers")
     def list_printers() -> list[dict[str, Any]]:

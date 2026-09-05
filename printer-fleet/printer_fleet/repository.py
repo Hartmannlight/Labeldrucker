@@ -149,6 +149,17 @@ class FleetRepository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def metrics_snapshot(self) -> dict[str, Any]:
+        with self._connection() as db:
+            printer_count = int(db.execute("SELECT COUNT(*) FROM printers").fetchone()[0])
+            rows = db.execute(
+                "SELECT state, COUNT(*) AS count FROM deliveries GROUP BY state"
+            ).fetchall()
+        return {
+            "printers": printer_count,
+            "deliveries": {str(row["state"]): int(row["count"]) for row in rows},
+        }
+
     @staticmethod
     def _ensure_delivery_columns(db: sqlite3.Connection) -> None:
         """Forward-only compatibility for databases created by the first slice."""

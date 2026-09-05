@@ -382,3 +382,6 @@ independent retry loops from producing duplicate labels.
 - Fleet stores mutating calls and rejected access attempts in a durable audit
   journal with actor, status and correlation ID. Request payloads, credentials
   and print artifacts are deliberately excluded from audit rows.
+- Fleet exports authenticated Prometheus gauges for registered printers and
+  durable deliveries by current state, calculated directly from its database
+  rather than maintained as a second in-memory source of truth.

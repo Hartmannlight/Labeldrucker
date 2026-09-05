@@ -109,3 +109,10 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
             for record in audit
         )
         assert any(record["actor"] == "anonymous" and record["status_code"] == 401 for record in audit)
+
+        assert client.get("/metrics").status_code == 401
+        metrics = client.get(
+            "/metrics", headers={"Authorization": "Bearer fleet-secret"}
+        )
+        assert metrics.status_code == 200
+        assert "printer_fleet_printers 1" in metrics.text

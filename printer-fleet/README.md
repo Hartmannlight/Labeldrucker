@@ -16,6 +16,10 @@ Authorized operators can inspect the bounded journal through
 `GET /v1/audit-records?limit=100`. `PRINTER_FLEET_API_CALLER_ID` names the
 current service principal and defaults to `printhub`.
 
+`GET /metrics` exposes Prometheus text gauges for registered printers and
+delivery records grouped by their authoritative current state. It is protected
+by the same service credential whenever API authentication is enabled.
+
 The first vertical slice supports ZPL artifacts over `raw_tcp`, the legacy
 `raw9100` spelling and `serial_over_tcp`. A successful socket write is recorded
 as `transport_accepted`, never as a confirmed physical print.
