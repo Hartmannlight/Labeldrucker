@@ -1,4 +1,9 @@
 services:
+  printhub:
+    environment:
+      PRINTHUB_THINGDEX_EVENT_URL: http://thingdex:8000/v1/integrations/printhub/events
+      PRINTHUB_THINGDEX_EVENT_SECRET: ${THINGDEX_PRINTHUB_EVENT_SECRET:?Set THINGDEX_PRINTHUB_EVENT_SECRET}
+
   postgres:
     image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an immutable digest}
     environment:

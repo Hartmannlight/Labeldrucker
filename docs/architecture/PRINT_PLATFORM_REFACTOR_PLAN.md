@@ -188,7 +188,7 @@ independent retry loops from producing duplicate labels.
 - [x] 6. Thin the IPP gateway so it only advertises capabilities, receives
   documents, maps IPP tickets and reports PrintHub state. Move PDF/PostScript
   policy and raster decisions into PrintHub.
-- [ ] 7. Replace Thingdex synchronous label calls with a transactional outbox,
+- [x] 7. Replace Thingdex synchronous label calls with a transactional outbox,
   idempotent PrintHub connector and replay-safe status inbox. Remove every
   direct ZebraTamer/PrintAgent to Thingdex dependency.
 - [ ] 8. Replace production sibling builds and Git submodules with signed,
@@ -331,8 +331,7 @@ independent retry loops from producing duplicate labels.
   bounded attempt budget rather than creating a second logical intent.
 - PrintHub status updates enter Thingdex through an HMAC-authenticated,
   replay-safe inbox with immutable event IDs and monotonically increasing
-  sequences. PrintAgent has no Thingdex dependency. A durable PrintHub event
-  outbox still has to be connected before this action is complete.
+  sequences. PrintAgent has no Thingdex dependency.
 - Print intent administration is a fail-closed bearer-protected API and omits
   the captured variable payload from its responses.
 - The PrintHub OpenAPI export now resolves the checked-out application rather
@@ -386,3 +385,24 @@ independent retry loops from producing duplicate labels.
 - Fleet exports authenticated Prometheus gauges for registered printers and
   durable deliveries by current state, calculated directly from its database
   rather than maintained as a second in-memory source of truth.
+
+### 2026-09-05: Durable PrintHub status events
+
+- Thingdex includes its immutable outbox ID as `origin_reference` when it
+  submits a PrintHub job. PrintHub validates it as a UUID before creating any
+  integration event and never infers identity from an idempotency-key format.
+- Every externally visible job-state transition receives a monotonically
+  increasing per-job sequence and a deterministic UUID. PrintHub writes the
+  event before advancing the stored sequence, making a crash repeat the same
+  event rather than lose it or invent a new identity.
+- A separate worker claims persisted events with an expiring lease, signs the
+  exact canonical JSON body with HMAC-SHA256 and applies bounded exponential
+  retries. A crash after HTTP acceptance can only cause an at-least-once
+  duplicate, which Thingdex's event journal treats as a successful no-op.
+- Partial callback configuration fails PrintHub startup. Standalone PrintHub
+  keeps the integration disabled; both development and production Thingdex
+  overlays configure the URL and shared secret explicitly.
+- Automated status: 125 PrintHub tests pass with 159 optional tests skipped,
+  seven Thingdex outbox tests pass, the generated TypeScript SDK contract is
+  current, strict Thingdex documentation builds, and both integrated Compose
+  profiles validate.
