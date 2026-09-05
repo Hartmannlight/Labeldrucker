@@ -678,3 +678,14 @@ independent retry loops from producing duplicate labels.
 - Action 10 remains open: Studio and SDK still consume the migration-only
   PrintHub printer-administration facade, a Fleet Console does not yet replace
   that workflow, and no real Zebra/bridge/PrintAgent acceptance record exists.
+
+### 2026-09-05: Thingdex canonical job contract
+
+- Thingdex's durable outbox worker is now the only runtime print submission
+  path and is contract-tested against `POST /v1/print-jobs` with its stable
+  idempotency key and immutable intent reference.
+- The unused synchronous helper, including its fallback to the migration-only
+  `/v1/printers/{id}/prints/template` endpoint, has been removed. Inventory
+  requests continue to commit without contacting PrintHub.
+- Thingdex is therefore no longer a consumer blocking removal of direct
+  template submission. The SDK remains on that compatibility surface.
