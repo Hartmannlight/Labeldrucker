@@ -854,6 +854,13 @@ independent retry loops from producing duplicate labels.
   `04b4eb02a5e02a48217be87244b94e1b3d1aa35b` through PrintHub, Fleet and one
   idempotently identified Agent job. Every software boundary ended in honest
   `transport_accepted` state.
-- Operator confirmation of physical count and appearance is still pending.
-  Stable evidence also remains gated on the other declared hardware scenarios,
+- The operator confirmed exactly one physical label and correct vertical
+  alignment. Its left border was clipped and the right white margin was about
+  2 mm, so horizontal alignment failed. A revision-checked device-only
+  correction changed `LEFT POSITION` from `+10` to `+6` while retaining
+  `LABEL TOP +4`; one uniquely marked comparison job reached
+  `transport_accepted`. The operator measured an approximately 1 mm right
+  margin and confirmed that the rest of the alignment was correct, so the
+  corrected device-specific alignment passes this development run.
+- Stable evidence remains gated on the other declared hardware scenarios,
   published candidate digests and a different human reviewer.

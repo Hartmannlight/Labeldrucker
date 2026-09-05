@@ -45,8 +45,11 @@ printer responses are intentionally excluded.
    212 dots, consistent with a 25 mm label plus its gap.
 7. Post-calibration jobs exposed a device-specific alignment offset. User
    measurements were used with revision-checked typed Agent configuration; no
-   template or device-independent raster contract was changed. The currently
-   verified active values are `LEFT POSITION +10`, `LABEL TOP +4`.
+   template or device-independent raster contract was changed. The initial
+   alignment run used `LEFT POSITION +10`, `LABEL TOP +4`. The revision-bound
+   control run below showed that a smaller horizontal correction was still
+   required; the currently verified active values are `LEFT POSITION +6`,
+   `LABEL TOP +4`.
 8. The final uniquely marked control label printed once with every border
    visible. User-measured white margins were 0.6 mm left, 1.35 mm right, 1.3 mm
    top and 1.0 mm bottom. The largest deviation from the mean is about 0.4 mm,
@@ -87,6 +90,32 @@ through the current platform working tree at revision
 - Final software state: `transport_accepted`
 - Marker: `CANDIDATE 04B4` / `AGENT 1CCA`
 
-The idempotency chain resolved to exactly one Agent job. Physical count, border
-visibility and alignment are pending operator confirmation, so this control run
-is not promoted to stable-release evidence.
+The idempotency chain resolved to exactly one Agent job. The operator confirmed
+that exactly one physical label was produced and that its vertical alignment was
+correct. The left border was clipped while the right white margin was about
+2 mm, so the horizontal alignment did not pass and this control run is not
+promoted to stable-release evidence.
+
+## Horizontal comparison run
+
+The active and saved device configuration was read back as `LEFT POSITION +10`
+and `LABEL TOP +4`. Based on the measured right margin, a revision-checked typed
+configuration update changed only `LEFT POSITION` to `+6`, corresponding to a
+0.5 mm movement to the right at 8 dots/mm. Readback reported
+`save_sent_active_verified`, `LEFT POSITION +6` and the unchanged
+`LABEL TOP +4`.
+
+A geometrically identical, uniquely marked comparison job was then submitted:
+
+- PrintHub job: `91888339-8527-4c41-b3af-4fd543d8fe71`
+- Fleet delivery: `92e760a1-f9ff-4a51-9eea-37c0eab78137`
+- PrintAgent job: `ce19d679-4d2c-4ac5-9912-73a00214a4fb`
+- Final software state: `transport_accepted`
+- Marker: `HSHIFT +6` / `04B4 / 1CCA`
+
+The software correlation again resolves to one Agent job. The operator confirmed
+the physical comparison label: the right white margin is approximately 1 mm and
+the rest of the alignment, including the previously clipped left border and the
+unchanged vertical axis, is correct. The device-specific alignment therefore
+passes this development run at `LEFT POSITION +6`, `LABEL TOP +4`. This does not
+replace the remaining stable-release gates listed above.
