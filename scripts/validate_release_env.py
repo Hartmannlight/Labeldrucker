@@ -20,7 +20,10 @@ SECRET_KEYS = (
     "THINGDEX_PRINT_ADMIN_TOKEN",
     "THINGDEX_PRINTHUB_EVENT_SECRET",
     "PRINTHUB_API_TOKEN",
-    "PRINTER_FLEET_API_TOKEN",
+)
+SECRET_FILE_KEYS = (
+    "PRINTER_FLEET_CREDENTIALS_SOURCE",
+    "PRINTHUB_FLEET_TOKEN_SOURCE",
 )
 IMMUTABLE_IMAGE = re.compile(r"^\S+@sha256:([0-9a-f]{64})$")
 
@@ -51,6 +54,38 @@ def validate(values: dict[str, str]) -> list[str]:
         value = values.get(key, "")
         if not value or value == "replace-me":
             errors.append(f"{key} must be injected with a non-example secret")
+    for key in SECRET_FILE_KEYS:
+        value = values.get(key, "")
+        if not value or "example" in Path(value).name.lower():
+            errors.append(f"{key} must reference a non-example secret file")
+    return errors
+
+
+def validate_fleet_credentials(values: dict[str, str], *, base_directory: Path) -> list[str]:
+    credentials_path = Path(values.get("PRINTER_FLEET_CREDENTIALS_SOURCE", ""))
+    token_path = Path(values.get("PRINTHUB_FLEET_TOKEN_SOURCE", ""))
+    if not credentials_path.is_absolute():
+        credentials_path = base_directory / credentials_path
+    if not token_path.is_absolute():
+        token_path = base_directory / token_path
+    document = json.loads(credentials_path.read_text(encoding="utf-8"))
+    token = token_path.read_text(encoding="utf-8").strip()
+    if len(token) < 16 or "replace" in token.lower() or any(char.isspace() for char in token):
+        return ["PrintHub Fleet token file must contain one non-example token"]
+    credentials = document.get("credentials") if isinstance(document, dict) else None
+    if not isinstance(credentials, list):
+        return ["Fleet credentials file must contain a credentials list"]
+    matching = [item for item in credentials if isinstance(item, dict) and item.get("token") == token]
+    if len(matching) != 1:
+        return ["PrintHub Fleet token must match exactly one Fleet credential"]
+    principal = matching[0]
+    roles = set(principal.get("roles") or [])
+    sites = principal.get("sites")
+    errors: list[str] = []
+    if not {"observer", "submitter"} <= roles or "admin" in roles:
+        errors.append("PrintHub Fleet credential must have observer and submitter but not admin")
+    if not isinstance(sites, list) or not sites or "*" in sites:
+        errors.append("PrintHub Fleet credential must declare explicit non-global sites")
     return errors
 
 
@@ -88,6 +123,10 @@ def main() -> int:
     try:
         values = read_env(args.env_file)
         errors = validate(values)
+        if not any(key in error for error in errors for key in SECRET_FILE_KEYS):
+            errors.extend(
+                validate_fleet_credentials(values, base_directory=args.env_file.parent)
+            )
         if args.manifest:
             document = json.loads(args.manifest.read_text(encoding="utf-8"))
             errors.extend(validate_manifest(values, document))

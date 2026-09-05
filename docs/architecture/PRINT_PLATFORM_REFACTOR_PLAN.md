@@ -522,3 +522,16 @@ independent retry loops from producing duplicate labels.
 - The single global token remains as a migration-only compatibility adapter and
   cannot be configured together with structured credentials. The complete Fleet
   suite now has 37 passing tests.
+
+### 2026-09-05: Least-privilege production Fleet secrets
+
+- Production Compose no longer shares a global Fleet administrator token with
+  PrintHub. Fleet receives its structured credential document through one
+  mounted secret; PrintHub receives only its own token through another.
+- The PrintHub Fleet adapter supports a token file and fails startup when file
+  and inline sources are combined. The release validator proves that the token
+  matches exactly one non-admin principal with observe/submit roles and explicit
+  sites.
+- Example secret files are committed only as fail-closed templates; matching
+  deployment-specific files are ignored. Six focused PrintHub adapter tests and
+  55 combined platform tests pass, and production Compose validates.

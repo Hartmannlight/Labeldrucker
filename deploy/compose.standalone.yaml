@@ -7,9 +7,9 @@ services:
       PRINTER_FLEET_DATABASE: /data/fleet.sqlite3
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
       PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
-      PRINTER_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:?Set PRINTER_FLEET_API_TOKEN}
-      PRINTER_FLEET_API_CALLER_ID: printhub
+      PRINTER_FLEET_CREDENTIALS_FILE: /run/secrets/printer_fleet_credentials
     volumes: [printer_fleet_data:/data]
+    secrets: [printer_fleet_credentials]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -23,7 +23,7 @@ services:
     image: ${PRINTHUB_IMAGE:?Set PRINTHUB_IMAGE to an immutable digest}
     environment:
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
-      PRINTHUB_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:?Set PRINTER_FLEET_API_TOKEN}
+      PRINTHUB_FLEET_API_TOKEN_FILE: /run/secrets/printhub_fleet_token
       ZPLGRID_TEMPLATES_DIR: /data/templates
       ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
       ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs
@@ -31,6 +31,7 @@ services:
     ports:
       - ${PRINTHUB_API_BIND:-127.0.0.1}:${PRINTHUB_API_PORT:-8001}:8000
     volumes: [printhub_data:/data]
+    secrets: [printhub_fleet_token]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -83,6 +84,12 @@ services:
 
 networks:
   print-platform:
+
+secrets:
+  printer_fleet_credentials:
+    file: ${PRINTER_FLEET_CREDENTIALS_SOURCE:?Set PRINTER_FLEET_CREDENTIALS_SOURCE}
+  printhub_fleet_token:
+    file: ${PRINTHUB_FLEET_TOKEN_SOURCE:?Set PRINTHUB_FLEET_TOKEN_SOURCE}
 
 volumes:
   printer_fleet_data:

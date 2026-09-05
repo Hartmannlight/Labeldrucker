@@ -44,6 +44,15 @@ python scripts/validate_release_env.py /run/secrets/thingdex-release.env \
   --manifest /run/releases/compatibility.json
 ```
 
+Production Fleet authentication is file-mounted. The Fleet container receives
+the complete principal document; PrintHub receives only its matching token in a
+different secret file. The validator requires that this token maps to exactly
+one principal with `observer` and `submitter`, explicit sites and no `admin`
+role. Copy the examples under `deploy/secrets/` to ignored deployment-specific
+paths and replace every placeholder before validation. The legacy global Fleet
+token remains development/migration compatibility and is not used by the
+production Compose profile.
+
 `deploy/compatibility.example.json` defines the release bill-of-materials shape.
 The Compatibility Release workflow accepts only exact source revisions and
 digest-pinned images, verifies that every image is a native amd64/arm64 index,

@@ -1,5 +1,8 @@
 .env
 deploy/.env.production
+deploy/secrets/*
+!deploy/secrets/*.example
+!deploy/secrets/*.example.json
 artifacts/printhub-before-registry-*.tar.gz
 artifacts/printers-before-registry-*.yml
 test-tmp/

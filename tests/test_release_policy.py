@@ -15,7 +15,14 @@ from scripts.build_compatibility_manifest import (
     write_manifest,
 )
 from scripts.security_gate import findings
-from scripts.validate_release_env import IMAGE_KEYS, SECRET_KEYS, validate, validate_manifest
+from scripts.validate_release_env import (
+    IMAGE_KEYS,
+    SECRET_FILE_KEYS,
+    SECRET_KEYS,
+    validate,
+    validate_fleet_credentials,
+    validate_manifest,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,9 +61,45 @@ def test_release_context_rejects_non_release_refs(monkeypatch) -> None:
 def test_release_environment_requires_real_digests_and_secrets() -> None:
     valid = {key: f"registry.example/{key.lower()}@sha256:{'1' * 64}" for key in IMAGE_KEYS}
     valid.update({key: "injected-secret" for key in SECRET_KEYS})
+    valid.update({key: f"C:/secrets/{key.lower()}" for key in SECRET_FILE_KEYS})
     assert validate(valid) == []
     valid["PRINTHUB_IMAGE"] = "registry.example/printhub:latest"
     assert any("PRINTHUB_IMAGE" in error for error in validate(valid))
+
+
+def test_release_environment_matches_narrow_printhub_fleet_credential(tmp_path) -> None:
+    credentials = tmp_path / "fleet-credentials.json"
+    token_file = tmp_path / "printhub-token"
+    token = "a-production-fleet-token"
+    credentials.write_text(
+        json.dumps(
+            {
+                "credentials": [
+                    {
+                        "id": "printhub-berlin",
+                        "token": token,
+                        "roles": ["observer", "submitter"],
+                        "sites": ["berlin"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    token_file.write_text(token + "\n", encoding="utf-8")
+    values = {
+        "PRINTER_FLEET_CREDENTIALS_SOURCE": credentials.name,
+        "PRINTHUB_FLEET_TOKEN_SOURCE": token_file.name,
+    }
+
+    assert validate_fleet_credentials(values, base_directory=tmp_path) == []
+
+    document = json.loads(credentials.read_text(encoding="utf-8"))
+    document["credentials"][0]["roles"].append("admin")
+    credentials.write_text(json.dumps(document), encoding="utf-8")
+    assert validate_fleet_credentials(values, base_directory=tmp_path) == [
+        "PrintHub Fleet credential must have observer and submitter but not admin"
+    ]
 
 
 def test_security_policy_blocks_fixable_high_findings() -> None:
