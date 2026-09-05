@@ -101,3 +101,29 @@ A release passes hardware acceptance only when every advertised transport has a
 `pass`. An unavailable Zebra, bridge or PrintAgent path stays unsupported in the
 compatibility matrix. Niimbot B1 requires its own future protocol and media
 record and is not covered by a Zebra result.
+
+## Machine-readable stable-release gate
+
+Copy `hardware-acceptance.example.json`, keep it in this repository and replace
+every placeholder with sanitized results from the exact tested candidate. The
+JSON deliberately fails validation until every common scenario and every
+advertised transport passes. It rejects sensitive field names, non-HTTPS
+evidence references, self-review and ambiguous delivery-state claims. Do not
+include unrestricted device logs.
+
+Validate it before dispatching a stable release:
+
+```powershell
+python scripts/validate_hardware_acceptance.py `
+  release/acceptance/v1.0.0.json `
+  --release v1.0.0 `
+  --platform-revision FULL_TESTED_CANDIDATE_COMMIT
+```
+
+The Compatibility Release workflow requires both that repository-relative file
+and the candidate source revision. It verifies that the evidence names the same
+release and candidate, embeds its SHA-256 digest and advertised transports in
+the signed compatibility manifest, and publishes the sanitized record beside
+the manifest. The workflow commit may be newer than the tested candidate; this
+avoids the impossible requirement that a hardware record already exist inside
+the commit whose images were tested.

@@ -47,7 +47,7 @@ jobs:
           npm --prefix fleet-console test
           node --check fleet-console/app.js
           python3 scripts/security_gate.py --self-test
-          python3 -m py_compile scripts/build_compatibility_manifest.py scripts/container_smoke.py scripts/release_component.py scripts/validate_release_env.py
+          python3 -m py_compile scripts/build_compatibility_manifest.py scripts/container_smoke.py scripts/release_component.py scripts/validate_hardware_acceptance.py scripts/validate_release_env.py
       - name: Rehearse PostgreSQL backup and restore
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}

@@ -66,8 +66,8 @@ different secret file. The validator requires that this token maps to exactly
 one principal with `observer` and `submitter`, explicit sites and no `admin`
 role. Copy the examples under `deploy/secrets/` to ignored deployment-specific
 paths and replace every placeholder before validation. The legacy global Fleet
-token remains development/migration compatibility and is not used by the
-production Compose profile.
+token has been removed; development and production both use structured
+principals, with different secret-delivery mechanisms.
 
 `deploy/compatibility.example.json` defines the release bill-of-materials shape.
 The Compatibility Release workflow accepts only exact source revisions and
@@ -78,6 +78,12 @@ checksum and signed GitHub artifact attestation. The deployment validator reject
 an environment whose image values differ from that manifest. The all-zero
 digests and `replace-me` secrets are deliberate fail-closed placeholders, not
 runnable defaults.
+
+Stable compatibility publication additionally requires a repository-relative,
+independently reviewed hardware-acceptance JSON record. The record is bound to
+the exact previously built platform candidate, not to the later workflow commit
+that stores the evidence. Its digest and advertised, passing transports become
+part of compatibility-manifest schema version 2.
 
 `printer-fleet`, `printer-fleet-console` and `printhub-ipp` are released by the
 root repository's container pipeline because their source currently lives

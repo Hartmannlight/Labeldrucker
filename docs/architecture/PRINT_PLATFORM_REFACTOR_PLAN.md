@@ -782,3 +782,20 @@ independent retry loops from producing duplicate labels.
   device traffic. Explicit `fit` release then stored the prepared-raster MIME
   artifact in PrinterFleet, reached `transport_accepted`, and produced exactly
   one RAW TCP job in the virtual Zebra.
+
+### 2026-09-05: Fail-closed real-hardware release evidence
+
+- The stable Compatibility Release can no longer be assembled from image
+  digests alone. It requires a sanitized, machine-readable and independently
+  reviewed hardware record for the exact tested platform candidate.
+- Every common scenario and every transport advertised by that release must be
+  `pass`. Unsupported or unavailable serial bridge and PrintAgent paths remain
+  explicitly unadvertised rather than being inferred from emulator coverage.
+- Compatibility-manifest schema version 2 contains the evidence digest,
+  review/test timestamps and exact supported-transport list; the evidence file
+  is published beside the attested manifest.
+- The candidate revision is now an explicit release input. This avoids a
+  circular provenance requirement when evidence is committed only after the
+  candidate images have undergone physical testing.
+- Action 10 remains open only for filling that record with real Zebra evidence
+  and intentionally dispatching the first stable compatibility release.

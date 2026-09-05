@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "release": "v1.0.0",
+  "platformRevision": "0000000000000000000000000000000000000000",
+  "testedAt": "2026-09-05T12:00:00Z",
+  "reviewedAt": "2026-09-05T13:00:00Z",
+  "tester": {
+    "name": "replace-me",
+    "site": "isolated-test-site"
+  },
+  "reviewer": {
+    "name": "replace-with-an-independent-reviewer"
+  },
+  "scenarios": {
+    "public_catalog_boundary": "not_tested",
+    "maintenance_serialization": "not_tested",
+    "queue_isolation": "not_tested",
+    "disconnect_ambiguity": "not_tested",
+    "media_change": "not_tested",
+    "cups_browser": "not_tested",
+    "color_dither": "not_tested",
+    "a4_hold_fit": "not_tested"
+  },
+  "transports": {
+    "raw_tcp": {
+      "advertised": true,
+      "outcome": "not_tested",
+      "printer": {
+        "manufacturer": "Zebra",
+        "model": "replace-me",
+        "firmware": "replace-me",
+        "serialSuffix": "last-4-only"
+      },
+      "media": {
+        "widthMm": 50,
+        "heightMm": 50,
+        "tracking": "gap",
+        "color": "white",
+        "technology": "direct-thermal",
+        "dpi": 203
+      },
+      "connectionSummary": "isolated Ethernet RAW port 9100; no address or credentials",
+      "reportedState": "transport_accepted",
+      "auditCorrelationIds": ["replace-me"],
+      "printHubJobIds": ["replace-me"],
+      "fleetDeliveryIds": ["replace-me"],
+      "evidence": ["https://example.invalid/sanitized-evidence"]
+    },
+    "serial_over_tcp": {
+      "advertised": false,
+      "outcome": "not_tested",
+      "reason": "no representative bridge available"
+    },
+    "print_agent": {
+      "advertised": false,
+      "outcome": "not_tested",
+      "reason": "no representative local-device installation available"
+    }
+  }
+}

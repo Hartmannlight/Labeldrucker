@@ -7,6 +7,14 @@ on:
         description: Exact platform release, for example v1.0.0
         required: true
         type: string
+      platform_revision:
+        description: Root source commit represented by the tested platform images
+        required: true
+        type: string
+      hardware_acceptance_path:
+        description: Repository-relative sanitized JSON evidence for this candidate
+        required: true
+        type: string
       printer_fleet_image:
         description: Published PrinterFleet image at sha256 digest
         required: true
@@ -78,7 +86,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMPATIBILITY_RELEASE: ${{ inputs.release }}
-          PLATFORM_SOURCE_REVISION: ${{ github.sha }}
+          PLATFORM_SOURCE_REVISION: ${{ inputs.platform_revision }}
+          HARDWARE_ACCEPTANCE_PATH: ${{ inputs.hardware_acceptance_path }}
           PRINTER_FLEET_IMAGE: ${{ inputs.printer_fleet_image }}
           PRINTER_FLEET_CONSOLE_IMAGE: ${{ inputs.fleet_console_image }}
           PRINTHUB_IPP_IMAGE: ${{ inputs.ipp_gateway_image }}
@@ -92,6 +101,7 @@ jobs:
         run: >-
           python3 scripts/build_compatibility_manifest.py
           --verify-images --verify-attestations
+          --hardware-acceptance "$HARDWARE_ACCEPTANCE_PATH"
           --output release/compatibility.json
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -102,4 +112,5 @@ jobs:
           path: |
             release/compatibility.json
             release/compatibility.json.sha256
+            release/hardware-acceptance.json
           retention-days: 90

@@ -1,11 +1,19 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "release": "v0.0.0",
   "contracts": {
     "printAgentApi": "v1",
     "printHubApi": "v1",
     "printerFleetApi": "v1",
     "thingdexApi": "v1"
+  },
+  "hardwareAcceptance": {
+    "schemaVersion": 1,
+    "file": "hardware-acceptance.json",
+    "sha256": "${HARDWARE_ACCEPTANCE_SHA256}",
+    "supportedTransports": ["raw_tcp"],
+    "testedAt": "${HARDWARE_TESTED_AT}",
+    "reviewedAt": "${HARDWARE_REVIEWED_AT}"
   },
   "components": {
     "ippGateway": {

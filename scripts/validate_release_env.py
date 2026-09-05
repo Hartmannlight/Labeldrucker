@@ -29,6 +29,7 @@ SECRET_FILE_KEYS = (
     "PRINTHUB_FLEET_TOKEN_SOURCE",
 )
 IMMUTABLE_IMAGE = re.compile(r"^\S+@sha256:([0-9a-f]{64})$")
+SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -96,9 +97,23 @@ def validate_manifest(values: dict[str, str], document: object) -> list[str]:
     errors: list[str] = []
     if not isinstance(document, dict):
         return ["Compatibility manifest must be a JSON object"]
-    if document.get("schemaVersion") != 1:
-        errors.append("Compatibility manifest schemaVersion must be 1")
+    if document.get("schemaVersion") != 2:
+        errors.append("Compatibility manifest schemaVersion must be 2")
         return errors
+    acceptance = document.get("hardwareAcceptance")
+    if not isinstance(acceptance, dict):
+        errors.append("Compatibility manifest hardwareAcceptance must be an object")
+    else:
+        if acceptance.get("schemaVersion") != 1:
+            errors.append("Hardware acceptance reference schemaVersion must be 1")
+        if acceptance.get("file") != "hardware-acceptance.json":
+            errors.append("Hardware acceptance reference must use hardware-acceptance.json")
+        digest = acceptance.get("sha256")
+        if not isinstance(digest, str) or not SHA256.fullmatch(digest) or digest == "0" * 64:
+            errors.append("Hardware acceptance reference requires a real SHA-256 digest")
+        transports = acceptance.get("supportedTransports")
+        if not isinstance(transports, list) or not transports:
+            errors.append("Hardware acceptance must advertise at least one passing transport")
     components = document.get("components")
     if not isinstance(components, dict):
         return ["Compatibility manifest components must be an object"]

@@ -10,9 +10,14 @@ from scripts.release_component import release_context
 from scripts.build_compatibility_manifest import (
     SIGNER_WORKFLOWS,
     build_manifest,
+    main as build_manifest_main,
     verify_attestations,
     verify_images,
     write_manifest,
+)
+from scripts.validate_hardware_acceptance import (
+    acceptance_reference,
+    validation_errors as hardware_acceptance_errors,
 )
 from scripts.security_gate import findings, main as security_gate_main
 from scripts.validate_release_env import (
@@ -198,14 +203,79 @@ def compatibility_values() -> dict[str, str]:
     return values
 
 
+def hardware_acceptance() -> dict[str, object]:
+    return {
+        "schemaVersion": 1,
+        "release": "v1.2.3",
+        "platformRevision": "a" * 40,
+        "testedAt": "2026-09-05T10:00:00Z",
+        "reviewedAt": "2026-09-05T11:00:00Z",
+        "tester": {"name": "Test Operator", "site": "isolated-lab"},
+        "reviewer": {"name": "Independent Reviewer"},
+        "scenarios": {
+            "public_catalog_boundary": "pass",
+            "maintenance_serialization": "pass",
+            "queue_isolation": "pass",
+            "disconnect_ambiguity": "pass",
+            "media_change": "pass",
+            "cups_browser": "pass",
+            "color_dither": "pass",
+            "a4_hold_fit": "pass",
+        },
+        "transports": {
+            "raw_tcp": {
+                "advertised": True,
+                "outcome": "pass",
+                "printer": {
+                    "manufacturer": "Zebra",
+                    "model": "ZT411",
+                    "firmware": "V1",
+                    "serialSuffix": "1234",
+                },
+                "media": {
+                    "widthMm": 50,
+                    "heightMm": 50,
+                    "tracking": "gap",
+                    "color": "white",
+                    "technology": "thermal-transfer",
+                    "dpi": 203,
+                },
+                "connectionSummary": "isolated Ethernet port 9100",
+                "reportedState": "transport_accepted",
+                "auditCorrelationIds": ["correlation-1"],
+                "printHubJobIds": ["job-1"],
+                "fleetDeliveryIds": ["delivery-1"],
+                "evidence": ["https://example.invalid/evidence/1"],
+            },
+            "serial_over_tcp": {
+                "advertised": False,
+                "outcome": "not_tested",
+                "reason": "not part of this release",
+            },
+            "print_agent": {
+                "advertised": False,
+                "outcome": "not_tested",
+                "reason": "not part of this release",
+            },
+        },
+    }
+
+
+def hardware_reference(document: dict[str, object] | None = None) -> dict[str, object]:
+    value = document or hardware_acceptance()
+    encoded = (json.dumps(value, sort_keys=True) + "\n").encode()
+    return acceptance_reference(value, encoded)
+
+
 def test_compatibility_manifest_binds_images_sources_and_environment(tmp_path) -> None:
     values = compatibility_values()
-    manifest = build_manifest(values)
+    manifest = build_manifest(values, hardware_reference())
     output = tmp_path / "compatibility.json"
     write_manifest(manifest, output)
 
-    assert manifest["schemaVersion"] == 1
+    assert manifest["schemaVersion"] == 2
     assert manifest["components"]["printerFleet"]["source"]["revision"] == "a" * 40
+    assert manifest["hardwareAcceptance"]["supportedTransports"] == ["raw_tcp"]
     assert validate_manifest(values, manifest) == []
     assert len(output.with_suffix(".json.sha256").read_text().split()[0]) == 64
     assert json.loads(output.read_text(encoding="utf-8")) == manifest
@@ -221,16 +291,16 @@ def test_manifest_rejects_mutable_images_and_inexact_source_revisions() -> None:
     values = compatibility_values()
     values["PRINTHUB_IMAGE"] = "ghcr.io/hartmannlight/printhub:latest"
     with pytest.raises(ValueError, match="PRINTHUB_IMAGE"):
-        build_manifest(values)
+        build_manifest(values, hardware_reference())
 
     values = compatibility_values()
     values["THINGDEX_SOURCE_REVISION"] = "main"
     with pytest.raises(ValueError, match="THINGDEX_SOURCE_REVISION"):
-        build_manifest(values)
+        build_manifest(values, hardware_reference())
 
 
 def test_manifest_verifies_multiarch_digests(monkeypatch) -> None:
-    manifest = build_manifest(compatibility_values())
+    manifest = build_manifest(compatibility_values(), hardware_reference())
 
     def inspect(command, text):
         reference = command[4]
@@ -255,8 +325,77 @@ def test_manifest_verifies_each_component_attestation(monkeypatch) -> None:
         lambda command, check: calls.append((command, check)),
     )
 
-    verify_attestations(build_manifest(compatibility_values()))
+    verify_attestations(build_manifest(compatibility_values(), hardware_reference()))
 
     assert len(calls) == len(SIGNER_WORKFLOWS)
     assert all(call[0][:3] == ["gh", "attestation", "verify"] for call in calls)
     assert all("--source-digest" in call[0] and call[1] is True for call in calls)
+
+
+def test_hardware_acceptance_requires_independent_complete_real_device_evidence() -> None:
+    valid = hardware_acceptance()
+    assert hardware_acceptance_errors(
+        valid,
+        expected_release="v1.2.3",
+        expected_platform_revision="a" * 40,
+    ) == []
+
+    invalid = json.loads(json.dumps(valid))
+    invalid["reviewer"]["name"] = invalid["tester"]["name"]
+    invalid["scenarios"]["a4_hold_fit"] = "not_tested"
+    invalid["transports"]["raw_tcp"]["outcome"] = "not_tested"
+    invalid["transports"]["raw_tcp"]["api_token"] = "must-never-be-recorded"
+    errors = hardware_acceptance_errors(
+        invalid,
+        expected_release="v1.2.3",
+        expected_platform_revision="a" * 40,
+    )
+
+    assert any("different people" in error for error in errors)
+    assert any("a4_hold_fit must pass" in error for error in errors)
+    assert any("advertised transport raw_tcp must pass" in error for error in errors)
+    assert any("not permitted in sanitized evidence" in error for error in errors)
+
+
+def test_compatibility_manifest_cli_embeds_and_copies_validated_hardware_evidence(
+    tmp_path, monkeypatch
+) -> None:
+    values = compatibility_values()
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    acceptance_path = tmp_path / "acceptance.json"
+    encoded = (json.dumps(hardware_acceptance(), indent=2) + "\n").encode()
+    acceptance_path.write_bytes(encoded)
+    output = tmp_path / "release" / "compatibility.json"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "build_compatibility_manifest.py",
+            "--hardware-acceptance",
+            acceptance_path.name,
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert build_manifest_main() == 0
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    copied = output.parent / "hardware-acceptance.json"
+    assert copied.read_bytes() == encoded
+    assert manifest["hardwareAcceptance"]["sha256"] == acceptance_reference(
+        hardware_acceptance(), encoded
+    )["sha256"]
+
+
+def test_checked_in_hardware_acceptance_example_is_deliberately_not_releasable() -> None:
+    example = json.loads(
+        (ROOT / "docs" / "acceptance" / "hardware-acceptance.example.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    errors = hardware_acceptance_errors(example)
+
+    assert any("must pass before stable release" in error for error in errors)
+    assert any("advertised transport raw_tcp must pass" in error for error in errors)
