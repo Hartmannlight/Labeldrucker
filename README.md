@@ -1,6 +1,6 @@
 # PrintHub ohne Thingdex-Inventar
 
-Stand: 4. September 2026
+Stand: 5. September 2026
 
 Diese Variante betreibt nur die Etiketten- und Druckfunktionen. Sie enthält
 keine Thingdex-API, keine Inventardatenbank und kein PostgreSQL.
@@ -16,8 +16,9 @@ unter `Hartmannlight/Labeldrucker` veröffentlicht. Der Unterordner
 
 Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
 
-- `Labeldrucker`: Docker Compose, IPP-Eingang und Betriebsdokumentation
-- `PrintHub-ZPL-ll`: Druckjob-API, Rasterpipeline, Vorschau und Druckertreiber
+- `Labeldrucker`: Docker Compose, IPP-Eingang, vorläufiger PrinterFleet-Quellcode und Betriebsdokumentation
+- `PrintHub-ZPL-ll`: Druckjob-API, Rasterpipeline, Vorschau und logische Druckjobs
+- `PrinterFleet`: zentrale physische Drucker, Fähigkeiten, Medienzustand und Auslieferungen
 - `printhub-sdk`: generierter und kuratierter TypeScript-Client
 - `LabelArchitect`: Studio-Oberfläche für Vorschau und Jobfreigabe
 - `ZPL-II-Printer-Emulator`: virtueller Drucker für Entwicklung und Tests
@@ -55,6 +56,7 @@ Labeldrucker/
 │   ├── PrintHub-ZPL-ll/            # Git-Submodule
 │   └── ZPL-II-Printer-Emulator/     # Git-Submodule
 ├── ipp-gateway/
+├── printer-fleet/                  # eigenständiger Dienst, vorläufig hier inkubiert
 └── compose.yaml
 ```
 
@@ -92,6 +94,11 @@ Danach sind erreichbar:
 - Virtueller Zebra: `http://localhost:9191`
 - IPP-/CUPS-Drucker: `ipp://localhost:8631/ipp/print`
 
+PrinterFleet ist absichtlich nur im internen Compose-Netz erreichbar. PrintHub
+liest den Druckerkatalog über dessen HTTP-API und übergibt fertige,
+prüfsummengeschützte Druckartefakte. Druckeradressen und physische Zustellversuche
+gehören damit nicht mehr zum dauerhaften Zielmodell von PrintHub.
+
 ## Schnittstellen: Was kann wie angesprochen werden?
 
 Der Compose-Stack bindet Studio, API, IPP und Emulator-Webansicht standardmäßig nur
@@ -110,7 +117,8 @@ in `compose.yaml` bewusst geändert und der Zugriff passend abgesichert werden.
 | Ungespeichertes Template drucken | `POST /v1/printers/{printer_id}/prints/template` | Ja | Template und Variablen werden direkt im Request mitgegeben. |
 | RAW ZPL II drucken | `POST /v1/printers/{printer_id}/prints/zpl` | Ja | Body: `{"zpl":"^XA...^XZ"}`. Bei `raw9100` ergänzt PrintHub konfigurierte Gerätewerte, behält die Befehle des Payloads aber bei; an ZebraTamer geht RAW-ZPL unverändert. |
 | Drucker und Status | `GET /v1/printers`, `GET /v1/printers/{id}/status` | Ja | Status nur, wenn der registrierte Drucker ihn unterstützt. |
-| RAW-TCP/JetDirect Port 9100 | PrintHub → Drucker | Ja | Drucker mit `connection.protocol: raw9100` werden auf dem konfigurierten Host/Port angesprochen, üblicherweise `9100`. PrintHub selbst lauscht **nicht** auf Port 9100. |
+| RAW-TCP/JetDirect Port 9100 | PrinterFleet → Drucker | Ja | Drucker mit `connection.protocol: raw_tcp` oder dem kompatiblen Namen `raw9100` werden zentral auf dem konfigurierten Host/Port angesprochen. Weder PrintHub noch PrinterFleet lauschen selbst als Drucker auf Port 9100. |
+| RS232-zu-Ethernet | PrinterFleet → Bridge | Ja | `connection.protocol: serial_over_tcp` nutzt einen transparenten TCP-Bridge-Endpunkt; serielle Parameter werden auf der Bridge konfiguriert. |
 | Virtueller Zebra auf Port 9100 | nur im Docker-Netz: `virtual-zebra:9100` | Ja, intern | In der mitgelieferten Compose-Datei wird 9100 nicht auf den Host veröffentlicht; von außen wird über die PrintHub-API gedruckt. |
 | PrintHub selbst zu CUPS hinzufügen | `ipp://localhost:8631/ipp/print` | Ja | Driverless IPP-Queue für den mit `PRINTHUB_IPP_PRINTER_ID` ausgewählten PrintHub-Drucker. Akzeptiert PWG Raster, Apple Raster, PDF, PostScript und JPEG. |
 | Bestehende CUPS-Queue als PrintHub-Ausgabegerät | – | Nein | Das Gateway ist ein Eingang für Anwendungen und CUPS. PrintHub sendet weiterhin über seine Geräte-Backends wie `raw9100` oder ZebraTamer. |
@@ -212,14 +220,20 @@ $body = @{ zpl = '^XA^FO30,30^A0N,40,40^FDHallo^FS^XZ' } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri http://localhost:8001/v1/printers/virtual-zebra/prints/zpl -ContentType application/json -Body $body
 ```
 
-Der virtuelle Drucker wird beim ersten Start aus `config/printers.yml` direkt
-per `raw9100` in PrintHub registriert. Eine separate ZebraTamer-API wird nur für
-reale Drucker benötigt. Die YAML-Datei ist danach kein Laufzeitspeicher mehr.
+Der virtuelle Drucker wird beim ersten Start aus `config/printers.yml` in
+PrinterFleet registriert und von dort direkt per `raw9100` angesprochen. Eine
+separate ZebraTamer-/PrintAgent-Instanz ist nur für Geräte nötig, die der zentrale
+Dienst nicht direkt erreichen kann, etwa USB- oder Bluetooth-Drucker. Die
+YAML-Datei ist danach kein Laufzeitspeicher mehr.
 
 ## Zentrale Druckerverwaltung und Migration
 
-PrintHub verwaltet Drucker in `/data/printers.sqlite3` im bestehenden
-`printhub_data`-Volume. Es wird kein zusätzlicher Datenbankdienst benötigt.
+PrinterFleet verwaltet Drucker und physische Zustellungen in
+`/data/fleet.sqlite3` im eigenen `printer_fleet_data`-Volume. PrintHub behält
+vorübergehend seine bisherige Registry als Kompatibilitätsfassade für alte
+Studio-/SDK-Endpunkte; neue Katalogabfragen und Druckzustellungen laufen bereits
+über PrinterFleet. Diese Übergangsphase vermeidet einen nicht rückrollbaren
+Big-Bang-Datenumzug.
 
 - Beim ersten Start wird die komplette bisherige YAML einmalig und atomar
   übernommen. Öffentliche IDs, Einstellungen und deaktivierte Geräte bleiben
@@ -254,7 +268,7 @@ Registry als YAML exportieren, da ältere Versionen SQLite nicht lesen.
 Logs und Stoppen:
 
 ```powershell
-docker compose logs -f printhub studio virtual-zebra ipp-gateway
+docker compose logs -f printhub printer-fleet studio virtual-zebra ipp-gateway
 docker compose down
 ```
 

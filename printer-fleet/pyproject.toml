@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "printer-fleet"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.141.1",
+  "PyYAML==6.0.2",
+  "uvicorn==0.30.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
