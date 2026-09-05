@@ -693,3 +693,29 @@ independent retry loops from producing duplicate labels.
   inline template snapshot. Studio uses the snapshot form for unsaved drafts,
   the SDK no longer exposes direct template submission, and the legacy HTTP
   route has been removed from the public OpenAPI contract.
+
+### 2026-09-05: Canonical path release verification
+
+- Studio now uses a pinned minimal nginx runtime with a project-owned non-root
+  main configuration. This removes distribution-specific PID and HTTP include
+  assumptions while keeping runtime configuration generation explicit.
+- [Studio Container Release run 33954352045](https://github.com/Hartmannlight/LabelArchitect/actions/runs/33954352045)
+  passed source checks, CodeQL-adjacent security gates, native amd64/arm64
+  runtime smoke tests, vulnerability scans, SBOM/provenance attestations and
+  multi-architecture publication. The separate
+  [CodeQL run 33954351887](https://github.com/Hartmannlight/LabelArchitect/actions/runs/33954351887)
+  also passed.
+- [Platform CI run 33954365889](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33954365889)
+  passed the root service suite, PostgreSQL backup/restore rehearsal, Compose
+  validation and native Fleet/IPP container gates.
+- [Platform Integration run 33954365770](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33954365770)
+  passed driverless capability discovery, a 50 x 50 mm PDF job, explicit
+  release of an A4-to-label hold and delivery of both jobs through PrinterFleet
+  to the RAW-9100 emulator.
+- [Platform Container Release run 33954365974](https://github.com/Hartmannlight/Labeldrucker/actions/runs/33954365974)
+  passed native validation and published attested multi-architecture Fleet and
+  IPP images.
+- Action 10 remains open deliberately: migration-only printer administration
+  still needs replacement by Fleet Console, remaining aliases require a stable
+  breaking release, and Zebra, serial-bridge and PrintAgent acceptance must be
+  recorded against real hardware.
