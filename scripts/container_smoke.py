@@ -117,7 +117,7 @@ def main() -> None:
             wait_http(f"http://{host}:{port_text}/health")
             request = urllib.request.Request(
                 f"http://{host}:{port_text}/metrics",
-                headers={"Authorization": "Bearer smoke-secret"},
+                headers={"Authorization": "Bearer smoke-secret-1234"},
             )
             with urllib.request.urlopen(request, timeout=3) as response:
                 assert b"printer_fleet_printers" in response.read()
