@@ -96,3 +96,11 @@ context and transactional state. Split the worker deployment only for scaling or
 failure isolation; do not create a second service contract merely to obtain a
 second process. Keep Fleet Console and PrintAgent separate because they have
 different trust, release and deployment boundaries.
+
+Persistence follows the same boundary rule. Delivery orchestration and agent
+discovery consume narrow repository ports; the composition root chooses the
+SQLite adapter today. A PostgreSQL adapter must implement idempotency insertion,
+oldest-per-printer claims, device leases and state/event writes as atomic
+transactions before it can replace SQLite. Migration uses one authoritative
+writer: verify a source backup, stop acceptance, import and compare records,
+then switch the API and workers together. Indefinite dual-write is forbidden.

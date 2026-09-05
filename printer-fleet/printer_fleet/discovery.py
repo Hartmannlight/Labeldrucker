@@ -6,13 +6,13 @@ import time
 from typing import Any, Iterable
 
 from .agent import PrintAgentClient
-from .repository import FleetRepository
+from .ports import AgentRepository
 
 
 class AgentDiscoveryService:
     def __init__(
         self,
-        repository: FleetRepository,
+        repository: AgentRepository,
         client: PrintAgentClient | None = None,
         discover_mdns: bool = False,
     ) -> None:

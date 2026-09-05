@@ -8,14 +8,14 @@ from typing import Any, Callable
 
 from .domain import DeliveryState, FleetError, PrinterPaused, PrintArtifact
 from .drivers import DriverRegistry
-from .repository import FleetRepository
+from .ports import DeliveryRepository
 from .transports import TransportRegistry
 
 
 class DeliveryService:
     def __init__(
         self,
-        repository: FleetRepository,
+        repository: DeliveryRepository,
         *,
         drivers: DriverRegistry | None = None,
         transports: TransportRegistry | None = None,

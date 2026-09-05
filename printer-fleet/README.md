@@ -95,6 +95,13 @@ credential needs `observer` plus `submitter` only for its assigned sites.
 This directory incubates an independently deployable service. It is intended
 to become its own repository once its v1 contract is stable.
 
+Delivery orchestration and PrintAgent discovery depend on the structural
+`DeliveryRepository` and `AgentRepository` ports, not on SQLite. The API module
+is the composition root that currently selects `FleetRepository` as its local,
+single-node adapter. A future PostgreSQL adapter must preserve the same atomic
+idempotency, per-printer claim, operation-lease and ordered-event guarantees;
+changing storage must not change the HTTP or driver contracts.
+
 ## Backup and restore
 
 Create a transactionally consistent online backup without stopping Fleet:

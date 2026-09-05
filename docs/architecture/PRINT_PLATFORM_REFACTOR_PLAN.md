@@ -580,3 +580,16 @@ independent retry loops from producing duplicate labels.
 - Fleet API tests prove zero transport calls before the response and successful
   worker delivery afterward. The PrintHub contract test accepts `queued` as the
   authoritative receipt instead of assuming immediate socket acceptance.
+
+### 2026-09-05: Fleet persistence ports
+
+- Delivery orchestration and PrintAgent discovery now depend on narrow
+  structural repository ports. SQLite remains a composition-root adapter rather
+  than an application-service dependency.
+- The PostgreSQL migration contract explicitly requires atomic idempotency,
+  oldest-per-printer claims, device leases and ordered state/event writes. The
+  cutover uses one writer and a verified stop/import/compare/switch sequence;
+  indefinite dual-write is excluded.
+- This establishes the implementation seam but does not close action 9: the
+  PostgreSQL adapter and an automated migration rehearsal still need to pass the
+  same repository contract suite.
