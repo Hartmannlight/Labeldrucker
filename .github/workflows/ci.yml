@@ -41,6 +41,16 @@ jobs:
           .venv/bin/python -m pytest -q tests printer-fleet/tests ipp-gateway/tests/test_gateway.py
           python3 scripts/security_gate.py --self-test
           python3 -m py_compile scripts/build_compatibility_manifest.py scripts/container_smoke.py scripts/release_component.py scripts/validate_release_env.py
+      - name: Rehearse PostgreSQL backup and restore
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$POSTGRES_CONTAINER" pg_dump --username=printer_fleet --dbname=printer_fleet_test --format=custom --file=/tmp/printer-fleet.dump
+          docker exec "$POSTGRES_CONTAINER" createdb --username=printer_fleet printer_fleet_restore
+          docker exec "$POSTGRES_CONTAINER" pg_restore --username=printer_fleet --dbname=printer_fleet_restore --no-owner /tmp/printer-fleet.dump
+          source_counts="$(docker exec "$POSTGRES_CONTAINER" psql --username=printer_fleet --dbname=printer_fleet_test --tuples-only --no-align --command="SELECT 'audit_records=' || COUNT(*) FROM audit_records UNION ALL SELECT 'deliveries=' || COUNT(*) FROM deliveries UNION ALL SELECT 'delivery_events=' || COUNT(*) FROM delivery_events UNION ALL SELECT 'printers=' || COUNT(*) FROM printers ORDER BY 1")"
+          restored_counts="$(docker exec "$POSTGRES_CONTAINER" psql --username=printer_fleet --dbname=printer_fleet_restore --tuples-only --no-align --command="SELECT 'audit_records=' || COUNT(*) FROM audit_records UNION ALL SELECT 'deliveries=' || COUNT(*) FROM deliveries UNION ALL SELECT 'delivery_events=' || COUNT(*) FROM delivery_events UNION ALL SELECT 'printers=' || COUNT(*) FROM printers ORDER BY 1")"
+          test "$source_counts" = "$restored_counts"
       - name: Validate source Compose
         run: docker compose config --quiet
   containers:
