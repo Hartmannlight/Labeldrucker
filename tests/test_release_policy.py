@@ -38,6 +38,7 @@ def test_workflows_parse_and_candidate_matrix_covers_native_platforms() -> None:
         "compatibility-release.yml",
         "container-gate.yml",
         "container-release.yml",
+        "platform-integration.yml",
     }
     candidates = workflows["container-gate.yml"]["jobs"]["candidate"]["strategy"]["matrix"]["include"]
     combinations = {(item["component"], item["arch"], item["runner"]) for item in candidates}

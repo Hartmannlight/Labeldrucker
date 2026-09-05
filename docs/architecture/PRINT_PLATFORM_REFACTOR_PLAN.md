@@ -663,3 +663,13 @@ independent retry loops from producing duplicate labels.
   PrinterFleet at the RAW-9100 Zebra emulator.
 - Failure output is limited to container state; unfiltered application logs are
   not uploaded. Real-device and agent-disconnect acceptance remain manual gates.
+
+### 2026-09-05: Lost PrintAgent response handling
+
+- A protocol-level failure-injection test now lets PrintAgent accept and persist
+  a job, then drops the first HTTP response. Fleet schedules a bounded retry with
+  the identical idempotency key; the simulated agent returns the existing job
+  instead of creating a second physical print.
+- The recovered Fleet delivery retains the single downstream job ID and honest
+  `transport_accepted` state. Real hardware disconnect timing remains part of
+  the manual acceptance gate.

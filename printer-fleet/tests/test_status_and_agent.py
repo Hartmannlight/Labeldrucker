@@ -1,7 +1,20 @@
 from __future__ import annotations
 
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+import socket
+import threading
+
 from printer_fleet.agent import PrintAgentTransport
-from printer_fleet.domain import DeliveryState, DevicePayload, TransportReceipt
+from printer_fleet.domain import (
+    DeliveryState,
+    DevicePayload,
+    PrintArtifact,
+    TransportReceipt,
+)
+from printer_fleet.repository import FleetRepository
+from printer_fleet.service import DeliveryService
 from printer_fleet.status import PrinterStatusService
 
 
@@ -27,6 +40,46 @@ class FakeAgentClient:
         }
 
 
+class LostFirstResponseAgent(BaseHTTPRequestHandler):
+    jobs: dict[str, dict[str, object]] = {}
+    submissions = 0
+
+    def _json(self, data: object) -> None:
+        body = json.dumps({"data": data, "error": None}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/v1/agent":
+            self._json({"agent_id": "edge-1"})
+            return
+        self.send_error(404)
+
+    def do_POST(self) -> None:  # noqa: N802
+        if self.path != "/v1/printers/usb-zebra/jobs":
+            self.send_error(404)
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        payload = self.rfile.read(length)
+        key = self.headers["X-Idempotency-Key"]
+        type(self).submissions += 1
+        job = type(self).jobs.setdefault(
+            key,
+            {"id": "agent-job-1", "state": "queued", "bytes": len(payload)},
+        )
+        if type(self).submissions == 1:
+            self.connection.shutdown(socket.SHUT_RDWR)
+            self.connection.close()
+            return
+        self._json(job)
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
 def test_print_agent_transport_preserves_downstream_reference():
     client = FakeAgentClient()
     receipt = PrintAgentTransport(client).send(
@@ -47,6 +100,54 @@ def test_print_agent_transport_preserves_downstream_reference():
     assert receipt.state is DeliveryState.TRANSPORT_ACCEPTED
     assert client.submissions[0][2] == "PrinterFleet delivery"
     assert client.submissions[0][1].idempotency_key == "fleet-delivery-1"
+
+
+def test_lost_agent_response_retries_without_creating_a_second_agent_job(
+    tmp_path: Path,
+):
+    LostFirstResponseAgent.jobs = {}
+    LostFirstResponseAgent.submissions = 0
+    server = ThreadingHTTPServer(("127.0.0.1", 0), LostFirstResponseAgent)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    repository = FleetRepository(tmp_path / "fleet.sqlite3")
+    repository.initialize()
+    repository.put_printer(
+        {
+            "id": "agent-zebra",
+            "driver": "zpl",
+            "connection": {
+                "protocol": "print_agent",
+                "base_url": f"http://127.0.0.1:{server.server_port}",
+                "printer_id": "usb-zebra",
+                "agent_id": "edge-1",
+                "timeout_ms": 1000,
+            },
+            "enabled": True,
+        }
+    )
+    service = DeliveryService(repository, retry_delay_seconds=0)
+    artifact = PrintArtifact("application/zpl", b"^XA^FDonce^FS^XZ")
+    try:
+        queued = service.submit(
+            printer_id="agent-zebra",
+            idempotency_key="fleet-agent/once",
+            artifact=artifact,
+            declared_checksum=artifact.checksum,
+        )
+        first = service.process_due()[0]
+        second = service.process_due()[0]
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+
+    assert queued["state"] == "queued"
+    assert first["state"] == "retry_scheduled"
+    assert second["state"] == "transport_accepted"
+    assert second["downstream_job_id"] == "agent-job-1"
+    assert LostFirstResponseAgent.submissions == 2
+    assert list(LostFirstResponseAgent.jobs) == ["fleet-agent/once"]
 
 
 def test_agent_status_is_normalized_without_exposing_connection():
