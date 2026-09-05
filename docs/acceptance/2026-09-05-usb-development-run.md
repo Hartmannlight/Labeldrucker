@@ -62,6 +62,15 @@ printer responses are intentionally excluded.
    the Zebra ready. This verifies container-restart recovery only; the printer
    itself remained powered and a physical power-cycle persistence test is still
    required.
+10. With zero active or retrying Fleet deliveries, usbipd-win performed a real
+    surprise-removal detach of only the Zebra and then reattached the same
+    device to Docker Desktop's WSL distribution. PrintHub, PrinterFleet, Studio,
+    Fleet Console, IPP and the independent virtual Zebra stayed healthy while
+    the USB endpoint was absent. The unchanged PrintAgent container retained
+    exactly one mapped USB device; after reattachment, a fresh Fleet status
+    operation reached the physical printer and reported
+    model `Zebra LP 2824 Plus`, ready. No print job was submitted. This passes
+    idle USB removal/recovery but not an in-flight ambiguous-outcome test.
 
 ## Correlation and remaining gates
 
@@ -73,9 +82,9 @@ Additional alignment job IDs are:
 
 The operator confirmed the final alignment result. Still required for stable
 evidence are power-cycle persistence, queue isolation,
-Fleet/Agent response-loss idempotency, USB disconnect ambiguity, media-change
-refresh, a filtered browser-dialog print, color/dither output, A4 fit release,
-sanitized visual evidence and independent review. Direct RAW TCP
+Fleet/Agent response-loss idempotency and in-flight disconnect ambiguity,
+media-change refresh, a filtered browser-dialog print, color/dither output, A4
+fit release, sanitized visual evidence and independent review. Direct RAW TCP
 and serial-over-TCP require separate representative hardware and cannot inherit
 this USB result.
 
@@ -94,6 +103,26 @@ PrinterFleet status operation reached the device and normalized it as ready,
 model `Zebra LP 2824 Plus`. No print job was submitted during this check. This
 is evidence for application/container restart recovery, not for persistence
 across printer power loss, USB detachment or an ambiguous in-flight delivery.
+
+## Idle USB surprise-removal recovery
+
+Immediately before this test, PrinterFleet contained nine historical
+deliveries and zero deliveries in `queued`, `retry_wait`, `connecting` or
+`transmitting`. usbipd-win 5.3 detached only the selected Zebra device. Docker
+reported PrintHub, PrinterFleet, Studio, Fleet Console, IPP Gateway and the
+virtual Zebra healthy throughout; the PrintAgent container also stayed running,
+so central administration and unrelated printer paths did not depend on
+physical USB availability.
+
+The same device was then attached again to the `docker-desktop` WSL
+distribution. Its state returned to `Attached`; the existing PrintAgent
+container retained exactly one USB mapping. Without restarting or replacing
+that container, PrinterFleet completed a new physical status query and reported
+printer `zebra-lp2824-usb`, model `Zebra LP 2824 Plus`, ready. No job or
+maintenance command was sent. This proves idle removal and automatic recovery.
+It does not exercise removal after transmission begins, so ambiguous outcome
+and no-automatic-resend behavior remain a separate destructive acceptance
+scenario.
 
 ## Revision-bound control run
 

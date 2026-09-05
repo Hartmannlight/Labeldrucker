@@ -905,6 +905,22 @@ independent retry loops from producing duplicate labels.
   cycling, USB disconnect ambiguity and in-flight response loss remain explicit
   manual gates for action 10.
 
+### 2026-09-05: Idle USB surprise-removal recovery
+
+- PrinterFleet first proved that no delivery was queued, retrying, connecting or
+  transmitting. usbipd-win then detached only the Zebra from Docker Desktop and
+  reattached the same bus, with no job submitted during the operation.
+- PrintHub, PrinterFleet, Studio, Fleet Console, IPP and the independent virtual
+  Zebra stayed healthy while the physical device was absent. The existing
+  hardened PrintAgent process also remained running with its one exact device
+  mapping.
+- After reattachment, PrinterFleet reached the physical Zebra through the same
+  Agent container and normalized it as ready. This passes idle USB removal and
+  recovery without coupling central availability to an edge device.
+- In-flight removal remains deliberately open: it must prove an honest
+  `unconfirmed` result and no automatic duplicate when transmission outcome is
+  unknowable.
+
 ### 2026-09-05: Windows driverless IPP registration
 
 - Windows 11 registered the loopback gateway as a normal system printer using
