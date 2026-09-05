@@ -234,7 +234,7 @@ independent retry loops from producing duplicate labels.
   - [ ] Exercise response-loss idempotency, Agent restart recovery and an
     in-flight disconnect; record ambiguous transmission honestly as
     `unconfirmed` and never resend it automatically.
-  - [ ] Change the declared/observed medium and prove that stale capability and
+  - [x] Change the declared/observed medium and prove that stale capability and
     preflight data are invalidated before a later job can be released.
   - [ ] Compare preview and physical output for a label-sized browser PDF, a
     color/dither fixture and an A4 document that is first held and then
