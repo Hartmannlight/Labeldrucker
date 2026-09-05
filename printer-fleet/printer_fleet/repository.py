@@ -8,6 +8,7 @@ import sqlite3
 from typing import Any, Iterator, Mapping
 import uuid
 
+from .configuration import normalize_printer
 from .domain import DeliveryConflict, DeliveryState, RegistryConflict
 
 
@@ -206,6 +207,7 @@ class FleetRepository:
         with self._connection() as db:
             for printer_id, printer in zip(ids, incoming):
                 printer.pop("registry", None)
+                printer = normalize_printer(printer)
                 existing = db.execute(
                     "SELECT payload_json FROM printers WHERE id = ?", (printer_id,)
                 ).fetchone()
@@ -269,6 +271,7 @@ class FleetRepository:
             raise ValueError("Printer id is required")
         payload = dict(printer)
         payload.pop("registry", None)
+        payload = normalize_printer(payload)
         now = _now()
         with self._connection() as db:
             current = db.execute("SELECT revision FROM printers WHERE id = ?", (printer_id,)).fetchone()
@@ -305,6 +308,7 @@ class FleetRepository:
             if key in {"id", "registry"}:
                 raise ValueError(f"Printer field cannot be patched: {key}")
             updated[key] = value
+        updated = normalize_printer(updated)
         # The update is guarded again in the write transaction to prevent a
         # read/modify/write race between concurrent API requests.
         now = _now()

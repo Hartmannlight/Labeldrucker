@@ -24,6 +24,11 @@ The first vertical slice supports ZPL artifacts over `raw_tcp`, the legacy
 `raw9100` spelling and `serial_over_tcp`. A successful socket write is recorded
 as `transport_accepted`, never as a confirmed physical print.
 
+Registry writes normalize RAW TCP to port 9100 and a bounded timeout. A
+`serial_over_tcp` endpoint must declare its real bridge port explicitly. Fleet
+rejects unknown protocols, malformed hosts, out-of-range ports and agent URLs
+containing embedded credentials before configuration becomes authoritative.
+
 Printer records, capability/media snapshots, immutable artifact bytes, ordered
 delivery events and PrintAgent observations are stored in Fleet's database.
 Transient delivery failures use bounded exponential retry. If Fleet restarts

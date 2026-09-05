@@ -482,5 +482,8 @@ independent retry loops from producing duplicate labels.
 - `PRINTER_FLEET_MAX_PARALLEL_PRINTERS` configures the per-process endpoint
   concurrency and fails closed outside the range 1–64. Development and
   production Compose expose the same setting with a conservative default of 4.
-- The complete PrinterFleet suite has 21 passing tests, including a coordinated
-  concurrency test and claim-order regression coverage.
+- Registry writes now normalize direct RAW TCP defaults and reject ambiguous
+  bridge ports, malformed hosts, embedded agent URL credentials, unsafe
+  timeouts and unknown protocols before a configuration becomes authoritative.
+- The complete PrinterFleet suite has 29 passing tests, including coordinated
+  concurrency, claim-order and registry-boundary regression coverage.

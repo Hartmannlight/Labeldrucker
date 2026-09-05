@@ -116,3 +116,25 @@ def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
         )
         assert metrics.status_code == 200
         assert "printer_fleet_printers 1" in metrics.text
+
+
+def test_registry_rejects_invalid_network_endpoint_before_persisting(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
+    app = create_app(FleetRepository(tmp_path / "validation.sqlite3"))
+
+    with TestClient(app) as client:
+        response = client.put(
+            "/v1/printers/serial-zebra",
+            json={
+                "id": "serial-zebra",
+                "driver": "zpl",
+                "connection": {
+                    "protocol": "serial_over_tcp",
+                    "host": "bridge.example",
+                },
+            },
+        )
+
+        assert response.status_code == 400
+        assert "explicit connection.port" in response.json()["detail"]
+        assert client.get("/v1/printers/serial-zebra").status_code == 404
