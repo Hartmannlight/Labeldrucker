@@ -5,8 +5,8 @@ builds checked-out repositories and may include the printer emulator. It is not
 a production release artifact.
 
 Production uses `deploy/compose.standalone.yaml`. It contains no `build`, source
-mount or package-install step. PrintHub and PrinterFleet always start; IPP and
-Studio are explicit optional profiles:
+mount or package-install step. PrintHub, the PrinterFleet API and its delivery
+worker always start; IPP and Studio are explicit optional profiles:
 
 ```sh
 docker compose --env-file /run/secrets/printhub-release.env \
@@ -33,6 +33,13 @@ configured as `raw_tcp` on port 9100. A transparent RS232-to-Ethernet bridge is
 configured as `serial_over_tcp` with its actual port. Deploy a PrintAgent only
 for USB, Bluetooth, local serial or a site network that is intentionally not
 routable from the central Fleet service.
+
+The production Fleet API and delivery worker are separate processes built from
+the same image and sharing only Fleet's PostgreSQL contract. The API owns the
+catalog and queue interface; the worker owns recovery and physical device I/O.
+Restarting or saturating a device worker therefore cannot rewrite active jobs
+from an API startup or make printer administration unavailable. The source-based
+development profile may keep the worker embedded for a smaller local stack.
 
 Every production image value must be an OCI reference pinned by digest. Tags may
 be published for humans, but never belong in a deployed release environment.

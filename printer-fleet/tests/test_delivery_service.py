@@ -48,6 +48,22 @@ class CoordinatedTransport:
         return TransportReceipt(bytes_accepted=len(payload.payload))
 
 
+class OneBlockedPrinterTransport:
+    def __init__(self) -> None:
+        self.slow_started = threading.Event()
+        self.release_slow = threading.Event()
+        self.fast_completed = threading.Event()
+
+    def send(self, payload, printer):
+        if printer["id"] == "zebra-1":
+            self.slow_started.set()
+            if not self.release_slow.wait(timeout=2):
+                raise TimeoutError("test did not release slow printer")
+        else:
+            self.fast_completed.set()
+        return TransportReceipt(bytes_accepted=len(payload.payload))
+
+
 @pytest.fixture
 def repository(tmp_path: Path) -> FleetRepository:
     repository = FleetRepository(tmp_path / "fleet.sqlite3")
@@ -228,6 +244,34 @@ def test_due_work_is_fifo_per_printer_and_parallel_across_printers(repository):
     assert {item["state"] for item in completed} == {"transport_accepted"}
     assert set(transport.printers) == {"zebra-1", "zebra-2"}
     assert repository.get_delivery(second["id"])["state"] == "queued"
+
+
+def test_slow_printer_does_not_block_another_printer_delivery(repository):
+    repository.put_printer(
+        {
+            "id": "zebra-2",
+            "driver": "zpl",
+            "connection": {"protocol": "raw_tcp", "host": "printer-2", "port": 9100},
+            "enabled": True,
+        }
+    )
+    queue_delivery(repository, printer_id="zebra-1", key="slow/first")
+    queue_delivery(repository, printer_id="zebra-2", key="fast/first")
+    transport = OneBlockedPrinterTransport()
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": transport}),
+        max_parallel_printers=2,
+    )
+
+    worker = threading.Thread(target=service.process_due)
+    worker.start()
+    assert transport.slow_started.wait(timeout=1)
+    assert transport.fast_completed.wait(timeout=1)
+    transport.release_slow.set()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
 
 
 def test_claim_rejects_overlap_and_out_of_order_work_for_one_printer(repository):

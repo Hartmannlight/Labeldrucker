@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 import hashlib
 
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ import pytest
 
 from printer_fleet.api import create_app
 from printer_fleet.auth import BearerCredentialAuthenticator, FleetPrincipal
-from printer_fleet.domain import TransportReceipt
+from printer_fleet.domain import PrintArtifact, TransportReceipt
 from printer_fleet.repository import FleetRepository
 from printer_fleet.service import DeliveryService
 from printer_fleet.transports import TransportRegistry
@@ -45,6 +46,41 @@ class RecordingMaintenanceService:
 @pytest.fixture(autouse=True)
 def disable_background_delivery_worker(monkeypatch):
     monkeypatch.setenv("PRINTER_FLEET_DELIVERY_WORKER_ENABLED", "0")
+
+
+def test_api_only_startup_does_not_recover_worker_owned_delivery(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
+    repository = FleetRepository(tmp_path / "fleet.sqlite3")
+    repository.initialize()
+    repository.put_printer(
+        {
+            "id": "zebra-1",
+            "driver": "zpl",
+            "connection": {"protocol": "raw_tcp", "host": "printer"},
+            "enabled": True,
+        }
+    )
+    artifact = PrintArtifact("application/zpl", b"^XA^XZ")
+    delivery, _ = repository.create_delivery(
+        idempotency_key="active-worker/1",
+        request_hash="request",
+        printer_id="zebra-1",
+        printer_snapshot={"id": "zebra-1", "driver": "zpl"},
+        route_snapshot=repository.get_printer("zebra-1"),
+        artifact_checksum=artifact.checksum,
+        artifact_mime_type=artifact.mime_type,
+        artifact_payload=artifact.payload,
+        artifact_description=artifact.description,
+        max_attempts=3,
+    )
+    repository.claim_delivery(
+        delivery["id"], now=datetime.now(timezone.utc).isoformat()
+    )
+
+    with TestClient(create_app(repository)) as client:
+        assert client.get("/health").status_code == 200
+
+    assert repository.get_delivery(delivery["id"])["state"] == "connecting"
 
 
 def test_api_catalog_and_delivery(tmp_path, monkeypatch):

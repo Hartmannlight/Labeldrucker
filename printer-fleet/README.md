@@ -51,7 +51,10 @@ The delivery worker is the normal owner of device I/O, so printer latency and
 outages do not consume API requests. The embedded worker is enabled by default
 for a compact single-container deployment and can be disabled with
 `PRINTER_FLEET_DELIVERY_WORKER_ENABLED=0` when API and worker processes are
-operated separately.
+operated separately. Start the dedicated process from the same image with
+`python -m printer_fleet.worker_main`; `--check` performs its database readiness
+probe. Only the delivery-owning process performs interrupted-job recovery, so an
+independent API restart cannot change an active delivery to `unconfirmed`.
 
 Delivery is FIFO and strictly serialized for each physical printer. Different
 printers are processed concurrently, so one slow or unavailable endpoint does

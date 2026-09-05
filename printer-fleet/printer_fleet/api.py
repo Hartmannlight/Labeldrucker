@@ -92,7 +92,11 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         repo.initialize()
-        repo.recover_interrupted_deliveries()
+        # Recovery belongs to the process that owns physical delivery. An API
+        # restart must never rewrite a delivery that a separate worker is still
+        # transmitting.
+        if delivery_worker_enabled:
+            repo.recover_interrupted_deliveries()
         seed_path = os.getenv("PRINTER_FLEET_SEED_PATH")
         if seed_path and not repo.list_printers() and Path(seed_path).exists():
             document = yaml.safe_load(Path(seed_path).read_text(encoding="utf-8")) or {}

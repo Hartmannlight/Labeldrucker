@@ -26,8 +26,7 @@ services:
     environment:
       PRINTER_FLEET_DATABASE_URL_FILE: /run/secrets/printer_fleet_database_url
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
-      PRINTER_FLEET_DELIVERY_WORKER_ENABLED: ${PRINTER_FLEET_DELIVERY_WORKER_ENABLED:-1}
-      PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
+      PRINTER_FLEET_DELIVERY_WORKER_ENABLED: "0"
       PRINTER_FLEET_CREDENTIALS_FILE: /run/secrets/printer_fleet_credentials
     secrets: [printer_fleet_credentials, printer_fleet_database_url]
     read_only: true
@@ -38,6 +37,30 @@ services:
     mem_limit: 512m
     depends_on:
       fleet-postgres: {condition: service_healthy}
+    restart: unless-stopped
+    networks: [print-platform]
+
+  printer-fleet-worker:
+    image: ${PRINTER_FLEET_IMAGE:?Set PRINTER_FLEET_IMAGE to an immutable digest}
+    command: [python, -m, printer_fleet.worker_main]
+    environment:
+      PRINTER_FLEET_DATABASE_URL_FILE: /run/secrets/printer_fleet_database_url
+      PRINTER_FLEET_MAX_PARALLEL_PRINTERS: ${PRINTER_FLEET_MAX_PARALLEL_PRINTERS:-4}
+    secrets: [printer_fleet_database_url]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 512m
+    depends_on:
+      fleet-postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -m, printer_fleet.worker_main, --check]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
     networks: [print-platform]
 

@@ -635,3 +635,19 @@ independent retry loops from producing duplicate labels.
   `transport_accepted` semantics. Fifty Fleet tests cover fixed command bytes,
   arbitrary-command rejection, driver rejection, role policy, auditing and
   lease exclusion.
+
+### 2026-09-05: Production Fleet process isolation
+
+- The production profile now runs the Fleet HTTP control plane and physical
+  delivery loop as separate processes from the same immutable image. They share
+  the Fleet database contract, not in-process state; the compact development
+  profile may still embed the worker.
+- Interrupted-delivery recovery belongs exclusively to the delivery process.
+  Restarting the API can no longer mark a job owned by a live worker as
+  `unconfirmed`.
+- A deterministic failure-injection test blocks one printer transport while a
+  second printer completes. The worker has its own database readiness probe and
+  the production Compose definition validates with the split enabled.
+- This starts action 10. Automated release gates still need the full cross-repo
+  contract matrix, removal of migration-only aliases, and recorded real-device
+  acceptance before the first stable release.
