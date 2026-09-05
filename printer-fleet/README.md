@@ -81,6 +81,8 @@ not require an agent.
 Important API groups:
 
 - `/v1/printers` owns the physical catalog and revision-checked configuration.
+- `/v1/printers/{id}/maintenance/{action}` exposes only allowlisted,
+  driver-owned operator actions; it never accepts arbitrary command bytes.
 - `/v1/deliveries` durably accepts immutable artifacts and exposes site-scoped,
   filterable state history (`printer_id`, `state`, and a bounded `limit`).
 - `/v1/agents` discovers and registers devices reachable through PrintAgent.
@@ -91,6 +93,15 @@ lookups are filtered by the authenticated principal's sites and use not-found
 responses across the boundary. Only a global administrator can inspect global
 metrics, audit records, agents or full registry import/export. A normal PrintHub
 credential needs `observer` plus `submitter` only for its assigned sites.
+
+The initial ZPL maintenance allowlist contains `print-configuration` (`~WC`),
+`print-network-configuration` (`~WL`) and `calibrate-media` (`~JC`). All require
+a site administrator, share the printer's operation lease with deliveries and
+status, and are audit logged. These actions can move label stock; `~JC` also
+recalibrates media and ribbon sensors. A successful TCP write is still reported
+only as `transport_accepted`. The commands follow Zebra's official
+[host-status command reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/advanced-techniques/host-status-commands.html)
+and [media calibration reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/~jc2.html).
 
 This directory incubates an independently deployable service. It is intended
 to become its own repository once its v1 contract is stable.

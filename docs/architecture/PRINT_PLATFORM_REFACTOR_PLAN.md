@@ -593,3 +593,17 @@ independent retry loops from producing duplicate labels.
 - This establishes the implementation seam but does not close action 9: the
   PostgreSQL adapter and an automated migration rehearsal still need to pass the
   same repository contract suite.
+
+### 2026-09-05: Allowlisted Zebra maintenance
+
+- Fleet now owns an explicit driver-scoped maintenance service instead of
+  exposing arbitrary ZPL administration bytes. The initial Zebra allowlist is
+  configuration label, network configuration label and media calibration,
+  following Zebra's published `~WC`, `~WL` and `~JC` definitions.
+- Each operation requires a site administrator, is captured by the Fleet audit
+  boundary and competes for the same durable device lease as status and print
+  delivery. Busy devices return HTTP 409 without interleaving bytes.
+- Responses identify media-moving effects and retain honest
+  `transport_accepted` semantics. Fifty Fleet tests cover fixed command bytes,
+  arbitrary-command rejection, driver rejection, role policy, auditing and
+  lease exclusion.

@@ -23,6 +23,7 @@ from .domain import (
     RegistryConflict,
 )
 from .discovery import AgentDiscoveryService
+from .maintenance import PrinterMaintenanceService
 from .repository import FleetRepository
 from .service import DeliveryService
 from .worker import AgentDiscoveryWorker, DeliveryWorker
@@ -72,6 +73,7 @@ def create_app(
         max_parallel_printers=int(os.getenv("PRINTER_FLEET_MAX_PARALLEL_PRINTERS", "4")),
     )
     status_service = PrinterStatusService()
+    maintenance_service = PrinterMaintenanceService()
     discovery_service = AgentDiscoveryService(
         repo,
         discover_mdns=os.getenv("PRINTER_FLEET_MDNS_ENABLED", "1") == "1",
@@ -142,6 +144,7 @@ def create_app(
     app.state.repository = repo
     app.state.delivery_service = service
     app.state.status_service = status_service
+    app.state.maintenance_service = maintenance_service
     app.state.discovery_service = discovery_service
 
     def request_principal(request: Request) -> FleetPrincipal:
@@ -304,6 +307,36 @@ def create_app(
             raise HTTPException(status_code=404, detail="Printer not found") from None
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (OSError, RuntimeError) as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        finally:
+            if operation_owner is not None:
+                repo.release_printer_operation(printer_id, operation_owner)
+
+    @app.post("/v1/printers/{printer_id}/maintenance/{action}")
+    def run_printer_maintenance(
+        printer_id: str,
+        action: str,
+        request: Request,
+    ) -> dict[str, Any]:
+        operation_owner: str | None = None
+        try:
+            printer = scoped_printer(request, printer_id, "admin")
+            timeout_ms = int((printer.get("connection") or {}).get("timeout_ms", 3000))
+            operation_owner = repo.acquire_printer_operation(
+                printer_id,
+                kind=f"maintenance:{action}",
+                lease_seconds=max(30, min(900, timeout_ms / 1000 * 5)),
+            )
+            if operation_owner is None:
+                raise HTTPException(status_code=409, detail="Printer is busy")
+            return app.state.maintenance_service.execute(printer, action)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Printer not found") from None
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except FleetError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except (OSError, RuntimeError) as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         finally:

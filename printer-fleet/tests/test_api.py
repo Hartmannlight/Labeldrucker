@@ -28,6 +28,20 @@ class UnexpectedStatusService:
         raise AssertionError("Busy printers must not receive a status command")
 
 
+class RecordingMaintenanceService:
+    def __init__(self):
+        self.actions = []
+
+    def execute(self, printer, action):
+        self.actions.append((printer["id"], action))
+        return {
+            "printer_id": printer["id"],
+            "action": action,
+            "state": "transport_accepted",
+            "bytes_accepted": 4,
+        }
+
+
 @pytest.fixture(autouse=True)
 def disable_background_delivery_worker(monkeypatch):
     monkeypatch.setenv("PRINTER_FLEET_DELIVERY_WORKER_ENABLED", "0")
@@ -187,6 +201,75 @@ def test_status_query_does_not_interleave_with_an_active_operation(tmp_path, mon
         assert response.status_code == 409
         assert response.json()["detail"] == "Printer is busy"
         repository.release_printer_operation("network-zebra", owner)
+
+
+def test_maintenance_is_admin_only_audited_and_serialized(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
+    repository = FleetRepository(tmp_path / "maintenance.sqlite3")
+    authenticator = BearerCredentialAuthenticator(
+        [
+            (
+                "admin-token",
+                FleetPrincipal("operator", frozenset({"admin"}), frozenset({"berlin"})),
+            ),
+            (
+                "submit-token",
+                FleetPrincipal("printhub", frozenset({"submitter"}), frozenset({"berlin"})),
+            ),
+            (
+                "global-token",
+                FleetPrincipal("global", frozenset({"admin"}), frozenset({"*"})),
+            ),
+        ]
+    )
+    app = create_app(repository, authenticator)
+    maintenance = RecordingMaintenanceService()
+    app.state.maintenance_service = maintenance
+
+    def headers(token):
+        return {"Authorization": f"Bearer {token}"}
+
+    with TestClient(app) as client:
+        assert client.put(
+            "/v1/printers/zebra-1",
+            headers=headers("admin-token"),
+            json={
+                "id": "zebra-1",
+                "site_id": "berlin",
+                "driver": "zpl",
+                "connection": {"protocol": "raw_tcp", "host": "printer.example"},
+            },
+        ).status_code == 200
+        assert client.post(
+            "/v1/printers/zebra-1/maintenance/calibrate-media",
+            headers=headers("submit-token"),
+        ).status_code == 403
+
+        owner = repository.acquire_printer_operation("zebra-1", kind="delivery")
+        assert owner is not None
+        assert client.post(
+            "/v1/printers/zebra-1/maintenance/calibrate-media",
+            headers=headers("admin-token"),
+        ).status_code == 409
+        assert maintenance.actions == []
+        repository.release_printer_operation("zebra-1", owner)
+
+        accepted = client.post(
+            "/v1/printers/zebra-1/maintenance/calibrate-media",
+            headers=headers("admin-token"),
+        )
+        assert accepted.status_code == 200
+        assert maintenance.actions == [("zebra-1", "calibrate-media")]
+        audit = client.get(
+            "/v1/audit-records",
+            headers=headers("global-token"),
+        ).json()
+        assert any(
+            record["path"] == "/v1/printers/zebra-1/maintenance/calibrate-media"
+            and record["actor"] == "operator"
+            and record["status_code"] == 200
+            for record in audit
+        )
 
 
 def test_roles_and_sites_limit_catalog_delivery_and_administration(tmp_path, monkeypatch):

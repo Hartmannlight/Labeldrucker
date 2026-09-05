@@ -63,6 +63,14 @@ assumptions such as flow control to be represented as endpoint metadata even
 when the bridge exposes only a byte stream. These are different connection
 profiles despite sharing a TCP transport implementation.
 
+Maintenance is a driver capability, never an arbitrary byte tunnel exposed to
+operators. The first ZPL allowlist can print the printer and network
+configuration labels or initiate media calibration. Every action requires site
+administration, is audit logged, and acquires the same per-printer operation
+lease as delivery and status. Media-moving/calibrating effects are explicit in
+the action metadata; potentially destructive reset, flash and object-deletion
+commands are not exposed.
+
 Vendor-neutral Fleet records hold common capabilities and state. Zebra-specific
 settings live in versioned driver configuration. Future Niimbot behavior is
 implemented behind another driver and, when Bluetooth/USB is required, executed
