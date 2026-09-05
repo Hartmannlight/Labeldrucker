@@ -364,3 +364,18 @@ independent retry loops from producing duplicate labels.
   remains open until CI publishes and signs real component digests and a real
   compatibility manifest; action 9 remains open for identity, audit, metrics,
   scoping and backup/restore automation.
+
+### 2026-09-05: Authenticated Fleet boundary
+
+- PrinterFleet can require a constant-time-checked bearer service credential
+  for every `/v1/*` operation while leaving only its health probe public.
+- PrintHub injects that credential exclusively in its Fleet HTTP adapter. It
+  also supplies a correlation ID on every catalog and delivery call;
+  PrinterFleet preserves valid upstream IDs and returns one on both successful
+  and rejected requests.
+- Development Compose exercises the protected boundary with an explicit local
+  token. Production Compose requires a deployment secret and the release
+  validator rejects an example value.
+- Seventeen PrinterFleet tests and four focused PrintHub adapter tests pass.
+  OIDC workload identities, durable audit storage, metrics and site/tenant
+  policy remain part of action 9.

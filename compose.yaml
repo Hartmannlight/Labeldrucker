@@ -45,6 +45,7 @@ services:
       ZPLGRID_ENABLE_LABELARY_TEMPLATES: ${ZPLGRID_ENABLE_LABELARY_TEMPLATES:-0}
       ZPLGRID_TIMEZONE: ${TZ:-Europe/Berlin}
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
+      PRINTHUB_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:-dev-fleet-token}
     ports:
       - "127.0.0.1:${PRINTHUB_API_PORT:-8001}:8000"
     volumes:
@@ -76,6 +77,7 @@ services:
       PRINTER_FLEET_DISCOVERY_INTERVAL_SECONDS: ${ZPLGRID_DISCOVERY_INTERVAL_SECONDS:-30}
       PRINTER_FLEET_AGENT_URLS: ${ZPLGRID_ZEBRA_TAMER_AGENTS:-}
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
+      PRINTER_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:-dev-fleet-token}
     volumes:
       - printer_fleet_data:/data
       - ./config/printers.yml:/app/config/printers.yml:ro

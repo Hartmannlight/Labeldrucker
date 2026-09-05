@@ -6,6 +6,7 @@ services:
     environment:
       PRINTER_FLEET_DATABASE: /data/fleet.sqlite3
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
+      PRINTER_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:?Set PRINTER_FLEET_API_TOKEN}
     volumes: [printer_fleet_data:/data]
     read_only: true
     tmpfs: [/tmp]
@@ -20,6 +21,7 @@ services:
     image: ${PRINTHUB_IMAGE:?Set PRINTHUB_IMAGE to an immutable digest}
     environment:
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
+      PRINTHUB_FLEET_API_TOKEN: ${PRINTER_FLEET_API_TOKEN:?Set PRINTER_FLEET_API_TOKEN}
       ZPLGRID_TEMPLATES_DIR: /data/templates
       ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
       ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs

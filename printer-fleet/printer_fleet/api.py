@@ -4,9 +4,13 @@ import base64
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
+import re
+import secrets
 from typing import Any
+import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import yaml
 
@@ -81,6 +85,29 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
             worker.stop()
 
     app = FastAPI(title="PrinterFleet API", version="0.1.0", lifespan=lifespan)
+    api_token = os.getenv("PRINTER_FLEET_API_TOKEN", "").strip()
+
+    @app.middleware("http")
+    async def service_boundary(request: Request, call_next):
+        supplied_id = request.headers.get("X-Correlation-ID", "")
+        correlation_id = (
+            supplied_id
+            if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", supplied_id)
+            else str(uuid.uuid4())
+        )
+        if request.url.path.startswith("/v1/") and api_token:
+            authorization = request.headers.get("Authorization", "")
+            expected = f"Bearer {api_token}"
+            if not secrets.compare_digest(authorization, expected):
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid PrinterFleet service credential"},
+                    headers={"X-Correlation-ID": correlation_id},
+                )
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = correlation_id
+        return response
+
     app.state.repository = repo
     app.state.delivery_service = service
     app.state.status_service = status_service

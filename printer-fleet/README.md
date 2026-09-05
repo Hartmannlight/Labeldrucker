@@ -5,6 +5,11 @@ owns printer endpoints, device capabilities, delivery records, drivers and
 transports. It deliberately does not own templates, inventory data or document
 layout.
 
+Set `PRINTER_FLEET_API_TOKEN` in non-development deployments. When configured,
+all `/v1/*` requests require the matching bearer token; `/health` remains open
+for orchestration. Every response carries `X-Correlation-ID`, preserving a
+valid caller-supplied value or generating one at the boundary.
+
 The first vertical slice supports ZPL artifacts over `raw_tcp`, the legacy
 `raw9100` spelling and `serial_over_tcp`. A successful socket write is recorded
 as `transport_accepted`, never as a confirmed physical print.

@@ -62,3 +62,25 @@ def test_api_catalog_and_delivery(tmp_path, monkeypatch):
         )
         assert response.status_code == 202, response.text
         assert response.json()["state"] == "transport_accepted"
+
+
+def test_service_token_and_correlation_id_protect_v1_api(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
+    monkeypatch.setenv("PRINTER_FLEET_API_TOKEN", "fleet-secret")
+    app = create_app(FleetRepository(tmp_path / "protected.sqlite3"))
+
+    with TestClient(app) as client:
+        denied = client.get("/v1/printers")
+        assert denied.status_code == 401
+        assert denied.headers["X-Correlation-ID"]
+        assert client.get("/health").status_code == 200
+
+        accepted = client.get(
+            "/v1/printers",
+            headers={
+                "Authorization": "Bearer fleet-secret",
+                "X-Correlation-ID": "thingdex-print-123",
+            },
+        )
+        assert accepted.status_code == 200
+        assert accepted.headers["X-Correlation-ID"] == "thingdex-print-123"
