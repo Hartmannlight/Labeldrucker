@@ -55,6 +55,8 @@ def test_workflows_parse_and_candidate_matrix_covers_native_platforms() -> None:
         ("printer-fleet-console", "amd64", "ubuntu-24.04"),
         ("printer-fleet-console", "arm64", "ubuntu-24.04-arm"),
     }
+    ci_checkout = workflows["ci.yml"]["jobs"]["test"]["steps"][0]
+    assert ci_checkout["with"]["submodules"] == "recursive"
 
 
 def test_release_context_rejects_non_release_refs(monkeypatch) -> None:
