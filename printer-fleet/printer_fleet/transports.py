@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 from .domain import DevicePayload, TransportReceipt, UnsupportedTransport
 from .ports import DeviceTransport
+from .agent import PrintAgentTransport
 
 
 class RawTcpTransport:
@@ -24,12 +25,15 @@ class RawTcpTransport:
 class TransportRegistry:
     def __init__(self, transports: Mapping[str, DeviceTransport] | None = None) -> None:
         raw = RawTcpTransport()
+        agent = PrintAgentTransport()
         self._transports = dict(
             transports
             or {
                 "raw_tcp": raw,
                 "raw9100": raw,
                 "serial_over_tcp": raw,
+                "print_agent": agent,
+                "zebra_tamer": agent,
             }
         )
 

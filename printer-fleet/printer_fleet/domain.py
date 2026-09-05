@@ -21,6 +21,7 @@ class PrintArtifact:
     mime_type: str
     payload: bytes
     description: str = "PrintHub job"
+    idempotency_key: str | None = None
 
     @property
     def checksum(self) -> str:
@@ -31,12 +32,16 @@ class PrintArtifact:
 class DevicePayload:
     content_type: str
     payload: bytes
+    description: str = "PrinterFleet delivery"
+    idempotency_key: str | None = None
 
 
 @dataclass(frozen=True)
 class TransportReceipt:
     bytes_accepted: int
     state: DeliveryState = DeliveryState.TRANSPORT_ACCEPTED
+    downstream_job_id: str | None = None
+    downstream_state: str | None = None
 
 
 class FleetError(RuntimeError):

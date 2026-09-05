@@ -17,7 +17,8 @@ class AcceptingTransport:
         return TransportReceipt(bytes_accepted=len(payload.payload))
 
 
-def test_api_catalog_and_delivery(tmp_path):
+def test_api_catalog_and_delivery(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
     repository = FleetRepository(tmp_path / "fleet.sqlite3")
     app = create_app(repository)
     app.state.delivery_service = DeliveryService(

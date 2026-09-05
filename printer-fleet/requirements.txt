@@ -1,3 +1,4 @@
 fastapi==0.141.1
 PyYAML==6.0.2
 uvicorn==0.30.6
+zeroconf==0.147.0

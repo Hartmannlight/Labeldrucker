@@ -14,3 +14,7 @@
 	path = components/ZPL-II-Printer-Emulator
 	url = https://github.com/Hartmannlight/ZPL-II-Printer-Emulator.git
 	branch = main
+[submodule "components/ZebraTamer"]
+	path = components/ZebraTamer
+	url = https://github.com/Hartmannlight/ZebraTamer.git
+	branch = main

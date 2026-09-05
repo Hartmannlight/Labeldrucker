@@ -179,7 +179,7 @@ independent retry loops from producing duplicate labels.
 - [x] 3. Implement PrinterFleet with durable printer registry, capability/media
   snapshots, delivery records and direct `raw_tcp` and `serial_over_tcp`
   transports. Model delivery confirmation honestly.
-- [ ] 4. Move physical printer CRUD, discovery, RAW 9100, Zebra status and
+- [x] 4. Move physical printer CRUD, discovery, RAW 9100, Zebra status and
   delivery retries from PrintHub to PrinterFleet. Keep a time-limited PrintHub
   compatibility facade for existing Studio and SDK clients.
 - [ ] 5. Evolve ZebraTamer into a vendor-neutral PrintAgent protocol. Keep direct
@@ -265,3 +265,42 @@ independent retry loops from producing duplicate labels.
 - Automated status: PrinterFleet unit/API tests and the complete PrintHub suite
   pass. The Docker end-to-end build is pending because the local Docker Desktop
   Linux engine did not become responsive during this run.
+
+### 2026-09-05: Physical ownership migration
+
+- PrinterFleet now owns revision-checked printer writes, atomic import/export,
+  durable PrintAgent observations, explicit device registration and physical
+  status queries. Existing PrintHub URLs delegate to Fleet when configured and
+  remain local only in legacy standalone mode.
+- Configured printer data and observed media/capability state are persisted
+  separately. Rediscovery updates the catalog view without changing an
+  administrative registry revision or contaminating configuration exports.
+- The ZebraTamer-specific network boundary is represented as the vendor-neutral
+  `print_agent` transport; `zebra_tamer` remains a compatibility alias. Agent
+  identity is verified before status or delivery and downstream job references
+  are retained in the Fleet delivery.
+- Delivery payloads are stored before physical I/O. A database claim prevents
+  concurrent sends, transient failures receive bounded exponential retries and
+  retry state survives a process restart.
+- A restart during `connecting` or `transmitting` becomes `unconfirmed` instead
+  of being retried automatically. PrintAgent submissions carry the Fleet
+  idempotency key, while non-acknowledging RAW TCP remains deliberately
+  conservative because its physical outcome cannot be proven.
+
+### 2026-09-05: PrintAgent compatibility foundation
+
+- ZebraTamer is now pinned as an integration submodule and advertises the new
+  `_print-agent._tcp.local.` service beside its legacy DNS-SD name.
+- Agent printers declare an explicit driver and the service identifies as
+  PrintAgent while retaining the existing binary and v1 compatibility surface.
+- Fleet idempotency is propagated to the agent. The agent persists the key and
+  content checksum, returns the original job for identical submissions and
+  rejects conflicting reuse. This Rust change still requires Cargo or Docker
+  compilation because neither runtime was available on the current host.
+- The versioned PrintAgent contract and the future Niimbot raster/driver split
+  are recorded in `docs/architecture/PRINT_AGENT_PROTOCOL.md`.
+- Automated status after this slice: all 16 PrinterFleet tests and all 117
+  active PrintHub tests pass; 159 optional PrintHub tests remain skipped by
+  their existing environment markers. Compose configuration validates. Rust
+  compilation and Docker end-to-end execution remain pending because Cargo is
+  absent and the local Docker engine is not responsive.

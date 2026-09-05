@@ -23,7 +23,7 @@ Die Gesamtanwendung bleibt bewusst auf mehrere Komponenten verteilt:
 - `LabelArchitect`: Studio-Oberfläche für Vorschau und Jobfreigabe
 - `ZPL-II-Printer-Emulator`: virtueller Drucker für Entwicklung und Tests
 
-Die vier ausführbaren bzw. gebauten Abhängigkeiten sind unter `components/` als
+Die fünf ausführbaren bzw. gebauten Abhängigkeiten sind unter `components/` als
 Git-Submodule eingebunden. Ein `Labeldrucker`-Commit speichert ihre exakten
 Commit-IDs, während ihre Quelldateien und Historien in den jeweiligen
 Repositories bleiben.
@@ -54,6 +54,7 @@ Labeldrucker/
 │   ├── LabelArchitect/             # Git-Submodule
 │   ├── printhub-sdk/               # Git-Submodule
 │   ├── PrintHub-ZPL-ll/            # Git-Submodule
+│   ├── ZebraTamer/                  # Git-Submodule, künftiger PrintAgent
 │   └── ZPL-II-Printer-Emulator/     # Git-Submodule
 ├── ipp-gateway/
 ├── printer-fleet/                  # eigenständiger Dienst, vorläufig hier inkubiert
@@ -73,8 +74,11 @@ Bei einem bereits vorhandenen Checkout werden fehlende Submodule so geladen:
 git submodule update --init --recursive
 ```
 
-`ZebraTamer` bleibt optional und wird nicht in den Stack eingebettet. Reale
-ZebraTamer-Instanzen werden über `ZPLGRID_ZEBRA_TAMER_AGENTS` angebunden.
+`ZebraTamer` bleibt zur Laufzeit optional und wird nicht automatisch als
+Container gestartet. Sein Quellstand ist jetzt dennoch als Submodul fest
+eingebunden, weil er schrittweise zum herstellerneutralen PrintAgent entwickelt
+wird. Reale Instanzen werden weiterhin über `ZPLGRID_ZEBRA_TAMER_AGENTS`
+angebunden.
 
 ## Konfiguration und Start
 
@@ -98,6 +102,10 @@ PrinterFleet ist absichtlich nur im internen Compose-Netz erreichbar. PrintHub
 liest den Druckerkatalog über dessen HTTP-API und übergibt fertige,
 prüfsummengeschützte Druckartefakte. Druckeradressen und physische Zustellversuche
 gehören damit nicht mehr zum dauerhaften Zielmodell von PrintHub.
+Auch Discovery, Gerätestatus, Registry-Import/-Export und physische Retries
+werden bei aktiviertem Fleet-Dienst lediglich durch die bisherigen PrintHub-
+URLs durchgereicht. Dadurch bleiben Studio und SDK während der Migration
+nutzbar, ohne zwei beschreibbare Quellen der Wahrheit zu erzeugen.
 
 ## Schnittstellen: Was kann wie angesprochen werden?
 

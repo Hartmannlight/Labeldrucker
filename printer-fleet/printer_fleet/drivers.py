@@ -10,7 +10,12 @@ class ZplDriver:
     def encode(self, artifact: PrintArtifact, _printer: Mapping[str, Any]) -> DevicePayload:
         if artifact.mime_type != "application/zpl":
             raise UnsupportedDriver(f"ZPL driver cannot encode {artifact.mime_type}")
-        return DevicePayload(content_type="application/zpl", payload=artifact.payload)
+        return DevicePayload(
+            content_type="application/zpl",
+            payload=artifact.payload,
+            description=artifact.description,
+            idempotency_key=artifact.idempotency_key,
+        )
 
 
 class DriverRegistry:

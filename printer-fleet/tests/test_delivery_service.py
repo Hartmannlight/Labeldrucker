@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 import socket
 import threading
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from printer_fleet.domain import DeliveryConflict, PrintArtifact, TransportReceipt
+from printer_fleet.domain import DeliveryConflict, PrintArtifact, RegistryConflict, TransportReceipt
 from printer_fleet.drivers import ZplDriver
 from printer_fleet.ports import DeviceTransport
 from printer_fleet.repository import FleetRepository
@@ -21,6 +22,11 @@ class RecordingTransport(DeviceTransport):
     def send(self, payload, _printer):
         self.payloads.append(payload.payload)
         return TransportReceipt(bytes_accepted=len(payload.payload))
+
+
+class FailingTransport:
+    def send(self, _payload, _printer):
+        raise OSError("printer is temporarily unreachable")
 
 
 @pytest.fixture
@@ -105,6 +111,112 @@ def test_checksum_mismatch_is_rejected_before_delivery(repository):
             declared_checksum="sha256:wrong",
         )
     assert transport.payloads == []
+
+
+def test_payload_survives_restart_and_retry_is_claimed_once(repository):
+    current = [datetime(2026, 9, 5, tzinfo=timezone.utc)]
+    artifact = PrintArtifact("application/zpl", b"^XA^FDdurable^FS^XZ")
+    first_service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": FailingTransport()}),
+        retry_delay_seconds=1,
+        now=lambda: current[0],
+    )
+
+    scheduled = first_service.deliver(
+        printer_id="zebra-1",
+        idempotency_key="durable/1",
+        artifact=artifact,
+        declared_checksum=artifact.checksum,
+    )
+    assert scheduled["state"] == "retry_scheduled"
+    assert scheduled["attempt_count"] == 1
+    assert "artifact_payload" not in scheduled
+
+    accepting = RecordingTransport()
+    restarted = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": accepting}),
+        retry_delay_seconds=1,
+        now=lambda: current[0],
+    )
+    assert restarted.process_due() == []
+    current[0] += timedelta(seconds=2)
+    completed = restarted.process_due()
+
+    assert len(completed) == 1
+    assert completed[0]["state"] == "transport_accepted"
+    assert completed[0]["attempt_count"] == 2
+    assert accepting.payloads == [artifact.payload]
+    assert restarted.process_due() == []
+
+
+def test_delivery_stops_after_configured_attempt_limit(repository):
+    current = [datetime(2026, 9, 5, tzinfo=timezone.utc)]
+    artifact = PrintArtifact("application/zpl", b"^XA^XZ")
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": FailingTransport()}),
+        retry_delay_seconds=0,
+        now=lambda: current[0],
+    )
+    first = service.deliver(
+        printer_id="zebra-1",
+        idempotency_key="limited/1",
+        artifact=artifact,
+        declared_checksum=artifact.checksum,
+        max_attempts=2,
+    )
+    assert first["state"] == "retry_scheduled"
+
+    final = service.process_due()[0]
+    assert final["state"] == "failed"
+    assert final["attempt_count"] == 2
+    assert service.process_due() == []
+
+
+def test_printer_import_is_atomic_on_conflict(repository):
+    original = repository.export_printers()
+    conflicting = dict(original["printers"][0])
+    conflicting["name"] = "Overwrite"
+    with pytest.raises(RegistryConflict):
+        repository.import_printers(
+            {
+                "config_version": 1,
+                "printers": [
+                    {
+                        "id": "new-printer",
+                        "driver": "zpl",
+                        "connection": {"protocol": "raw_tcp", "host": "new"},
+                    },
+                    conflicting,
+                ],
+            }
+        )
+    assert repository.export_printers() == original
+
+
+def test_restart_marks_in_flight_delivery_unconfirmed_instead_of_retrying(repository):
+    artifact = PrintArtifact("application/zpl", b"^XA^XZ")
+    delivery, _created = repository.create_delivery(
+        idempotency_key="crashed/1",
+        request_hash="request-hash",
+        printer_id="zebra-1",
+        printer_snapshot={"id": "zebra-1", "driver": "zpl"},
+        route_snapshot=repository.get_printer("zebra-1"),
+        artifact_checksum=artifact.checksum,
+        artifact_mime_type=artifact.mime_type,
+        artifact_payload=artifact.payload,
+        artifact_description=artifact.description,
+        max_attempts=3,
+    )
+    claimed = repository.claim_delivery(delivery["id"], now=datetime.now(timezone.utc).isoformat())
+    assert claimed["state"] == "connecting"
+
+    assert repository.recover_interrupted_deliveries() == 1
+    recovered = repository.get_delivery(delivery["id"])
+    assert recovered["state"] == "unconfirmed"
+    assert repository.list_due_delivery_ids(now=datetime.now(timezone.utc).isoformat()) == []
 
 
 @pytest.mark.parametrize("protocol", ["raw_tcp", "raw9100", "serial_over_tcp"])
