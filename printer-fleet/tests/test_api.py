@@ -17,6 +17,11 @@ class AcceptingTransport:
         return TransportReceipt(bytes_accepted=len(payload.payload))
 
 
+class UnexpectedStatusService:
+    def read(self, _printer):
+        raise AssertionError("Busy printers must not receive a status command")
+
+
 def test_api_catalog_and_delivery(tmp_path, monkeypatch):
     monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
     repository = FleetRepository(tmp_path / "fleet.sqlite3")
@@ -138,3 +143,30 @@ def test_registry_rejects_invalid_network_endpoint_before_persisting(tmp_path, m
         assert response.status_code == 400
         assert "explicit connection.port" in response.json()["detail"]
         assert client.get("/v1/printers/serial-zebra").status_code == 404
+
+
+def test_status_query_does_not_interleave_with_an_active_operation(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRINTER_FLEET_MDNS_ENABLED", "0")
+    repository = FleetRepository(tmp_path / "operations.sqlite3")
+    app = create_app(repository)
+    app.state.status_service = UnexpectedStatusService()
+
+    with TestClient(app) as client:
+        created = client.put(
+            "/v1/printers/network-zebra",
+            json={
+                "id": "network-zebra",
+                "driver": "zpl",
+                "connection": {"protocol": "raw_tcp", "host": "printer.example"},
+                "capabilities": {"supports_status": True},
+            },
+        )
+        assert created.status_code == 200
+        owner = repository.acquire_printer_operation("network-zebra", kind="delivery")
+        assert owner is not None
+
+        response = client.get("/v1/printers/network-zebra/status")
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Printer is busy"
+        repository.release_printer_operation("network-zebra", owner)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -101,6 +101,13 @@ class FleetRepository:
                     source TEXT NOT NULL,
                     observed_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS printer_operation_leases (
+                    printer_id TEXT PRIMARY KEY REFERENCES printers(id) ON DELETE CASCADE,
+                    owner TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    acquired_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS audit_records (
                     id TEXT PRIMARY KEY,
                     correlation_id TEXT NOT NULL,
@@ -185,6 +192,60 @@ class FleetRepository:
         with self._connection() as db:
             ids = [row["id"] for row in db.execute("SELECT id FROM printers ORDER BY id").fetchall()]
         return [self.get_printer(str(printer_id)) for printer_id in ids]
+
+    @staticmethod
+    def _try_acquire_operation(
+        db: sqlite3.Connection,
+        *,
+        printer_id: str,
+        kind: str,
+        now: str,
+        expires_at: str,
+    ) -> str | None:
+        db.execute(
+            "DELETE FROM printer_operation_leases WHERE printer_id = ? AND expires_at <= ?",
+            (printer_id, now),
+        )
+        owner = str(uuid.uuid4())
+        result = db.execute(
+            """INSERT OR IGNORE INTO printer_operation_leases(
+                   printer_id, owner, kind, acquired_at, expires_at
+               ) VALUES (?, ?, ?, ?, ?)""",
+            (printer_id, owner, kind, now, expires_at),
+        )
+        return owner if result.rowcount == 1 else None
+
+    def acquire_printer_operation(
+        self,
+        printer_id: str,
+        *,
+        kind: str,
+        lease_seconds: float = 300,
+    ) -> str | None:
+        if lease_seconds <= 0 or lease_seconds > 900:
+            raise ValueError("lease_seconds must be greater than 0 and at most 900")
+        now_value = datetime.now(timezone.utc)
+        now = now_value.isoformat()
+        expires_at = (now_value + timedelta(seconds=lease_seconds)).isoformat()
+        with self._connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            exists = db.execute("SELECT 1 FROM printers WHERE id = ?", (printer_id,)).fetchone()
+            if exists is None:
+                raise KeyError(printer_id)
+            return self._try_acquire_operation(
+                db,
+                printer_id=printer_id,
+                kind=kind,
+                now=now,
+                expires_at=expires_at,
+            )
+
+    def release_printer_operation(self, printer_id: str, owner: str) -> None:
+        with self._connection() as db:
+            db.execute(
+                "DELETE FROM printer_operation_leases WHERE printer_id = ? AND owner = ?",
+                (printer_id, owner),
+            )
 
     def export_printers(self) -> dict[str, Any]:
         with self._connection() as db:
@@ -550,7 +611,13 @@ class FleetRepository:
                 )
         return len(rows)
 
-    def claim_delivery(self, delivery_id: str, *, now: str) -> dict[str, Any] | None:
+    def claim_delivery(
+        self,
+        delivery_id: str,
+        *,
+        now: str,
+        lease_expires_at: str | None = None,
+    ) -> dict[str, Any] | None:
         with self._connection() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM deliveries WHERE id = ?", (delivery_id,)).fetchone()
@@ -591,6 +658,18 @@ class FleetRepository:
             ).fetchone()
             if blocking is not None:
                 return None
+            expires_at = lease_expires_at or (
+                datetime.fromisoformat(now) + timedelta(minutes=5)
+            ).isoformat()
+            operation_owner = self._try_acquire_operation(
+                db,
+                printer_id=str(row["printer_id"]),
+                kind="delivery",
+                now=now,
+                expires_at=expires_at,
+            )
+            if operation_owner is None:
+                return None
             db.execute(
                 """UPDATE deliveries
                    SET state = ?, attempt_count = attempt_count + 1,
@@ -604,7 +683,9 @@ class FleetRepository:
                 (delivery_id, DeliveryState.CONNECTING.value, now),
             )
             claimed = db.execute("SELECT * FROM deliveries WHERE id = ?", (delivery_id,)).fetchone()
-        return self._delivery_internal(claimed)
+        result = self._delivery_internal(claimed)
+        result["_operation_owner"] = operation_owner
+        return result
 
     def transition(
         self,

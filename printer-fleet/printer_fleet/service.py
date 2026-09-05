@@ -130,6 +130,11 @@ class DeliveryService:
             return self.repository.transition(
                 delivery_id, DeliveryState.FAILED, detail=f"Unexpected delivery error: {exc}"
             )
+        finally:
+            self.repository.release_printer_operation(
+                str(claimed["printer_id"]),
+                str(claimed["_operation_owner"]),
+            )
 
     def process_due(self, *, limit: int = 20) -> list[dict[str, Any]]:
         now = self._now().isoformat()

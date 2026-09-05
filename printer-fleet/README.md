@@ -42,6 +42,12 @@ maximum number of device endpoints a Fleet process may contact at once; the
 default is `4`. Database claims preserve the per-printer exclusion when more
 than one API request or worker process competes for work.
 
+Deliveries and status/maintenance traffic also share a durable per-printer
+operation lease. Fleet returns HTTP 409 for a status query while that device is
+transmitting instead of risking command bytes being interleaved with a print
+stream. Only the lease owner can release it, and abandoned leases expire after
+a bounded interval.
+
 The `print_agent` transport is the vendor-neutral successor to the compatible
 `zebra_tamer` alias. It forwards device payloads and a stable idempotency key to
 an edge agent. Direct Ethernet printers remain connected to Fleet itself and do

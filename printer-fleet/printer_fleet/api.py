@@ -210,14 +210,27 @@ def create_app(repository: FleetRepository | None = None) -> FastAPI:
 
     @app.get("/v1/printers/{printer_id}/status")
     def get_printer_status(printer_id: str) -> dict[str, Any]:
+        operation_owner: str | None = None
         try:
-            return app.state.status_service.read(repo.get_printer(printer_id))
+            printer = repo.get_printer(printer_id)
+            timeout_ms = int((printer.get("connection") or {}).get("timeout_ms", 3000))
+            operation_owner = repo.acquire_printer_operation(
+                printer_id,
+                kind="status",
+                lease_seconds=max(30, min(600, timeout_ms / 1000 * 5)),
+            )
+            if operation_owner is None:
+                raise HTTPException(status_code=409, detail="Printer is busy")
+            return app.state.status_service.read(printer)
         except KeyError:
             raise HTTPException(status_code=404, detail="Printer not found") from None
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except (OSError, RuntimeError) as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+        finally:
+            if operation_owner is not None:
+                repo.release_printer_operation(printer_id, operation_owner)
 
     @app.get("/v1/agents")
     def list_agents() -> list[dict[str, Any]]:

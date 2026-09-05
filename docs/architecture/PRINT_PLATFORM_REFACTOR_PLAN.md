@@ -485,5 +485,9 @@ independent retry loops from producing duplicate labels.
 - Registry writes now normalize direct RAW TCP defaults and reject ambiguous
   bridge ports, malformed hosts, embedded agent URL credentials, unsafe
   timeouts and unknown protocols before a configuration becomes authoritative.
-- The complete PrinterFleet suite has 29 passing tests, including coordinated
-  concurrency, claim-order and registry-boundary regression coverage.
+- Deliveries and Zebra status operations now acquire the same durable
+  per-printer lease. Concurrent status receives a busy response instead of
+  inserting query commands into an active print stream; only the owner releases
+  a lease and an abandoned lease expires conservatively.
+- The complete PrinterFleet suite has 31 passing tests, including coordinated
+  concurrency, claim-order, registry-boundary and operation-exclusion coverage.

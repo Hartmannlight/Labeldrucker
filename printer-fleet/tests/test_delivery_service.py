@@ -167,6 +167,9 @@ def test_payload_survives_restart_and_retry_is_claimed_once(repository):
     assert scheduled["state"] == "retry_scheduled"
     assert scheduled["attempt_count"] == 1
     assert "artifact_payload" not in scheduled
+    status_owner = repository.acquire_printer_operation("zebra-1", kind="status")
+    assert status_owner is not None
+    repository.release_printer_operation("zebra-1", status_owner)
 
     accepting = RecordingTransport()
     restarted = DeliveryService(
@@ -226,6 +229,27 @@ def test_claim_rejects_overlap_and_out_of_order_work_for_one_printer(repository)
     assert repository.claim_delivery(second["id"], now=now) is None
     assert repository.claim_delivery(first["id"], now=now) is not None
     assert repository.claim_delivery(second["id"], now=now) is None
+
+
+def test_external_printer_operation_defers_delivery(repository):
+    delivery = queue_delivery(repository, printer_id="zebra-1", key="maintenance/queued")
+    owner = repository.acquire_printer_operation("zebra-1", kind="status")
+    assert owner is not None
+    transport = RecordingTransport()
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": transport}),
+    )
+
+    deferred = service.process_due()
+
+    assert deferred == [repository.get_delivery(delivery["id"])]
+    assert deferred[0]["state"] == "queued"
+    assert transport.payloads == []
+    repository.release_printer_operation("zebra-1", "not-the-owner")
+    assert repository.acquire_printer_operation("zebra-1", kind="other") is None
+    repository.release_printer_operation("zebra-1", owner)
+    assert service.process_due()[0]["state"] == "transport_accepted"
 
 
 @pytest.mark.parametrize("workers", [0, 65])
