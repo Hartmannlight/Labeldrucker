@@ -1165,3 +1165,12 @@ independent retry loops from producing duplicate labels.
   unique Agent job despite the first delivery's six bounded attempts. The
   virtual printer was disabled and detached afterward; physical confirmation
   of `P1`, then `P2`, without duplicates remains open.
+- A live A4 PDF submission was held against the loaded 50 x 25 mm media with
+  no downstream job and no change to the Agent job count. The generated fit
+  preview was inspected before an explicit release; the released job then
+  traversed one Fleet delivery and one Agent job with one attempt. Physical
+  confirmation of the narrow centered page frame remains open.
+- Two exact-size PDF fixtures submitted over IPP with standard `Draft` and
+  `High` print quality each traversed exactly one delivery. Their PrintHub
+  previews prove hard threshold output for `Draft` and Floyd-Steinberg dot
+  patterns for `High`; physical comparison of the marked outputs remains open.
