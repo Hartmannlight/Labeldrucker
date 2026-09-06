@@ -1103,5 +1103,31 @@ independent retry loops from producing duplicate labels.
   durable-boundary counts found one Fleet delivery with one attempt and one
   Agent job, proving restart recovery did not duplicate the delivery.
 - The immutable bill of materials and sanitized identifiers are recorded in
-  `docs/acceptance/2026-09-06-v1.0.0-candidate-5.md`. Operator confirmation of
-  the one physical label and absence of a duplicate remains pending.
+  `docs/acceptance/2026-09-06-v1.0.0-candidate-5.md`. The operator confirmed
+  emission of the single marked candidate-5 label. A separate explicit
+  physical duplicate count was not recorded.
+
+### 2026-09-06: Browser orientation, quality policy and honest Agent polling
+
+- A portrait photograph from Chrome printed successfully. Two landscape
+  submissions were retained as held jobs because Windows represented the
+  50 x 25 mm page as approximately 25.025 x 50.049 mm. PrintHub now recognizes
+  only this tolerance-bounded width/height swap and rotates it; unrelated media
+  mismatches still follow the configured `hold` policy.
+- The IPP queue now exposes standard draft, normal and high print-quality
+  choices. In the absence of an explicit content-optimization ticket, draft
+  selects the text threshold path, high selects Floyd-Steinberg photo dithering
+  and normal retains automatic policy. The gateway only maps the ticket;
+  PrintHub remains the sole owner of raster processing.
+- The same review found that PrinterFleet had treated every non-completed Agent
+  response, including `queued`, as `transport_accepted`. Fleet now polls the
+  returned durable Agent job until an honest terminal observation. A still
+  active timeout and an explicit unknown outcome become `unconfirmed`, retain
+  the Agent identifier and reason, and are not automatically retried.
+- Focused Linux-container tests cover the IPP mapping, held/rotated raster
+  behavior and Fleet/Agent state contract. The generated PPD passes
+  `cupstestppd`; its only diagnostic is a non-fatal recommendation to use an
+  Adobe standard media keyword instead of the readable internal name `Label`.
+- These source changes supersede candidate 5 and require newly published
+  PrintHub, PrinterFleet and IPP artifacts before another physical browser
+  qualification run.
