@@ -833,7 +833,14 @@ class FleetRepository:
                 (
                     state.value,
                     bytes_accepted,
-                    detail if state in {DeliveryState.FAILED, DeliveryState.RETRY_SCHEDULED} else None,
+                    detail
+                    if state
+                    in {
+                        DeliveryState.FAILED,
+                        DeliveryState.RETRY_SCHEDULED,
+                        DeliveryState.UNCONFIRMED,
+                    }
+                    else None,
                     next_attempt_at,
                     downstream_job_id,
                     downstream_state,

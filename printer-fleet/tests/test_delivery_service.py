@@ -11,6 +11,7 @@ import pytest
 
 from printer_fleet.domain import (
     DeliveryConflict,
+    DeliveryState,
     PrinterPaused,
     PrintArtifact,
     RegistryConflict,
@@ -36,6 +37,17 @@ class RecordingTransport(DeviceTransport):
 class FailingTransport:
     def send(self, _payload, _printer):
         raise OSError("printer is temporarily unreachable")
+
+
+class UnconfirmedTransport:
+    def send(self, _payload, _printer):
+        return TransportReceipt(
+            bytes_accepted=0,
+            state=DeliveryState.UNCONFIRMED,
+            downstream_job_id="agent-uncertain",
+            downstream_state="outcome_unknown",
+            detail="device outcome could not be established",
+        )
 
 
 class CoordinatedTransport:
@@ -150,6 +162,28 @@ def test_delivery_is_durable_idempotent_and_honest(repository):
         "transmitting",
         "transport_accepted",
     ]
+
+
+def test_unconfirmed_transport_preserves_downstream_evidence_and_reason(repository):
+    service = DeliveryService(
+        repository,
+        transports=TransportRegistry({"raw_tcp": UnconfirmedTransport()}),
+    )
+    artifact = PrintArtifact("application/zpl", b"^XA^FDuncertain^FS^XZ", "test")
+    queued = service.submit(
+        printer_id="zebra-1",
+        idempotency_key="uncertain/1",
+        artifact=artifact,
+        declared_checksum=artifact.checksum,
+    )
+
+    result = service.process_delivery(queued["id"])
+
+    assert result["state"] == "unconfirmed"
+    assert result["error"] == "device outcome could not be established"
+    assert result["downstream_job_id"] == "agent-uncertain"
+    assert result["downstream_state"] == "outcome_unknown"
+    assert service.process_due() == []
 
 
 def test_idempotency_key_cannot_be_reused_for_another_payload(repository):

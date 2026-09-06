@@ -42,6 +42,7 @@ class TransportReceipt:
     state: DeliveryState = DeliveryState.TRANSPORT_ACCEPTED
     downstream_job_id: str | None = None
     downstream_state: str | None = None
+    detail: str | None = None
 
 
 class FleetError(RuntimeError):

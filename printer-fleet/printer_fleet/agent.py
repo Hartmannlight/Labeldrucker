@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -11,6 +12,13 @@ from .domain import DeliveryState, DevicePayload, TransportReceipt
 
 class PrintAgentClient:
     """Vendor-neutral client compatible with current ZebraTamer v1 endpoints."""
+
+    _ACTIVE_JOB_STATES = {"receiving", "queued", "writing", "verifying"}
+
+    def __init__(self, *, poll_interval_seconds: float = 0.05) -> None:
+        if poll_interval_seconds <= 0:
+            raise ValueError("poll_interval_seconds must be positive")
+        self.poll_interval_seconds = poll_interval_seconds
 
     @staticmethod
     def _base_url(connection: Mapping[str, Any]) -> str:
@@ -128,18 +136,56 @@ class PrintAgentClient:
         )
         if not isinstance(data, dict) or not data.get("id"):
             raise RuntimeError("PrintAgent did not return a job id")
-        downstream_state = str(data.get("state") or "queued")
-        state = (
-            DeliveryState.CONFIRMED
-            if downstream_state.lower() in {"completed", "confirmed", "printed"}
-            else DeliveryState.TRANSPORT_ACCEPTED
-        )
-        return TransportReceipt(
-            bytes_accepted=int(data.get("bytes") or len(payload.payload)),
-            state=state,
-            downstream_job_id=str(data["id"]),
-            downstream_state=downstream_state,
-        )
+        job_id = str(data["id"])
+        deadline = time.monotonic() + self._timeout(connection)
+        while True:
+            downstream_state = str(data.get("state") or "").lower()
+            if downstream_state == "transport_accepted":
+                return TransportReceipt(
+                    bytes_accepted=int(data.get("bytes") or len(payload.payload)),
+                    state=DeliveryState.TRANSPORT_ACCEPTED,
+                    downstream_job_id=job_id,
+                    downstream_state=downstream_state,
+                )
+            if downstream_state in {"completed_observed", "completed", "confirmed", "printed"}:
+                return TransportReceipt(
+                    bytes_accepted=int(data.get("bytes") or len(payload.payload)),
+                    state=DeliveryState.CONFIRMED,
+                    downstream_job_id=job_id,
+                    downstream_state=downstream_state,
+                )
+            if downstream_state == "failed":
+                return TransportReceipt(
+                    bytes_accepted=0,
+                    state=DeliveryState.FAILED,
+                    downstream_job_id=job_id,
+                    downstream_state=downstream_state,
+                    detail=str(data.get("error") or "PrintAgent job failed"),
+                )
+            if downstream_state == "outcome_unknown":
+                return TransportReceipt(
+                    bytes_accepted=0,
+                    state=DeliveryState.UNCONFIRMED,
+                    downstream_job_id=job_id,
+                    downstream_state=downstream_state,
+                    detail=str(data.get("error") or "PrintAgent job outcome is unknown"),
+                )
+            if downstream_state not in self._ACTIVE_JOB_STATES:
+                raise RuntimeError(f"PrintAgent returned unknown job state: {downstream_state}")
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return TransportReceipt(
+                    bytes_accepted=0,
+                    state=DeliveryState.UNCONFIRMED,
+                    downstream_job_id=job_id,
+                    downstream_state=downstream_state,
+                    detail="PrintAgent job remained active beyond the delivery timeout",
+                )
+            time.sleep(min(self.poll_interval_seconds, remaining))
+            data = self._request(connection, f"/v1/jobs/{job_id}")
+            if not isinstance(data, dict) or str(data.get("id") or "") != job_id:
+                raise RuntimeError("PrintAgent returned an invalid job response")
 
     def snapshot(self, connection: Mapping[str, Any]) -> dict[str, Any]:
         self.verify_identity(connection)

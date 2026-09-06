@@ -103,6 +103,7 @@ class DeliveryService:
                 delivery_id,
                 receipt.state,
                 bytes_accepted=receipt.bytes_accepted,
+                detail=receipt.detail,
                 downstream_job_id=receipt.downstream_job_id,
                 downstream_state=receipt.downstream_state,
             )

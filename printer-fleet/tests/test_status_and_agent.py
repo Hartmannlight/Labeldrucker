@@ -6,7 +6,7 @@ from pathlib import Path
 import socket
 import threading
 
-from printer_fleet.agent import PrintAgentTransport
+from printer_fleet.agent import PrintAgentClient, PrintAgentTransport
 from printer_fleet.domain import (
     DeliveryState,
     DevicePayload,
@@ -56,6 +56,11 @@ class LostFirstResponseAgent(BaseHTTPRequestHandler):
         if self.path == "/v1/agent":
             self._json({"agent_id": "edge-1"})
             return
+        if self.path == "/v1/jobs/agent-job-1":
+            job = dict(next(iter(type(self).jobs.values())))
+            job["state"] = "transport_accepted"
+            self._json(job)
+            return
         self.send_error(404)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -75,6 +80,44 @@ class LostFirstResponseAgent(BaseHTTPRequestHandler):
             self.connection.close()
             return
         self._json(job)
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
+class ActiveAgent(BaseHTTPRequestHandler):
+    terminal_state = "queued"
+
+    def _json(self, data: object) -> None:
+        body = json.dumps({"data": data, "error": None}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/v1/agent":
+            self._json({"agent_id": "edge-1"})
+            return
+        if self.path == "/v1/jobs/agent-job-active":
+            self._json(
+                {
+                    "id": "agent-job-active",
+                    "state": type(self).terminal_state,
+                    "bytes": 17,
+                    "error": "device outcome could not be established"
+                    if type(self).terminal_state == "outcome_unknown"
+                    else None,
+                }
+            )
+            return
+        self.send_error(404)
+
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
+        self._json({"id": "agent-job-active", "state": "queued", "bytes": 17})
 
     def log_message(self, _format: str, *_args: object) -> None:
         return
@@ -148,6 +191,60 @@ def test_lost_agent_response_retries_without_creating_a_second_agent_job(
     assert second["downstream_job_id"] == "agent-job-1"
     assert LostFirstResponseAgent.submissions == 2
     assert list(LostFirstResponseAgent.jobs) == ["fleet-agent/once"]
+
+
+def test_print_agent_never_promotes_an_active_job_to_transport_accepted():
+    ActiveAgent.terminal_state = "queued"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ActiveAgent)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    try:
+        receipt = PrintAgentClient(poll_interval_seconds=0.01).submit(
+            {
+                "base_url": f"http://127.0.0.1:{server.server_port}",
+                "printer_id": "usb-zebra",
+                "agent_id": "edge-1",
+                "timeout_ms": 100,
+            },
+            DevicePayload("application/zpl", b"^XA^FDonce^FS^XZ"),
+            description="honest active state",
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+
+    assert receipt.state is DeliveryState.UNCONFIRMED
+    assert receipt.bytes_accepted == 0
+    assert receipt.downstream_job_id == "agent-job-active"
+    assert receipt.downstream_state == "queued"
+    assert receipt.detail == "PrintAgent job remained active beyond the delivery timeout"
+
+
+def test_print_agent_maps_explicit_unknown_outcome_without_retrying():
+    ActiveAgent.terminal_state = "outcome_unknown"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ActiveAgent)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    try:
+        receipt = PrintAgentClient(poll_interval_seconds=0.01).submit(
+            {
+                "base_url": f"http://127.0.0.1:{server.server_port}",
+                "printer_id": "usb-zebra",
+                "agent_id": "edge-1",
+                "timeout_ms": 1000,
+            },
+            DevicePayload("application/zpl", b"^XA^FDonce^FS^XZ"),
+            description="honest uncertain state",
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+
+    assert receipt.state is DeliveryState.UNCONFIRMED
+    assert receipt.downstream_state == "outcome_unknown"
+    assert receipt.detail == "device outcome could not be established"
 
 
 def test_agent_status_is_normalized_without_exposing_connection():
