@@ -78,7 +78,14 @@ def selected_scaling() -> str:
 
 def selected_content_optimize() -> str:
     value = os.getenv("IPP_PRINT_CONTENT_OPTIMIZE", "auto").strip().lower()
-    return value if value in {"auto", "text", "graphics", "photo"} else "auto"
+    if value in {"text", "graphics", "photo"}:
+        return value
+    quality = os.getenv("IPP_PRINT_QUALITY", "normal").strip().lower()
+    if quality == "high":
+        return "photo"
+    if quality == "draft":
+        return "text"
+    return "auto"
 
 
 def find_job_file(arguments: list[str]) -> Path:

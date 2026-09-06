@@ -116,6 +116,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('*PaperDimension Label: "141.732 141.732"', ppd)
         self.assertIn('*DefaultResolution: 203dpi', ppd)
         self.assertIn('*Resolution 203dpi/203 dpi:', ppd)
+        self.assertIn('*cupsPrintQuality Draft/Text - no dithering: ""', ppd)
+        self.assertIn('*cupsPrintQuality High/Photo - dithering: ""', ppd)
         self.assertIn('*ColorDevice: False', ppd)
         self.assertIn(
             '*cupsFilter2: "application/vnd.cups-pdf application/pdf 0 -"', ppd
@@ -137,6 +139,20 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(submit_job.selected_scaling(), "fit")
         with patch.dict(os.environ, {"PRINTHUB_IPP_MISMATCH_POLICY": "fill"}, clear=True):
             self.assertEqual(submit_job.selected_scaling(), "fill")
+
+    def test_standard_ipp_quality_selects_image_optimization(self) -> None:
+        with patch.dict(os.environ, {"IPP_PRINT_QUALITY": "draft"}, clear=True):
+            self.assertEqual(submit_job.selected_content_optimize(), "text")
+        with patch.dict(os.environ, {"IPP_PRINT_QUALITY": "normal"}, clear=True):
+            self.assertEqual(submit_job.selected_content_optimize(), "auto")
+        with patch.dict(os.environ, {"IPP_PRINT_QUALITY": "high"}, clear=True):
+            self.assertEqual(submit_job.selected_content_optimize(), "photo")
+        with patch.dict(
+            os.environ,
+            {"IPP_PRINT_QUALITY": "draft", "IPP_PRINT_CONTENT_OPTIMIZE": "graphics"},
+            clear=True,
+        ):
+            self.assertEqual(submit_job.selected_content_optimize(), "graphics")
 
     def test_job_file_selection_requires_an_existing_file(self) -> None:
         job = Path(__file__)

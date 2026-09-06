@@ -168,6 +168,13 @@ def build_ppd(printer: dict[str, Any]) -> str:
 *DefaultResolution: {dpi}dpi
 *Resolution {dpi}dpi/{dpi} dpi: "<</HWResolution[{dpi} {dpi}]>>setpagedevice"
 *CloseUI: *Resolution
+*OpenUI *cupsPrintQuality/Rendering: PickOne
+*OrderDependency: 25 AnySetup *cupsPrintQuality
+*DefaultcupsPrintQuality: Normal
+*cupsPrintQuality Draft/Text - no dithering: ""
+*cupsPrintQuality Normal/Automatic: ""
+*cupsPrintQuality High/Photo - dithering: ""
+*CloseUI: *cupsPrintQuality
 *OpenUI *InputSlot/Media source: PickOne
 *OrderDependency: 30 AnySetup *InputSlot
 *DefaultInputSlot: Main

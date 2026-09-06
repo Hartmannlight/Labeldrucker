@@ -50,6 +50,10 @@ driver may independently resize a page or invent its own preview.
   width, height, DPI and label color.
 - Physical page dimensions travel with every raster page; pixel dimensions are
   not treated as a physical size.
+- A page whose physical dimensions match only after swapping width and height
+  is rotated into the loaded-media orientation. The normal media tolerance
+  applies to both comparisons; this exception does not turn arbitrary size
+  mismatches into implicit scaling.
 - `hold` is the default for a page/media mismatch. The original job is retained
   and no bytes reach hardware until an operator explicitly chooses `fit` or
   `fill`.
@@ -60,6 +64,11 @@ driver may independently resize a page or invent its own preview.
 - Color and transparency are flattened to the physical media color for preview,
   converted to grayscale, then reduced to one bit. Photo mode uses
   Floyd-Steinberg dithering; text/graphics default to a hard threshold.
+- The IPP gateway maps the standard `print-quality` choices onto that content
+  policy when the client does not send an explicit `print-content-optimize`:
+  draft selects text/threshold, high selects photo/dithering and normal keeps
+  automatic selection. This remains ticket mapping; the raster algorithm stays
+  exclusively in PrintHub.
 - A dispatched job's saved preview is generated from the exact one-bit raster
   used by the encoder. A held mismatch stores the exact `fit` proposal; the UI
   warns that choosing `fill` can crop edge content.

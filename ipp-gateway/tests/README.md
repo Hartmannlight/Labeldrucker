@@ -85,6 +85,16 @@ Dialog kontrollieren:
 2. Papierformat ist 50 × 25 mm und die Vorschau zeigt genau eine Seite.
 3. Ränder stehen auf `Keine`; Skalierung bleibt bei 100 %.
 4. Der Dialog bietet keinen Farbdruck und keine Duplexausgabe an.
+5. Für ein Foto `Weitere Einstellungen` beziehungsweise den Systemdialog mit
+   `Strg+Umschalt+P` öffnen. `Druckqualität: Hoch` wählt Floyd-Steinberg-
+   Dithering; `Entwurf` wählt die harte Schwarz-Weiß-Schwelle ohne Dithering.
+   `Normal` lässt PrintHub automatisch entscheiden. Chrome zeigt keinen eigenen
+   Schalter mit dem Namen `Dithering` an.
+
+Bei `Querformat` darf der Windows-/Chrome-Druckpfad die physischen Seitenmaße
+als ungefähr 25,025 x 50,049 mm statt 50 x 25 mm liefern. PrintHub erkennt
+diesen eng tolerierten, exakt vertauschten Fall und dreht die Seite. Ein echtes
+Fremdformat bleibt angehalten; diese Ausnahme ist kein automatisches `fit`.
 
 Nur wenn Größe und Vorschau stimmen, genau eine Kopie senden. Der anschließend
 angelegte PrintHub-Job, die Fleet-Zustellung, der Agent-Job und die physische

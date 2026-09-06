@@ -233,7 +233,19 @@ curl -X POST http://localhost:8001/v1/print-jobs/JOB_ID/release \
 Jede Dokumentseite wird zu einem Label. Farbige Inhalte werden auf Graustufen
 und anschließend auf die Schwarz-Weiß-Ausgabe des Druckers reduziert. Fotos
 können über `print-content-optimize=photo` mit Floyd-Steinberg-Dithering
-ausgegeben werden; Text, Linien und Barcodes bleiben ohne Dithering scharf.
+ausgegeben werden; Text, Linien und Barcodes bleiben ohne Dithering scharf. Im
+CUPS- oder Windows-Systemdialog wird dieselbe Wahl über die standardmäßige
+`Druckqualität` angeboten: `Entwurf` steht für Text ohne Dithering, `Hoch` für
+Foto mit Dithering und `Normal` für die automatische Inhaltswahl. Chrome zeigt
+diese Option je nach Betriebssystem erst unter `Weitere Einstellungen` oder im
+Systemdialog (`Strg+Umschalt+P`) an. Ein eigener herstellerspezifischer
+`Dithering`-Schalter ist deshalb nicht erforderlich.
+
+Vertauscht ein Client bei `Querformat` lediglich Breite und Höhe des exakt
+eingelegten Labels, dreht PrintHub die Seite automatisch passend. Die
+Größentoleranz deckt dabei nur übliche Rundungsfehler des Druckpfads ab. Andere
+Formate wie A4 bleiben mit der Standardrichtlinie `hold` weiterhin sicher
+angehalten.
 Die gespeicherte Vorschau zeigt schwarze Druckpunkte auf der in PrintHub
 gemeldeten Label-Farbe. Sie entspricht bei angehaltenen Jobs der sicheren
 `fit`-Variante; `fill` kann sichtbar Randinhalte abschneiden.
