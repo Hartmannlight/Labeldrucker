@@ -1131,3 +1131,20 @@ independent retry loops from producing duplicate labels.
 - These source changes supersede candidate 5 and require newly published
   PrintHub, PrinterFleet and IPP artifacts before another physical browser
   qualification run.
+
+### 2026-09-06: Candidate 6 image-policy deployment
+
+- Root CI, platform integration and container publication passed for revision
+  `ad438da6bf05f8e11985b4f2b30830aefa29f291`; PrintHub's independent release
+  passed for revision `64b50236f31cd986699af96f5d6f969f1dbb40db`.
+- The persistent qualification stack retained its volumes and unchanged Agent,
+  Studio and database while Fleet, its worker, PrintHub, IPP and the
+  root-versioned Console moved to the new immutable digests. All eight services
+  run and every defined healthcheck is healthy.
+- A live CUPS conformance request submitted no job and confirmed exact
+  borderless 50 x 25 mm media plus draft, normal and high print quality. The
+  installed Microsoft IPP Class Driver queue refreshed those same three
+  quality options and retained its exact per-user media ticket with zero jobs.
+- `docs/acceptance/2026-09-06-v1.0.0-candidate-6.md` records the immutable bill
+  of materials and remaining physical browser comparison. No candidate-6
+  hardware job has been submitted yet.
