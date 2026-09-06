@@ -1066,3 +1066,22 @@ independent retry loops from producing duplicate labels.
   `docs/acceptance/2026-09-06-v1.0.0-candidate-4.md`. Physical emission and
   visual inspection still require operator confirmation; remaining destructive
   and browser/color/A4 hardware gates stay open.
+
+### 2026-09-06: Candidate 4 physical confirmation and restart correction
+
+- The operator confirmed that candidate 4 emitted exactly one label and that
+  its output matched the request.
+- Recreating the stopped qualification environment required reattaching the
+  shared Zebra USB device to WSL and restoring group-scoped access to its new
+  `/dev/bus/usb` node. All eight services then ran again and every defined
+  healthcheck passed.
+- A serialized `print-configuration` maintenance request was accepted once and
+  produced exactly one matching Fleet audit entry with its correlation ID.
+- The restart audit exposed that PrintAgent downgraded even a durably stored
+  `transport_accepted` job to `outcome_unknown`. This contradicted Fleet and
+  PrintHub and discarded a known terminal result after an ordinary restart.
+- PrintAgent now preserves accepted jobs while still marking only interrupted
+  writes and verification as uncertain. Candidate 4 is superseded by this
+  source change; candidate 5 must use the new immutable Agent image and repeat
+  the baseline-plus-restart check before stable release qualification can
+  continue.
