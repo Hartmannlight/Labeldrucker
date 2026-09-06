@@ -1147,4 +1147,14 @@ independent retry loops from producing duplicate labels.
   quality options and retained its exact per-user media ticket with zero jobs.
 - `docs/acceptance/2026-09-06-v1.0.0-candidate-6.md` records the immutable bill
   of materials and remaining physical browser comparison. No candidate-6
-  hardware job has been submitted yet.
+  hardware job had been submitted at initial deployment.
+- The entire eight-service stack was subsequently stopped and recreated from
+  those pins while retaining its volumes. Health, public catalog and durable
+  Agent identity checks passed. One allowlisted configuration-label action was
+  accepted and recorded exactly once under correlation ID
+  `candidate-6-maintenance-20260906`.
+- One marked candidate-6 baseline traversed PrintHub, Fleet and Agent with one
+  attempt and 181 accepted bytes. Agent restart plus replay of the complete
+  idempotent request retained exactly one Fleet delivery and one Agent job with
+  the original IDs and payload hash. Physical confirmation of the two emitted
+  labels remains with the operator.
