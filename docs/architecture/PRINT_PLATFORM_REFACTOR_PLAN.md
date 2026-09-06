@@ -1085,3 +1085,23 @@ independent retry loops from producing duplicate labels.
   source change; candidate 5 must use the new immutable Agent image and repeat
   the baseline-plus-restart check before stable release qualification can
   continue.
+
+### 2026-09-06: Candidate 5 restart-safe baseline
+
+- PrintAgent revision `931d93adccc9f804a5de62332e6f0b535a6a97a7`
+  passed native amd64/arm64 tests, the ARMv7 build gate, container smoke and
+  security scans. Its published multi-architecture image is pinned by digest.
+- Root CI, platform integration and container publication passed for composition
+  revision `919f4032265251273c885b11b1f510c7f066252e`.
+- Only the changed Agent was recreated; the previously qualified unchanged
+  component images and persistent volumes were retained. The Agent reported the
+  expected commit and regained read/write access to the exact Zebra USB node.
+- One marked candidate-5 baseline traversed PrintHub, Fleet and Agent with one
+  attempt and 242 accepted bytes. After restarting Agent, its durable job still
+  reported `transport_accepted` with unchanged evidence.
+- Repeating the identical top-level request returned the same IDs. Direct
+  durable-boundary counts found one Fleet delivery with one attempt and one
+  Agent job, proving restart recovery did not duplicate the delivery.
+- The immutable bill of materials and sanitized identifiers are recorded in
+  `docs/acceptance/2026-09-06-v1.0.0-candidate-5.md`. Operator confirmation of
+  the one physical label and absence of a duplicate remains pending.
