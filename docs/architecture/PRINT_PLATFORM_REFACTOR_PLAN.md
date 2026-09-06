@@ -1158,3 +1158,10 @@ independent retry loops from producing duplicate labels.
   idempotent request retained exactly one Fleet delivery and one Agent job with
   the original IDs and payload hash. Physical confirmation of the two emitted
   labels remains with the operator.
+- With PrintAgent stopped, a temporary RAW-9100 emulator in the same Fleet
+  completed one job while the first of two physical deliveries was waiting for
+  retry and the second retained zero attempts behind it. After Agent recovery,
+  the head delivery completed before the second was claimed. Both have one
+  unique Agent job despite the first delivery's six bounded attempts. The
+  virtual printer was disabled and detached afterward; physical confirmation
+  of `P1`, then `P2`, without duplicates remains open.
