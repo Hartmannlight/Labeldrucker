@@ -54,10 +54,14 @@ def drop_privileges(*paths: Path) -> None:
 
 def prepare_runtime_privileges(*paths: Path) -> None:
     mdns_enabled = os.getenv("PRINTHUB_IPP_MDNS_ENABLED", "1") == "1"
-    if mdns_enabled:
-        if os.geteuid() != 0:
-            raise RuntimeError("mDNS mode requires root only during guarded startup")
-        start_discovery_services()
+    if not mdns_enabled:
+        raise RuntimeError(
+            "ippeveprinter requires a local DNS-SD service; isolate the container "
+            "network when discovery must not reach the LAN"
+        )
+    if os.geteuid() != 0:
+        raise RuntimeError("mDNS mode requires root only during guarded startup")
+    start_discovery_services()
     if os.geteuid() == 0:
         drop_privileges(*paths)
 

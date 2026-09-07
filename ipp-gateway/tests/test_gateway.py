@@ -85,16 +85,10 @@ class GatewayTests(unittest.TestCase):
             self.assertEqual(entrypoint.os.environ["USER"], "appuser")
             self.assertEqual(entrypoint.os.environ["LOGNAME"], "appuser")
 
-    def test_production_mode_runs_without_root_or_discovery_daemons(self) -> None:
-        with (
-            patch.dict(os.environ, {"PRINTHUB_IPP_MDNS_ENABLED": "0"}, clear=True),
-            patch.object(entrypoint.os, "geteuid", return_value=10002, create=True),
-            patch.object(entrypoint, "start_discovery_services") as discovery,
-            patch.object(entrypoint, "drop_privileges") as drop,
-        ):
-            entrypoint.prepare_runtime_privileges(Path("runtime"))
-        discovery.assert_not_called()
-        drop.assert_not_called()
+    def test_non_mdns_mode_does_not_claim_to_support_ippeveprinter(self) -> None:
+        with patch.dict(os.environ, {"PRINTHUB_IPP_MDNS_ENABLED": "0"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "requires a local DNS-SD service"):
+                entrypoint.prepare_runtime_privileges(Path("runtime"))
 
     def test_mdns_mode_fails_closed_when_startup_is_not_root(self) -> None:
         with (

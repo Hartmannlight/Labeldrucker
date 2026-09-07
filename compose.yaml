@@ -121,7 +121,7 @@ services:
       printhub:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8631), 2).close()"]
+      test: ["CMD", "ipptool", "-q", "ipp://127.0.0.1:8631/ipp/print", "/usr/share/cups/ipptool/get-printer-attributes.test"]
       interval: 10s
       timeout: 3s
       retries: 12

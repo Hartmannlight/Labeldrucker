@@ -11,9 +11,9 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-import socket
 import subprocess
 import sys
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 try:
@@ -120,6 +120,11 @@ def existing_toml_string(path: Path, key: str) -> str | None:
     return match.group(1) if match else None
 
 
+def configured_agent_printer_id(path: Path) -> str | None:
+    """Return the configured Agent printer ID instead of deriving a new one."""
+    return existing_toml_string(path, "id")
+
+
 def render_agent_config(device: UsbPrinter, token: str, *, printer_id: str) -> str:
     serial_line = f"usb_serial = {toml_string(device.serial)}\n" if device.serial else ""
     return f'''listen = "0.0.0.0:8080"
@@ -196,14 +201,14 @@ def render_udev_rule(device: UsbPrinter, group: str) -> str:
     return ", ".join(matches + [f'GROUP="{group}"', 'MODE="0660"']) + "\n"
 
 
-def render_avahi_service() -> str:
-    return '''<?xml version="1.0" standalone="no"?>
+def render_avahi_service(*, port: int = 8631) -> str:
+    return f'''<?xml version="1.0" standalone="no"?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
   <name>PrintHub Label Printer</name>
   <service>
     <type>_ipp._tcp</type>
-    <port>8631</port>
+    <port>{port}</port>
     <txt-record>rp=ipp/print</txt-record>
     <txt-record>pdl=application/pdf,image/png,image/jpeg,image/pwg-raster,image/urf</txt-record>
     <txt-record>ty=PrintHub Label Printer</txt-record>
@@ -231,8 +236,13 @@ def ensure_group(name: str) -> int:
         return grp.getgrnam(name).gr_gid
 
 
+def require_root() -> None:
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        raise RuntimeError("--install-host must be run as root (use sudo)")
+
+
 def duplicate_ipp_services(
-    directory: Path, *, managed_name: str = "printhub-ipp.service"
+    directory: Path, *, port: int = 8631, managed_name: str = "printhub-ipp.service"
 ) -> list[Path]:
     if not directory.is_dir():
         return []
@@ -241,16 +251,20 @@ def duplicate_ipp_services(
         if path.name == managed_name:
             continue
         content = _read(path)
-        if "<type>_ipp._tcp</type>" in content and "<port>8631</port>" in content:
+        if "<type>_ipp._tcp</type>" in content and f"<port>{port}</port>" in content:
             duplicates.append(path)
     return sorted(duplicates)
 
 
 def install_host_files(state_dir: Path, *, reload_services: bool) -> None:
-    if not hasattr(sys, "geteuid") or sys.geteuid() != 0:
-        raise RuntimeError("--install-host must be run as root (use sudo)")
+    require_root()
     avahi_directory = Path("/etc/avahi/services")
-    duplicates = duplicate_ipp_services(avahi_directory)
+    service = _read(state_dir / "host" / "printhub-ipp.service")
+    port_match = re.search(r"<port>(\d+)</port>", service)
+    if not port_match:
+        raise RuntimeError("Generated Avahi service has no valid port")
+    port = int(port_match.group(1))
+    duplicates = duplicate_ipp_services(avahi_directory, port=port)
     if duplicates:
         names = ", ".join(str(path) for path in duplicates)
         raise RuntimeError(
@@ -265,6 +279,14 @@ def install_host_files(state_dir: Path, *, reload_services: bool) -> None:
         subprocess.run(["systemctl", "restart", "avahi-daemon"], check=True)
 
 
+def secure_agent_config(path: Path, *, group_id: int) -> None:
+    """Allow only the local owner and the container's mapped USB group to read."""
+    require_root()
+    owner_id = int(os.getenv("SUDO_UID", "0"))
+    os.chown(path, owner_id, group_id)
+    path.chmod(0o640)
+
+
 def _api_data(url: str, *, method: str = "GET") -> object:
     request = Request(url, method=method, data=b"" if method == "POST" else None)
     with urlopen(request, timeout=5) as response:
@@ -274,38 +296,95 @@ def _api_data(url: str, *, method: str = "GET") -> object:
     return payload
 
 
-def check_installation(device: UsbPrinter, environment: Path) -> bool:
+def _ipp_attribute(tag: int, name: str, value: str) -> bytes:
+    encoded_name = name.encode("ascii")
+    encoded_value = value.encode("utf-8")
+    return (
+        bytes([tag])
+        + len(encoded_name).to_bytes(2, "big")
+        + encoded_name
+        + len(encoded_value).to_bytes(2, "big")
+        + encoded_value
+    )
+
+
+def ipp_get_printer_attributes(
+    host: str, port: int, *, advertised_host: str
+) -> None:
+    """Perform a real IPP Get-Printer-Attributes operation without CUPS tools."""
+    printer_uri = f"ipp://{advertised_host}:{port}/ipp/print"
+    payload = (
+        bytes.fromhex("0200000b00000001")
+        + bytes([0x01])
+        + _ipp_attribute(0x47, "attributes-charset", "utf-8")
+        + _ipp_attribute(0x48, "attributes-natural-language", "en")
+        + _ipp_attribute(0x45, "printer-uri", printer_uri)
+        + bytes([0x03])
+    )
+    request = Request(
+        f"http://{host}:{port}/ipp/print",
+        data=payload,
+        method="POST",
+        headers={"Content-Type": "application/ipp"},
+    )
+    with urlopen(request, timeout=5) as response:
+        body = response.read()
+    if len(body) < 8 or body[:2] not in {b"\x01\x01", b"\x02\x00"}:
+        raise RuntimeError("IPP endpoint returned a malformed response")
+    status = int.from_bytes(body[2:4], "big")
+    if status > 0x00FF:
+        raise RuntimeError(f"IPP Get-Printer-Attributes failed with status 0x{status:04x}")
+
+
+def check_installation(
+    device: UsbPrinter, environment: Path, agent_config: Path
+) -> bool:
     printer_id = existing_assignment(environment, "PRINTHUB_IPP_PRINTER_ID")
-    agent_device_id = printer_slug(device)
+    agent_device_id = configured_agent_printer_id(agent_config)
     if not printer_id:
         raise RuntimeError("deploy/quickstart.env is missing PRINTHUB_IPP_PRINTER_ID")
+    if not agent_device_id:
+        raise RuntimeError("PrintAgent configuration is missing a printer ID")
+    agent_port = int(existing_assignment(environment, "PRINT_AGENT_PORT") or "8090")
+    api_port = int(existing_assignment(environment, "PRINTHUB_API_PORT") or "8001")
+    ipp_port = int(existing_assignment(environment, "PRINTHUB_IPP_PORT") or "8631")
+    advertised_host = (
+        existing_assignment(environment, "PRINTHUB_IPP_ADVERTISED_HOST")
+        or "printhub.local"
+    )
     checks: list[tuple[str, bool, str]] = [
         ("USB detected", True, device.label),
     ]
     try:
-        printers = _api_data("http://127.0.0.1:8090/v1/printers")
+        printers = _api_data(f"http://127.0.0.1:{agent_port}/v1/printers")
         ids = [str(item.get("id")) for item in printers if isinstance(item, dict)] if isinstance(printers, list) else []
         checks.append(("Agent running", agent_device_id in ids, f"reported devices: {', '.join(ids) or 'none'}"))
-        configuration = _api_data(f"http://127.0.0.1:8090/v1/printers/{agent_device_id}/configuration")
+        configuration = _api_data(
+            f"http://127.0.0.1:{agent_port}/v1/printers/{agent_device_id}/configuration"
+        )
         media_ready = bool(
             isinstance(configuration, dict)
             and ((configuration.get("media") or {}).get("state") or {}).get("media")
         )
         checks.append(("Media configured", media_ready, "PrintAgent media ledger"))
-        _api_data(f"http://127.0.0.1:8090/v1/printers/{agent_device_id}/probe", method="POST")
+        _api_data(
+            f"http://127.0.0.1:{agent_port}/v1/printers/{agent_device_id}/probe",
+            method="POST",
+        )
         checks.append(("Device connection", True, "non-printing probe completed"))
     except (OSError, ValueError) as exc:
         checks.append(("Agent/device API", False, str(exc)))
     try:
-        printer = _api_data(f"http://127.0.0.1:8001/v1/printers/{printer_id}")
+        printer = _api_data(f"http://127.0.0.1:{api_port}/v1/printers/{printer_id}")
         checks.append(("Fleet registration", isinstance(printer, dict), printer_id))
     except (OSError, ValueError) as exc:
         checks.append(("Fleet registration", False, str(exc)))
     try:
-        with socket.create_connection(("127.0.0.1", 8631), timeout=3):
-            pass
-        checks.append(("IPP reachable", True, "127.0.0.1:8631"))
-    except OSError as exc:
+        ipp_get_printer_attributes(
+            "127.0.0.1", ipp_port, advertised_host=advertised_host
+        )
+        checks.append(("IPP functional", True, f"Get-Printer-Attributes on :{ipp_port}"))
+    except (OSError, RuntimeError, URLError) as exc:
         checks.append(("IPP reachable", False, str(exc)))
     for name, passed, detail in checks:
         print(f"[{'OK' if passed else 'FAIL'}] {name}: {detail}")
@@ -323,6 +402,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--list", action="store_true", help="list detected USB printers without changing files")
     parser.add_argument("--check", action="store_true", help="verify USB, Agent, media, Fleet and IPP without printing")
     parser.add_argument("--install-host", action="store_true", help="install udev and Avahi files; requires root")
+    parser.add_argument(
+        "--reconfigure",
+        action="store_true",
+        help="explicitly replace existing site configuration while retaining tokens",
+    )
     parser.add_argument("--no-reload", action="store_true", help="install host files without reloading udev/Avahi")
     return parser.parse_args()
 
@@ -339,27 +423,64 @@ def main() -> int:
                 print(f"{number}: {detected.label}")
             return 0
         device = choose_device(devices, args.device)
+        environment = ROOT / "deploy" / "quickstart.env"
+        agent_config = args.state_dir / "print-agent.toml"
         if args.check:
-            return 0 if check_installation(device, ROOT / "deploy" / "quickstart.env") else 1
+            return 0 if check_installation(device, environment, agent_config) else 1
         gid = args.usb_gid
         if gid is None:
             gid = ensure_group(args.usb_group) if args.install_host else 999
-        printer_id = printer_slug(device)
-        environment = ROOT / "deploy" / "quickstart.env"
-        agent_config = args.state_dir / "print-agent.toml"
+        existing_printer_id = configured_agent_printer_id(agent_config)
+        printer_id = existing_printer_id or printer_slug(device)
+        if agent_config.exists() != environment.exists() and not args.reconfigure:
+            raise RuntimeError(
+                "Site configuration is incomplete; restore both quickstart.env and "
+                "print-agent.toml or use --reconfigure explicitly"
+            )
         agent_token = existing_toml_string(agent_config, "admin_token") or secrets.token_urlsafe(32)
         service_token = existing_assignment(environment, "PRINTHUB_FLEET_API_TOKEN") or secrets.token_urlsafe(32)
         admin_token = existing_assignment(environment, "PRINTER_FLEET_ADMIN_TOKEN") or secrets.token_urlsafe(32)
-        atomic_write(agent_config, render_agent_config(device, agent_token, printer_id=printer_id))
-        atomic_write(environment, render_env(service_token=service_token, admin_token=admin_token, usb_gid=gid, printer_id=printer_id))
-        atomic_write(args.state_dir / "host" / "70-printhub-usb.rules", render_udev_rule(device, args.usb_group), 0o644)
-        atomic_write(args.state_dir / "host" / "printhub-ipp.service", render_avahi_service(), 0o644)
+        if not agent_config.exists() or args.reconfigure:
+            atomic_write(
+                agent_config,
+                render_agent_config(device, agent_token, printer_id=printer_id),
+            )
+        if not environment.exists() or args.reconfigure:
+            atomic_write(
+                environment,
+                render_env(
+                    service_token=service_token,
+                    admin_token=admin_token,
+                    usb_gid=gid,
+                    printer_id=printer_id,
+                ),
+            )
+        configured_gid = int(
+            existing_assignment(environment, "PRINT_AGENT_USB_GID") or str(gid)
+        )
+        if configured_gid != gid:
+            raise RuntimeError(
+                f"quickstart.env maps USB group {configured_gid}, but host group "
+                f"{args.usb_group!r} is {gid}; correct the site configuration "
+                "before starting containers"
+            )
+        ipp_port = int(existing_assignment(environment, "PRINTHUB_IPP_PORT") or "8631")
+        udev_rule = args.state_dir / "host" / "70-printhub-usb.rules"
+        avahi_service = args.state_dir / "host" / "printhub-ipp.service"
+        if not udev_rule.exists() or args.reconfigure:
+            atomic_write(udev_rule, render_udev_rule(device, args.usb_group), 0o644)
+        if not avahi_service.exists() or args.reconfigure:
+            atomic_write(avahi_service, render_avahi_service(port=ipp_port), 0o644)
         if args.install_host:
+            secure_agent_config(agent_config, group_id=gid)
             install_host_files(args.state_dir, reload_services=not args.no_reload)
             if os.getenv("SUDO_UID") and os.getenv("SUDO_GID"):
-                owner = (int(os.environ["SUDO_UID"]), int(os.environ["SUDO_GID"]))
-                os.chown(agent_config, *owner)
-                os.chown(environment, *owner)
+                os.chown(
+                    environment,
+                    int(os.environ["SUDO_UID"]),
+                    int(os.environ["SUDO_GID"]),
+                )
+            environment.chmod(0o600)
     except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f"Setup failed: {exc}", file=sys.stderr)
         return 1

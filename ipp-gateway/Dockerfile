@@ -22,6 +22,6 @@ COPY --chown=appuser:appuser --chmod=0555 entrypoint.py submit_job.py tcp_proxy.
 
 EXPOSE 8631
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
-    CMD ["python", "-c", "import os,socket; socket.create_connection(('127.0.0.1', int(os.getenv('PRINTHUB_IPP_PORT','8631'))), 2).close()"]
+    CMD ["ipptool", "-q", "ipp://127.0.0.1:8631/ipp/print", "/usr/share/cups/ipptool/get-printer-attributes.test"]
 USER 10002
 ENTRYPOINT ["python", "/app/entrypoint.py"]

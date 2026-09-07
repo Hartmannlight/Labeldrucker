@@ -35,9 +35,19 @@ Er erzeugt `deploy/quickstart.env` mit zufälligen Zugängen,
 `deploy/state/print-agent.toml` mit `usb_bulk` und stabiler
 VID/PID/Seriennummer, eine enge udev-Regel sowie genau eine Avahi-Ankündigung
 auf dem Host. Zugangsdaten sind von Git ausgeschlossen. Der Container-eigene
-DNS-SD-Dienst bleibt deaktiviert. Nach erneutem Anstecken darf sich die
-USB-Busnummer ändern; Identität und Rechte werden ohne Compose-Änderung
+DNS-SD-Dienst läuft ausschließlich im privaten Docker-Netz, weil
+`ippeveprinter` ihn technisch benötigt. Er ist im LAN nicht sichtbar; dort
+kündigt allein die vom Assistenten installierte Host-Avahi-Datei den
+veröffentlichten TCP-Port an. Nach erneutem Anstecken darf sich die USB-
+Busnummer ändern; Identität und Rechte werden ohne Compose-Änderung
 wiederhergestellt.
+
+Existieren `quickstart.env` und `print-agent.toml` bereits, verwendet der
+Assistent deren Tokens, Ports und tatsächliche Agent-Drucker-ID weiter und
+ersetzt die Standortkonfiguration nicht. Eine bewusste Neueinrichtung verlangt
+`--reconfigure`. Die Agent-Datei bleibt für den lokalen Besitzer und gezielt
+für die im Container verwendete USB-Gruppe lesbar (`0640`), aber niemals
+weltlesbar.
 
 ## 2. Images laden und Stack starten
 
@@ -52,7 +62,7 @@ docker compose \
   --env-file deploy/quickstart.images.env \
   --env-file deploy/quickstart.env \
   -f deploy/compose.quickstart.yaml \
-  --profile usb-agent --profile ipp up -d
+  --profile usb-agent --profile ipp up -d --wait
 
 docker compose \
   --env-file deploy/quickstart.images.env \
@@ -86,12 +96,14 @@ bewusste Änderung und kein unerwartetes `latest`-Update.
 Der nicht druckende Abschlusscheck fasst die technischen Schritte zusammen:
 
 ```sh
-sudo python3 scripts/pi_quickstart.py --check
+python3 scripts/pi_quickstart.py --check
 ```
 
 Er unterscheidet USB-Erkennung, Agent, Medium, Geräteprobe, Fleet-Registrierung
-und IPP-Erreichbarkeit. Das sichtbare Testetikett bleibt ausdrücklich ein
-separater manueller Nachweis.
+und einen echten IPP-`Get-Printer-Attributes`-Aufruf. Dabei liest er die
+tatsächlich konfigurierte Agent-Drucker-ID statt sie aus dem USB-Modell neu
+abzuleiten. Das sichtbare Testetikett bleibt ausdrücklich ein separater
+manueller Nachweis.
 
 Die IPP-Freigabe heißt dauerhaft **PrintHub Label Printer**. Abmessungen stehen
 nicht im Namen, sondern in den IPP-Medienattributen. Nach einem Medienwechsel
@@ -102,6 +114,55 @@ versehentlichen Großaufträgen. PrintHub hält mehrseitige Aufträge vor der
 Gerätequeue an und zählt dabei Seiten mal Kopien. Im Studio zeigt der Job die
 beiden Zahlen und lässt sich erst nach einer ausdrücklichen Bestätigung
 freigeben; IPP-Aufträge können die Grenze nicht selbst umgehen.
+
+## Bestehende Pi-Installation übernehmen
+
+Die einmalige Migration ist absichtlich von späteren Updates getrennt. Vor dem
+Kopieren müssen alle schreibenden Container gestoppt sowie Konfiguration und
+sämtliche Volumes gesichert sein. Alte Volumes bleiben bis zu einem bestandenen
+Rückwechseltest erhalten.
+
+Bei `COMPOSE_PROJECT_NAME=printhub-pi` gilt folgende Zuordnung:
+
+| Bestehendes Volume | Offizielles Quickstart-Volume |
+| --- | --- |
+| `printhub-pi_fleet_data` | `printhub-pi_printer_fleet_data` |
+| `printhub-pi_agent_data` | `printhub-pi_print_agent_data` |
+| `printhub-pi_printhub_data` | unverändert |
+| `printhub-pi_ipp_spool` | unverändert |
+| `printhub-pi_ipp_tls` | unverändert |
+
+`deploy/quickstart.env` übernimmt die vorhandenen Ports, den öffentlichen
+Hostnamen, IDs und Tokens. `deploy/state/print-agent.toml` übernimmt die
+tatsächliche Agent- und Drucker-ID, USB-Identität, Modellfähigkeiten und
+Medieneinstellungen. Erst nach erfolgreichem Start werden die bisherige lokale
+USB-Recreate-Unit, ihre udev-Regel und die alte Avahi-Ankündigung deaktiviert.
+
+## Spätere Updates
+
+Ein Update führt die Ersteinrichtung nicht erneut aus und generiert keine
+Tokens, Medienprofile oder IDs. Nach einer externen Sicherung lautet der
+zustandserhaltende Ablauf:
+
+```sh
+git pull --ff-only
+docker compose \
+  --env-file deploy/quickstart.images.env \
+  --env-file deploy/quickstart.env \
+  -f deploy/compose.quickstart.yaml \
+  --profile usb-agent --profile ipp pull
+docker compose \
+  --env-file deploy/quickstart.images.env \
+  --env-file deploy/quickstart.env \
+  -f deploy/compose.quickstart.yaml \
+  --profile usb-agent --profile ipp up -d --wait
+python3 scripts/pi_quickstart.py --check
+```
+
+Der Image-Lock macht den Versionswechsel nachvollziehbar. Ein kommendes
+dediziertes Updatekommando soll zusätzlich konsistente Volume-Sicherungen und
+einen automatischen Rückwechsel kapseln. Bis dieses Kommando implementiert und
+auf ARM64 geprüft ist, ersetzt der obige Ablauf ausdrücklich keine Sicherung.
 
 ## Fehlerdiagnose
 

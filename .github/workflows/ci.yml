@@ -63,6 +63,13 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose --env-file deploy/quickstart.images.env --env-file deploy/quickstart.env.example -f deploy/compose.quickstart.yaml --profile usb-agent --profile ipp config --quiet
+      - name: Verify protected Agent configuration is container-readable
+        run: |
+          source deploy/quickstart.images.env
+          sudo install -o 1000 -g 999 -m 0640 deploy/secrets/print-agent-usb.toml.example /tmp/print-agent.toml
+          docker run --rm --user 999:999 \
+            --mount type=bind,src=/tmp/print-agent.toml,dst=/etc/zpl-agent/config.toml,readonly \
+            "$PRINT_AGENT_IMAGE" --check-config
   containers:
     needs: test
     uses: ./.github/workflows/container-gate.yml

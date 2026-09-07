@@ -3,17 +3,22 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+import scripts.pi_quickstart as quickstart
 
 from scripts.pi_quickstart import (
     choose_device,
+    configured_agent_printer_id,
     discover_usb_printers,
     duplicate_ipp_services,
     existing_assignment,
     existing_toml_string,
+    ipp_get_printer_attributes,
     render_agent_config,
     render_avahi_service,
     render_env,
     render_udev_rule,
+    require_root,
+    secure_agent_config,
 )
 
 
@@ -49,6 +54,33 @@ def test_host_assets_centralize_permissions_and_ipp_announcement() -> None:
     assert service.count("<_ipp._tcp>") == 0
     assert service.count("<type>_ipp._tcp</type>") == 1
     assert "rp=ipp/print" in service
+    assert "<port>8631</port>" in service
+    assert "<port>18631</port>" in render_avahi_service(port=18631)
+
+
+def test_linux_root_check_uses_os_geteuid(monkeypatch) -> None:
+    monkeypatch.setattr(quickstart.os, "geteuid", lambda: 0, raising=False)
+    require_root()
+
+
+def test_agent_config_is_owner_and_container_group_readable(monkeypatch) -> None:
+    config = Path("print-agent.toml")
+    ownership = []
+    modes = []
+    monkeypatch.setattr(quickstart.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setenv("SUDO_UID", "1000")
+    monkeypatch.setattr(
+        quickstart.os,
+        "chown",
+        lambda path, uid, gid: ownership.append((path, uid, gid)),
+        raising=False,
+    )
+    monkeypatch.setattr(Path, "chmod", lambda path, mode: modes.append((path, mode)))
+
+    secure_agent_config(config, group_id=987)
+
+    assert ownership == [(config, 1000, 987)]
+    assert modes == [(config, 0o640)]
 
 
 def test_quickstart_compose_is_pull_only_and_has_one_mdns_owner() -> None:
@@ -59,8 +91,13 @@ def test_quickstart_compose_is_pull_only_and_has_one_mdns_owner() -> None:
     assert services["printer-fleet"]["environment"]["PRINTER_FLEET_DATABASE"] == "/data/fleet.sqlite3"
     assert services["print-agent"]["volumes"][0] == "/dev/bus/usb:/dev/bus/usb"
     assert services["print-agent"]["device_cgroup_rules"] == ["c 189:* rmw"]
-    assert services["ipp-gateway"]["network_mode"] == "host"
-    assert services["ipp-gateway"]["environment"]["PRINTHUB_IPP_MDNS_ENABLED"] == "0"
+    assert "network_mode" not in services["ipp-gateway"]
+    assert services["ipp-gateway"]["networks"] == ["backend"]
+    assert services["ipp-gateway"]["ports"] == [
+        "${PRINTHUB_IPP_BIND:-0.0.0.0}:${PRINTHUB_IPP_PORT:-8631}:8631"
+    ]
+    assert services["ipp-gateway"]["environment"]["PRINTHUB_IPP_MDNS_ENABLED"] == "1"
+    assert "PRINTHUB_IPP_CONTAINER_BIND" not in services["ipp-gateway"]["environment"]
     assert services["ipp-gateway"]["environment"]["PRINTHUB_IPP_NAME"] == "${PRINTHUB_IPP_NAME:-PrintHub Label Printer}"
 
 
@@ -82,6 +119,31 @@ def test_existing_secrets_are_reused() -> None:
     fixtures = ROOT / "tests" / "fixtures"
     assert existing_assignment(fixtures / "quickstart.env", "PRINTHUB_FLEET_API_TOKEN") == "keep-me"
     assert existing_toml_string(fixtures / "print-agent.toml", "admin_token") == "also-keep-me"
+    assert configured_agent_printer_id(fixtures / "print-agent.toml") == "existing-zebra"
+
+
+def test_ipp_check_sends_get_printer_attributes(monkeypatch) -> None:
+    response = bytes.fromhex("020000000000000103")
+
+    class Reply:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return response
+
+    def fake_open(request, timeout):
+        assert request.headers["Content-type"] == "application/ipp"
+        assert request.data[:4] == bytes.fromhex("0200000b")
+        assert b"printer-uri" in request.data
+        assert timeout == 5
+        return Reply()
+
+    monkeypatch.setattr("scripts.pi_quickstart.urlopen", fake_open)
+    ipp_get_printer_attributes("127.0.0.1", 8631, advertised_host="printhub.local")
 
 
 def test_duplicate_host_ipp_announcement_is_detected() -> None:

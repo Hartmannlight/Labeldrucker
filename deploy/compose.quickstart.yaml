@@ -148,17 +148,19 @@ services:
     image: ${PRINTHUB_IPP_IMAGE:?Load deploy/quickstart.images.env}
     pull_policy: if_not_present
     environment:
-      PRINTHUB_API_URL: http://127.0.0.1:${PRINTHUB_API_PORT:-8001}
-      PRINTHUB_IPP_PORT: ${PRINTHUB_IPP_PORT:-8631}
-      PRINTHUB_IPP_CONTAINER_BIND: ${PRINTHUB_IPP_BIND:-0.0.0.0}
+      PRINTHUB_API_URL: http://printhub:8000
+      PRINTHUB_IPP_PORT: "8631"
       PRINTHUB_IPP_TLS_DIR: /var/lib/printhub-ipp/tls
       PRINTHUB_IPP_PRINTER_ID: ${PRINTHUB_IPP_PRINTER_ID:?Set PRINTHUB_IPP_PRINTER_ID}
       PRINTHUB_IPP_HOSTNAME: ${PRINTHUB_IPP_ADVERTISED_HOST:-printhub.local}
       PRINTHUB_IPP_NAME: ${PRINTHUB_IPP_NAME:-PrintHub Label Printer}
       PRINTHUB_IPP_MISMATCH_POLICY: hold
-      PRINTHUB_IPP_MDNS_ENABLED: "0"
+      # ippeveprinter requires DNS-SD. Avahi remains inside this private
+      # Docker network; only the separately installed host service reaches LAN.
+      PRINTHUB_IPP_MDNS_ENABLED: "1"
     user: "0:0"
-    network_mode: host
+    ports:
+      - "${PRINTHUB_IPP_BIND:-0.0.0.0}:${PRINTHUB_IPP_PORT:-8631}:8631"
     volumes:
       - ipp_spool:/var/spool/printhub-ipp
       - ipp_tls:/var/lib/printhub-ipp/tls
@@ -170,12 +172,13 @@ services:
     depends_on:
       printhub: {condition: service_healthy}
     healthcheck:
-      test: [CMD, python, -c, "import os,socket; socket.create_connection(('127.0.0.1', int(os.getenv('PRINTHUB_IPP_PORT','8631'))), 3).close()"]
+      test: [CMD, ipptool, -q, "ipp://127.0.0.1:8631/ipp/print", /usr/share/cups/ipptool/get-printer-attributes.test]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 15s
     restart: unless-stopped
+    networks: [backend]
 
 networks:
   backend:

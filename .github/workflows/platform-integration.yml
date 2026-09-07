@@ -31,6 +31,12 @@ jobs:
           docker compose exec -T ipp-gateway
           ipptool -t ipp://127.0.0.1:8631/ipp/print
           /usr/share/cups/ipptool/get-printer-attributes.test
+      - name: Verify IPP through the published host port
+        run: |
+          gateway_image="$(docker compose images -q ipp-gateway)"
+          docker run --rm --network host --entrypoint ipptool "$gateway_image" \
+            -t ipp://127.0.0.1:8631/ipp/print \
+            /usr/share/cups/ipptool/get-printer-attributes.test
       - name: Submit a label-sized PDF through IPP
         run: |
           docker compose cp ipp-gateway/tests/print-job.test ipp-gateway:/tmp/print-job.test

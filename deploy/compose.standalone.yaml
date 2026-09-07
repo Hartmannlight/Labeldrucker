@@ -118,6 +118,12 @@ services:
     mem_limit: 512m
     depends_on:
       printhub: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, ipptool, -q, "ipp://127.0.0.1:8631/ipp/print", /usr/share/cups/ipptool/get-printer-attributes.test]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     restart: unless-stopped
     networks: [print-platform]
 
