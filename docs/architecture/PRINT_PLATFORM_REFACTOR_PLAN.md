@@ -231,7 +231,7 @@ independent retry loops from producing duplicate labels.
   - [ ] Exercise queue isolation while the physical Zebra path is unavailable
     and prove that another printer continues independently and FIFO ordering is
     retained without duplicate delivery.
-  - [ ] Exercise response-loss idempotency, Agent restart recovery and an
+  - [x] Exercise response-loss idempotency, Agent restart recovery and an
     in-flight disconnect; record ambiguous transmission honestly as
     `unconfirmed` and never resend it automatically.
   - [x] Change the declared/observed medium and prove that stale capability and
@@ -1181,7 +1181,17 @@ independent retry loops from producing duplicate labels.
   `5e8fa8766c424f0be42643cf7a0d2c496b25acd30f47d5c83c872ba441c830fd`.
   This closes the Fleet response-loss slice only. Volatile emulator evidence
   did not survive a container restart, and the distinct in-flight device
-  disconnect with an honest `unconfirmed` result remains open.
+  disconnect remained open at that point.
+- The exact candidate Agent subsequently received a command-free 32 MiB NUL
+  payload on the attached Zebra `usb_bulk` path. Job
+  `2444c7fc-f15b-43d5-8a6c-fc6510afa0b9` durably reached `writing` before the
+  Agent was terminated with `SIGKILL`. Restart recovery changed it to
+  `outcome_unknown` with `agent_restarted_during_delivery`; replaying the same
+  idempotency key and SHA-256
+  `83ee47245398adee79bd9c0a8bc57b821e92aba10f5f9ade8a5d1fae4d8c4302`
+  returned the same ID. Exactly one matching job, no active job and queue depth
+  zero remained, after which the Agent reopened a ready Zebra. The pinned Fleet
+  contract maps this Agent state to `unconfirmed` without automatic retry.
 
 ### 2026-09-07: Operator quickstart consolidated
 
