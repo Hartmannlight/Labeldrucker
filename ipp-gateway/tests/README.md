@@ -77,6 +77,19 @@ vollständig lokale SVG-Seite enthält Grau- und Farbverläufe, ein fotografisch
 `C6 CHROME HIGH · LANDSCAPE`. Weil die Flächen SVG-Inhalt statt CSS-Hintergrund
 sind, hängen sie nicht von Chromes Schalter „Hintergrundgrafiken“ ab.
 
+Vor der Candidate-6-Abnahme die unveränderte Fixture vom Repository-Stamm aus
+prüfen:
+
+```powershell
+(Get-FileHash -Algorithm SHA256 `
+  .\ipp-gateway\tests\fixtures\chrome-photo-50x25-landscape.html).Hash.ToLowerInvariant()
+```
+
+Erwartet wird
+`6a36fc38e49ef0f0f55040a46bba048e240f33e82ddf90631799f3d349c009c0`.
+Ein anderer Wert ist kein Candidate-6-Testinput und darf nicht als dessen
+Hardware-Nachweis verwendet werden.
+
 Unter Windows 11 zuerst in einer administrativen PowerShell die lokale Queue
 einrichten und danach das benutzerspezifische Windows-PrintTicket validieren:
 
