@@ -1,6 +1,29 @@
-# PrintHub ohne Thingdex-Inventar
+# PrintHub Druckplattform
 
-Stand: 5. September 2026
+Stand: 7. September 2026
+
+## In wenigen Minuten starten
+
+Der zentrale, deutschsprachige Einrichtungsleitfaden ist
+[`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md). Er enthält drei getrennte Wege:
+
+- sofortiger lokaler Start mit virtuellem Zebra;
+- zentrale Verwaltung von Ethernet-/Port-9100- und RS232-Bridge-Druckern;
+- optionaler, eng begrenzter PrintAgent für einen am Docker-Host
+  angeschlossenen USB-Drucker.
+
+Der kürzeste Testlauf ist:
+
+```powershell
+git clone --recurse-submodules https://github.com/Hartmannlight/Labeldrucker.git
+Set-Location Labeldrucker
+Copy-Item .env.example .env
+docker compose up --build -d
+```
+
+Alle änderbaren Host-Ports, Bind-Adressen, der IPP-Zieldrucker und optionale
+Agent-URLs stehen gemeinsam in `.env`. Netzwerkdrucker werden anschließend in
+Fleet Console registriert; dafür ist kein zusätzlicher Container nötig.
 
 Entwicklung baut die ausgecheckten Quellen mit `compose.yaml`. Die getrennten,
 image-basierten Produktions- und Thingdex-Integrationsprofile sind in
@@ -43,9 +66,9 @@ Repositories bleiben.
 | --- | --- | --- | --- |
 | [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `880d76b` |
 | [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `f33b456` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `8e1dd41` |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `64b5023` |
 | [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `52e7927` |
-| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `6b6ffad` |
+| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `931d93a` |
 | [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `a1f8483` |
 | [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext | `a07c133` |
 
@@ -69,7 +92,7 @@ Labeldrucker/
 │   ├── PrintHub-ZPL-ll/            # Git-Submodule
 │   ├── Thingdex/                    # Git-Submodule, optionale Integration
 │   ├── Thingdex-Home-Inventory/     # Git-Submodule, Produktkontext
-│   ├── ZebraTamer/                  # Git-Submodule, künftiger PrintAgent
+│   ├── ZebraTamer/                  # Git-Submodule, optionaler PrintAgent
 │   └── ZPL-II-Printer-Emulator/     # Git-Submodule
 ├── ipp-gateway/
 ├── fleet-console/                  # getrennte physische Druckerverwaltung

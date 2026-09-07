@@ -1174,3 +1174,16 @@ independent retry loops from producing duplicate labels.
   `High` print quality each traversed exactly one delivery. Their PrintHub
   previews prove hard threshold output for `Draft` and Floyd-Steinberg dot
   patterns for `High`; physical comparison of the marked outputs remains open.
+
+### 2026-09-07: Operator quickstart consolidated
+
+- `docs/SETUP_GUIDE.md` makes the root repository the single operator entry
+  point and separates four supported deployments: local emulator, centrally
+  reachable network/bridge printers, a narrow USB Agent overlay and immutable
+  production images.
+- `.env.example` now owns every published development bind address and port,
+  the Compose project name, emulator dimensions, IPP target and optional Agent
+  settings. Internal service ports remain stable contract details.
+- The source Compose defaults every browser-facing HTTP service to loopback;
+  a focused contract test protects those defaults. Both the base Compose and
+  the documented USB overlay resolve successfully from the example settings.

@@ -197,6 +197,25 @@ def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
     assert "libusb-1.0-0" in dockerfile
 
 
+def test_source_compose_exposes_host_interfaces_only_through_env_defaults() -> None:
+    source = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))
+    services = source["services"]
+
+    assert source["name"] == "${COMPOSE_PROJECT_NAME:-printhub-only}"
+    assert services["studio"]["ports"] == [
+        "${PRINTHUB_STUDIO_BIND:-127.0.0.1}:${PRINTHUB_STUDIO_PORT:-8088}:80"
+    ]
+    assert services["printhub"]["ports"] == [
+        "${PRINTHUB_API_BIND:-127.0.0.1}:${PRINTHUB_API_PORT:-8001}:8000"
+    ]
+    assert services["fleet-console"]["ports"] == [
+        "${PRINTER_FLEET_CONSOLE_BIND:-127.0.0.1}:${PRINTER_FLEET_CONSOLE_PORT:-8089}:8080"
+    ]
+    assert services["virtual-zebra"]["ports"] == [
+        "${VIRTUAL_ZEBRA_WEB_BIND:-127.0.0.1}:${VIRTUAL_ZEBRA_WEB_PORT:-9191}:9191"
+    ]
+
+
 def test_production_print_agent_is_an_immutable_build_free_edge_overlay() -> None:
     profile = yaml.safe_load(
         (ROOT / "deploy" / "compose.print-agent.yaml").read_text(encoding="utf-8")

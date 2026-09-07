@@ -1,4 +1,4 @@
-name: printhub-only
+name: ${COMPOSE_PROJECT_NAME:-printhub-only}
 
 services:
   virtual-zebra:
@@ -8,12 +8,12 @@ services:
     environment:
       ZPL_EMULATOR_HOST: 0.0.0.0
       ZPL_EMULATOR_TCP_HOST: 0.0.0.0
-      ZPL_EMULATOR_LABEL_WIDTH_IN: "1.9685"
-      ZPL_EMULATOR_LABEL_HEIGHT_IN: "1.9685"
+      ZPL_EMULATOR_LABEL_WIDTH_IN: ${VIRTUAL_ZEBRA_LABEL_WIDTH_IN:-1.9685}
+      ZPL_EMULATOR_LABEL_HEIGHT_IN: ${VIRTUAL_ZEBRA_LABEL_HEIGHT_IN:-1.9685}
       ZPL_EMULATOR_DPMM: "8"
       ZPL_EMULATOR_MAX_JOBS: "50"
     ports:
-      - "127.0.0.1:${VIRTUAL_ZEBRA_WEB_PORT:-9191}:9191"
+      - "${VIRTUAL_ZEBRA_WEB_BIND:-127.0.0.1}:${VIRTUAL_ZEBRA_WEB_PORT:-9191}:9191"
     volumes:
       - virtual_zebra_data:/tmp/zpl-agent-data
     healthcheck:
@@ -43,7 +43,7 @@ services:
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
       PRINTHUB_FLEET_API_TOKEN: ${PRINTHUB_FLEET_API_TOKEN:-development-printhub-token}
     ports:
-      - "127.0.0.1:${PRINTHUB_API_PORT:-8001}:8000"
+      - "${PRINTHUB_API_BIND:-127.0.0.1}:${PRINTHUB_API_PORT:-8001}:8000"
     volumes:
       - printhub_data:/data
     depends_on:
@@ -139,7 +139,7 @@ services:
       APP_API_UPSTREAM: http://printhub:8000
       APP_LABEL_SIZE_PRESETS: 50x25,40x30,20x10,50x50,50x30,30x20,72x26
     ports:
-      - "${PRINTHUB_STUDIO_PORT:-8088}:80"
+      - "${PRINTHUB_STUDIO_BIND:-127.0.0.1}:${PRINTHUB_STUDIO_PORT:-8088}:80"
     depends_on:
       printhub:
         condition: service_healthy
