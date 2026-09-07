@@ -243,6 +243,9 @@ independent retry loops from producing duplicate labels.
   - [ ] Compare preview and physical output for a label-sized browser PDF, a
     color/dither fixture and an A4 document that is first held and then
     deliberately released with `fit`.
+    The remote operator provisionally accepted this as a development risk on
+    2026-09-07 so beta work can continue, but supplied no physical observation;
+    stable acceptance therefore remains open rather than being inferred.
   - [ ] Check in one sanitized, machine-readable hardware acceptance record for
     every advertised transport, bound to the exact candidate revision and
     reviewed by a different human from the tester.
