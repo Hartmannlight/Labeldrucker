@@ -419,10 +419,10 @@ Der Agent unterstützt eine explizite eindeutige
 Diese Datei dauerhaft erhalten und mitsichern. PrintAgent arbeitet ohne Thingdex
 und kommuniziert ausschließlich mit PrinterFleet.
 
-Für einen direkt an Docker Desktop angeschlossenen USB-Drucker steht der
-separate Override `compose.usb-agent.yaml` bereit. Docker Desktop unterstützt
-kein gewöhnliches Host-USB-Passthrough; das Gerät muss zuerst per USB/IP an die
-Linux-VM angehängt werden. Danach wird ausschließlich der konkrete
+Für einen direkt an Docker Desktop angeschlossenen USB-Drucker steht in der
+zentralen `compose.yaml` das optionale Profil `usb-agent` bereit. Docker Desktop
+unterstützt kein gewöhnliches Host-USB-Passthrough; das Gerät muss zuerst per
+USB/IP an die Linux-VM angehängt werden. Danach wird ausschließlich der konkrete
 `/dev/bus/usb/<bus>/<device>`-Knoten dem non-root PrintAgent zugewiesen:
 
 ```powershell
@@ -433,9 +433,10 @@ usbipd bind --busid BUS-ID                 # einmalig als Administrator
 usbipd attach --wsl docker-desktop --busid BUS-ID
 $env:PRINT_AGENT_USB_DEVICE = "/dev/bus/usb/001/002"
 $env:ZPL_AGENT_GIT_COMMIT = git -C components/ZebraTamer rev-parse HEAD
+$env:PRINTER_FLEET_AGENT_URLS = "http://print-agent:8080"
 wsl -d docker-desktop -u root -- chown 0:999 $env:PRINT_AGENT_USB_DEVICE
 wsl -d docker-desktop -u root -- chmod 0660 $env:PRINT_AGENT_USB_DEVICE
-docker compose -f compose.yaml -f compose.usb-agent.yaml up -d --build
+docker compose --profile usb-agent up -d --build
 ```
 
 Bus- und Gerätenummer können sich nach Abziehen oder Neustart ändern. Ein noch

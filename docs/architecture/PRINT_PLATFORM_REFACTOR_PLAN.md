@@ -1186,4 +1186,8 @@ independent retry loops from producing duplicate labels.
   settings. Internal service ports remain stable contract details.
 - The source Compose defaults every browser-facing HTTP service to loopback;
   a focused contract test protects those defaults. Both the base Compose and
-  the documented USB overlay resolve successfully from the example settings.
+  the documented USB profile resolve successfully from the example settings.
+- The development USB Agent remains an independently secured process but now
+  lives behind the optional `usb-agent` profile in the same `compose.yaml`.
+  Operators no longer need to merge a second Compose file for the common local
+  USB case; the production Edge Agent overlay remains independently deployable.

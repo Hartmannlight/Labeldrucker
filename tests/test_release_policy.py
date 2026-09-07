@@ -175,10 +175,11 @@ def test_runtime_images_remove_python_build_tooling() -> None:
 
 
 def test_usb_agent_profile_is_narrow_and_non_privileged() -> None:
-    profile = yaml.safe_load((ROOT / "compose.usb-agent.yaml").read_text(encoding="utf-8"))
-    agent = profile["services"]["print-agent"]
+    source = yaml.safe_load((ROOT / "compose.yaml").read_text(encoding="utf-8"))
+    agent = source["services"]["print-agent"]
     device = agent["devices"][0]
 
+    assert agent["profiles"] == ["usb-agent"]
     assert agent["user"] == "999:999"
     assert agent["read_only"] is True
     assert agent["cap_drop"] == ["ALL"]

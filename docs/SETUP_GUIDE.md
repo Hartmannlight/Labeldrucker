@@ -11,7 +11,7 @@ Repositories, werden beim Checkout aber auf exakt geprüfte Versionen gesetzt.
 | --- | --- | --- |
 | Lokal testen, ohne echten Drucker | `compose.yaml` | keine |
 | Zebra über Ethernet/WLAN oder RS232-Bridge | `compose.yaml` | Drucker in Fleet Console registrieren |
-| Zebra per USB am Docker-Host | `compose.yaml` plus `compose.usb-agent.yaml` | USB-Gerät und PrintAgent konfigurieren |
+| Zebra per USB am Docker-Host | `compose.yaml`, Profil `usb-agent` | USB-Gerät und PrintAgent konfigurieren |
 | Stabiler Unternehmensbetrieb mit veröffentlichten Images | `deploy/compose.standalone.yaml` | Secrets, Image-Digests und Druckerregistry |
 
 Ein Netzwerkdrucker braucht keinen eigenen Container. PrinterFleet verbindet
@@ -138,15 +138,20 @@ und PrinterFleet niemals direkten Gerätezugriff.
    ```dotenv
    PRINT_AGENT_USB_DEVICE=/dev/bus/usb/001/002
    PRINT_AGENT_CONFIG_PATH=./deploy/secrets/print-agent-usb.toml
+   PRINTER_FLEET_AGENT_URLS=http://print-agent:8080
    ```
 
-5. Grundstack und USB-Overlay gemeinsam starten:
+5. Grundstack mit aktiviertem USB-Profil starten:
 
    ```powershell
-   docker compose -f compose.yaml -f compose.usb-agent.yaml `
-     up --build -d
-   docker compose -f compose.yaml -f compose.usb-agent.yaml ps
+   docker compose --profile usb-agent up --build -d
+   docker compose --profile usb-agent ps
    ```
+
+   Das Profil besitzt absichtlich nur nicht funktionsfähige Platzhalter als
+   Defaults. Ohne einen realen `PRINT_AGENT_USB_DEVICE` und eine kopierte,
+   ausgefüllte TOML darf der USB-Start fehlschlagen; der normale Stack ohne das
+   Profil bleibt davon unabhängig startbar.
 
 6. Den erkannten Agent-Drucker in Fleet Console registrieren. Danach dessen
    öffentliche Fleet-ID als `PRINTHUB_IPP_PRINTER_ID` verwenden und das
