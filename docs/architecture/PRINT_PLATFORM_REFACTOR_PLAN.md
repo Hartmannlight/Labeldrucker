@@ -225,6 +225,10 @@ independent retry loops from producing duplicate labels.
     attestations for both supported CPU architectures.
   - [x] Resolve and record the exact candidate revision, component revisions
     and immutable image digests that will undergo physical qualification.
+  - [x] Bound the first stable compatibility promise to transports backed by
+    representative physical evidence. Candidate 6 may advertise `print_agent`;
+    `raw_tcp` and `serial_over_tcp` remain unadvertised beta capabilities until
+    separately qualified on real hardware.
   - [ ] Recreate the deployed stack from those candidate artifacts and repeat
     the public catalog, maintenance serialization and known-good Zebra
     baseline checks.
