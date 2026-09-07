@@ -212,6 +212,11 @@ in einer als Administrator gestarteten PowerShell ausführen:
 .\scripts\install_windows_ipp_printer.ps1 -CheckOnly
 ```
 
+Die nur lesende `-CheckOnly`-Prüfung bestätigt neben dem Benutzermedium auch,
+dass der Microsoft-Treiber `Draft`, `Normal` und `High` anbietet. Fehlt eine
+Stufe, weist das Skript ausdrücklich auf eine veraltete oder neu anzulegende
+IPP-Queue hin.
+
 Mit `-Recreate` wird eine vorhandene Queue einschließlich ihrer lokalen
 Spooljobs bewusst ersetzt. Abweichende Medien können mit `-WidthMm` und
 `-HeightMm` angegeben werden; sie müssen bereits vom Gateway angeboten werden.

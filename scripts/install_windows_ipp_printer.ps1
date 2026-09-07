@@ -79,6 +79,21 @@ function Test-AdvertisedMediaSize {
     return $false
 }
 
+function Get-AdvertisedOutputQualities {
+    param([string]$CapabilitiesXml)
+
+    $document = [xml]$CapabilitiesXml
+    $options = $document.SelectNodes(
+        "//*[local-name()='Feature' and @name='psk:PageOutputQuality']/*[local-name()='Option']"
+    )
+    return @(
+        $options |
+            ForEach-Object { ($_.name -split ':')[-1] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
 if ($CheckOnly -and $Recreate) {
     throw "-CheckOnly and -Recreate cannot be used together."
 }
@@ -112,6 +127,17 @@ $queue.Refresh()
 $configuration = Get-PrintConfiguration -PrinterName $PrinterName
 if (-not (Test-AdvertisedMediaSize $configuration.PrintCapabilitiesXML $WidthMm $HeightMm)) {
     throw "Printer '$PrinterName' does not advertise ${WidthMm} x ${HeightMm} mm."
+}
+$outputQualities = @(Get-AdvertisedOutputQualities $configuration.PrintCapabilitiesXML)
+$requiredOutputQualities = @("Draft", "Normal", "High")
+$missingOutputQualities = @(
+    $requiredOutputQualities | Where-Object { $_ -notin $outputQualities }
+)
+if ($missingOutputQualities.Count -gt 0) {
+    throw (
+        "Printer '$PrinterName' does not advertise the required output qualities: " +
+        ($missingOutputQualities -join ", ") + ". Recreate or refresh the IPP queue."
+    )
 }
 
 if (-not $CheckOnly) {
@@ -156,6 +182,7 @@ if (-not $userValid) {
     WidthMm = [Math]::Round((ConvertTo-Millimeters $userMedia.Width), 3)
     HeightMm = [Math]::Round((ConvertTo-Millimeters $userMedia.Height), 3)
     UserTicketValid = $userValid
+    OutputQualities = $outputQualities -join ", "
     DriverDefaultWidthMm = [Math]::Round((ConvertTo-Millimeters $defaultMedia.Width), 3)
     DriverDefaultHeightMm = [Math]::Round((ConvertTo-Millimeters $defaultMedia.Height), 3)
     DriverDefaultMatches = $defaultValid

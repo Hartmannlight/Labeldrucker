@@ -193,6 +193,10 @@ Windows 11, in einer administrativen PowerShell:
 .\scripts\install_windows_ipp_printer.ps1 -CheckOnly
 ```
 
+`-CheckOnly` verändert die Queue nicht. Es prüft die exakten Labelmaße und
+meldet außerdem die vom Windows-Treiber angebotenen Qualitätsstufen. Für die
+PrintHub-Bildrichtlinie müssen `Draft`, `Normal` und `High` vorhanden sein.
+
 Chrome verwendet anschließend die Systemqueue. Dithering wird nicht über
 einen eigenen Chrome-Schalter gewählt, sondern im Systemdialog mit
 `Strg+Umschalt+P` über `Druckqualität`: `Entwurf` ist harte Schwarz-Weiß-
