@@ -132,6 +132,21 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("height: 25mm", fixture)
         self.assertNotIn("<script", fixture.lower())
 
+    def test_chrome_photo_fixture_is_exact_self_contained_landscape_page(self) -> None:
+        fixture = (
+            ROOT / "tests" / "fixtures" / "chrome-photo-50x25-landscape.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("size: 50mm 25mm", fixture)
+        self.assertIn("width: 50mm", fixture)
+        self.assertIn("height: 25mm", fixture)
+        self.assertIn("C6 CHROME HIGH · LANDSCAPE", fixture)
+        self.assertIn('<linearGradient id="gray"', fixture)
+        self.assertIn('<linearGradient id="color"', fixture)
+        self.assertIn('<radialGradient id="photo"', fixture)
+        self.assertNotIn("<script", fixture.lower())
+        self.assertNotIn('src="http', fixture.lower())
+        self.assertNotIn('href="http', fixture.lower())
+
     def test_scaling_defaults_to_hold_but_honors_explicit_ipp_choice(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(submit_job.selected_scaling(), "hold")

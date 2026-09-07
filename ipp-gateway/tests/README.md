@@ -70,6 +70,13 @@ Ein-Seiten-Vorlage mit `@page { size: 50mm 25mm; margin: 0; }`. Sie verhindert,
 dass der Browsertest von einer zufälligen Webseite oder einem nicht
 reproduzierbaren Dokument abhängt.
 
+Für den reproduzierbaren Foto-/Dithering-Test dient zusätzlich
+`fixtures/chrome-photo-50x25-landscape.html`. Die ebenfalls skriptfreie und
+vollständig lokale SVG-Seite enthält Grau- und Farbverläufe, ein fotografisch
+ähnliches Motiv, feine Linien und die Markierung
+`C6 CHROME HIGH · LANDSCAPE`. Weil die Flächen SVG-Inhalt statt CSS-Hintergrund
+sind, hängen sie nicht von Chromes Schalter „Hintergrundgrafiken“ ab.
+
 Unter Windows 11 zuerst in einer administrativen PowerShell die lokale Queue
 einrichten und danach das benutzerspezifische Windows-PrintTicket validieren:
 
@@ -102,6 +109,14 @@ Kennzeichnung `CHROME IPP` werden gemeinsam im Hardware-Nachweis festgehalten.
 Zeigt der Dialog A4 oder eine unbekannte Größe, nicht drucken: Mit der
 Gateway-Standardrichtlinie `hold` wäre der Auftrag zwar geschützt, der
 Client-Fähigkeitstest wäre dennoch fehlgeschlagen.
+
+Für die Candidate-6-Fotoprüfung danach die Landschaftsfixture öffnen, im
+Windows-Systemdialog `Druckqualität: Hoch` wählen und genau eine Kopie senden.
+Die physische Ausgabe muss alle vier Außenkanten, die vollständige
+`C6 CHROME HIGH · LANDSCAPE`-Zeile und den mittleren Block
+`HIGH` / `DITHER` / `NO CROP` zeigen.
+Der Grauverlauf und das runde Motiv sollen erkennbare Dither-Zwischenstufen
+enthalten; eine harte Zweifarbenschwelle wäre für `Hoch` ein Fehler.
 
 Bricht Windows den Auftrag vor `Create-Job` mit PrintService-Ereignis 372 und
 `0x80040003` ab, zuerst das benutzerspezifische PrintTicket kontrollieren. Seine

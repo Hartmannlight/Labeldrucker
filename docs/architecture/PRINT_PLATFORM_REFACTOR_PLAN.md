@@ -1213,3 +1213,16 @@ independent retry loops from producing duplicate labels.
   lives behind the optional `usb-agent` profile in the same `compose.yaml`.
   Operators no longer need to merge a second Compose file for the common local
   USB case; the production Edge Agent overlay remains independently deployable.
+
+### 2026-09-07: Reproducible Chrome photo acceptance fixture
+
+- A local, script-free 50 x 25 mm landscape HTML/SVG fixture replaces the
+  previous dependency on an arbitrary Internet photograph. It contains fixed
+  gray/color ramps, fine detail, a photo-like motif and a unique Candidate 6
+  marker; no external resource or Chrome background setting affects it.
+- Chrome 151 rendered exactly one 142.08 x 71.04 pt page. Visual review of the
+  203-dpi raster found all borders and labels complete, with no clipping or
+  overlap, and the IPP gateway contract suite passes all 15 tests.
+- This is layout/preflight evidence only. The same versioned fixture still has
+  to traverse the Windows system queue at `High` quality and its physical
+  rotation and dither output must be confirmed by the operator.
