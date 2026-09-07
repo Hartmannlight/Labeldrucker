@@ -4,6 +4,16 @@ Stand: 7. September 2026
 
 ## In wenigen Minuten starten
 
+Für einen Raspberry Pi mit echtem USB-Etikettendrucker ist der
+[`Raspberry-Pi-Schnellstart`](docs/PI_QUICKSTART.md) der empfohlene Weg. Er
+verwendet SQLite und fest geprüfte ARM64-/AMD64-Images; weder Thingdex noch
+Emulator oder lokale Container-Builds werden gestartet. Der Host-Assistent
+richtet die reconnect-feste USB-Bulk-Anbindung und genau eine erreichbare
+IPP-Ankündigung ein.
+
+Der folgende kurze Start ist dagegen das Entwicklungsprofil mit virtuellem
+Zebra und lokal gebauten Images:
+
 Der zentrale, deutschsprachige Einrichtungsleitfaden ist
 [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md). Er enthält drei getrennte Wege:
 
@@ -62,18 +72,20 @@ Git-Submodule eingebunden. Ein `Labeldrucker`-Commit speichert ihre exakten
 Commit-IDs, während ihre Quelldateien und Historien in den jeweiligen
 Repositories bleiben.
 
-| Repository | Branch | Zweck | geprüfter Commit |
-| --- | --- | --- | --- |
-| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print | `880d76b` |
-| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio | `f33b456` |
-| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs | `64b5023` |
-| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht | `52e7927` |
-| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker | `931d93a` |
-| [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung | `a1f8483` |
-| [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext | `a07c133` |
+| Repository | Branch | Zweck |
+| --- | --- | --- |
+| [LabelArchitect](https://github.com/Hartmannlight/LabelArchitect) | `main` | „PrintHub Studio“: Vorlagen, Designer und Quick Print |
+| [printhub-sdk](https://github.com/Hartmannlight/printhub-sdk) | `main` | TypeScript-API-Client; Build-Abhängigkeit von PrintHub Studio |
+| [PrintHub-ZPL-ll](https://github.com/Hartmannlight/PrintHub-ZPL-ll) | `main` | Dokumente, Vorlagen, Vorschau und logische Druckjobs |
+| [ZPL-II-Printer-Emulator](https://github.com/Hartmannlight/ZPL-II-Printer-Emulator) | `main` | Virtueller Zebra-Drucker mit Webansicht |
+| [ZebraTamer](https://github.com/Hartmannlight/ZebraTamer) | `main` | Optionaler PrintAgent für lokal angeschlossene Drucker |
+| [Thingdex](https://github.com/Hartmannlight/Thingdex) | `main` | Unabhängiger Inventardienst mit asynchroner PrintHub-Anbindung |
+| [Thingdex-Home-Inventory](https://github.com/Hartmannlight/Thingdex-Home-Inventory) | `main` | Übergeordnete Produktintegration und Migrationskontext |
 
-Die Änderungen des Studio-Rewrites sind auf `main` zusammengeführt. Die
-aufgeführten Commits bilden den gemeinsam geprüften Stand.
+Die Änderungen des Studio-Rewrites sind auf `main` zusammengeführt. Der
+jeweilige `Labeldrucker`-Commit ist die einzige maßgebliche Stückliste: Seine
+Gitlinks pinnen alle Submodule exakt, ohne Commit-IDs zusätzlich und potenziell
+veraltet in dieser README zu duplizieren.
 
 Thingdex und Thingdex-Home-Inventory sind im eigenständigen Druckprofil nicht
 laufzeitnotwendig, bleiben aber als exakt versionierter Integrationskontext

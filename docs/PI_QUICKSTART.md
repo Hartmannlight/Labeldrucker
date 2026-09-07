@@ -15,9 +15,11 @@ geprüfte ARM64-/AMD64-Images, SQLite und keine Thingdex- oder Emulator-Dienste.
 ```sh
 sudo apt update
 sudo apt install -y avahi-daemon git
-git clone --recurse-submodules https://github.com/Hartmannlight/Labeldrucker.git
+git clone https://github.com/Hartmannlight/Labeldrucker.git
 cd Labeldrucker
 ```
+
+Die Submodule werden für diesen Pull-only-Stack nicht benötigt.
 
 ## 1. Drucker erkennen und Host einrichten
 
@@ -119,6 +121,12 @@ docker compose \
 - IPP sichtbar, aber nicht erreichbar: Port `8631/tcp` in der Host-Firewall
   freigeben und prüfen, ob `PI-NAME.local` auf den Pi zeigt.
 
-Automatische Medienvermessung, dynamische IPP-Medien und der geführte
-Abschlussdialog werden schrittweise auf diesem Profil aufgebaut. Bis dahin
-sind Medium und sichtbares Ergebnis bewusst als Bedienerprüfung dokumentiert.
+Das IPP-Gateway übernimmt Änderungen des in Fleet hinterlegten Mediums laufend
+und startet nur seinen IPP-Kindprozess mit einer atomar erneuerten PPD neu. Die
+Queue behält dabei ihren Namen; Chrome/CUPS bietet anschließend nur das aktuelle
+Format an. Die Erkennung der eingelegten Medienhöhe ist geräteabhängig: Wenn der
+Zebra-Agent einen eindeutigen Wert liefert, warnt Fleet Console bei einer
+Abweichung und bietet dort die Kalibrierung an. Ohne belastbaren Gerätewert
+zeigt sie bewusst „unbekannt“ statt einer geschätzten Messung. Breite und das
+sichtbare Druckergebnis bleiben deshalb Bedienerprüfungen; eine universelle
+vollautomatische Vermessung wird nicht vorgetäuscht.
