@@ -102,10 +102,9 @@ media declaration is a separate, audited operator action.
 - [ ] 10. Replace the current setup guide’s manual Pi workarounds with one short
   quickstart, a configuration/ports table, troubleshooting commands and a
   migration note for existing volumes and manually installed Avahi services.
-- [ ] 11. Add a separate idempotent update command. Quiesce writers, back up
-  configuration and all five named volumes, fast-forward the checked image lock,
-  run real service and IPP checks, and restore the previous release and data on
-  failure without regenerating site identity.
+- [ ] 11. Keep updates on the standard Compose path (`pull`, then `up`) and
+  document it without introducing a project-specific updater. Treat backups and
+  future breaking-change migrations as separate operational concerns.
 
 ## Validation
 

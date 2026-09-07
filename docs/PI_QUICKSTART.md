@@ -159,10 +159,10 @@ docker compose \
 python3 scripts/pi_quickstart.py --check
 ```
 
-Der Image-Lock macht den Versionswechsel nachvollziehbar. Ein kommendes
-dediziertes Updatekommando soll zusätzlich konsistente Volume-Sicherungen und
-einen automatischen Rückwechsel kapseln. Bis dieses Kommando implementiert und
-auf ARM64 geprüft ist, ersetzt der obige Ablauf ausdrücklich keine Sicherung.
+Der Image-Lock macht den Versionswechsel nachvollziehbar. Es ist kein eigenes
+Updatekommando vorgesehen: Updates bleiben beim normalen Compose-Ablauf aus
+`pull` und `up`. Datensicherungen und der Umgang mit möglichen Breaking Changes
+werden davon getrennt behandelt.
 
 ## Fehlerdiagnose
 
