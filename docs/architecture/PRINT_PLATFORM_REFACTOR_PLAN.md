@@ -1174,6 +1174,14 @@ independent retry loops from producing duplicate labels.
   `High` print quality each traversed exactly one delivery. Their PrintHub
   previews prove hard threshold output for `Draft` and Floyd-Steinberg dot
   patterns for `High`; physical comparison of the marked outputs remains open.
+- A response-loss request was completely accepted by Fleet while the client
+  deliberately did not read its HTTP response. Repeating the same idempotency
+  key returned delivery `ce6d1cec-78bd-409c-bb9d-3156a3ea4093`; durable state
+  still contained one delivery with one attempt and artifact SHA-256
+  `5e8fa8766c424f0be42643cf7a0d2c496b25acd30f47d5c83c872ba441c830fd`.
+  This closes the Fleet response-loss slice only. Volatile emulator evidence
+  did not survive a container restart, and the distinct in-flight device
+  disconnect with an honest `unconfirmed` result remains open.
 
 ### 2026-09-07: Operator quickstart consolidated
 
