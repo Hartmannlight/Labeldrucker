@@ -268,7 +268,7 @@ def install_host_files(state_dir: Path, *, reload_services: bool) -> None:
     if duplicates:
         names = ", ".join(str(path) for path in duplicates)
         raise RuntimeError(
-            f"Another IPP announcement already owns port 8631: {names}. "
+            f"Another IPP announcement already owns port {port}: {names}. "
             "Disable it explicitly before installing PrintHub discovery."
         )
     shutil.copyfile(state_dir / "host" / "70-printhub-usb.rules", "/etc/udev/rules.d/70-printhub-usb.rules")
