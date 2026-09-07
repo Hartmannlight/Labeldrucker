@@ -132,7 +132,21 @@ und PrinterFleet niemals direkten Gerätezugriff.
    eintragen. Vendor und Product werden dort dezimal angegeben.
 3. Das konkrete Linux-Gerät ermitteln, beispielsweise mit `lsusb`; unter
    Docker Desktop für Windows muss es zuvor mittels `usbipd` an WSL
-   durchgereicht werden.
+   durchgereicht werden. Der frisch erzeugte Geräteknoten gehört zunächst
+   häufig `root:root` mit Modus `0600`. Der non-root-Agent mit GID `999` benötigt
+   deshalb nach jedem Attach gezielt Gruppenrechte auf genau diesem Knoten:
+
+   ```powershell
+   usbipd bind --busid BUS-ID                 # einmalig als Administrator
+   usbipd attach --wsl --busid BUS-ID
+   $usbDevice = "/dev/bus/usb/001/002"        # nach jedem Attach neu prüfen
+   wsl -d docker-desktop -u root -- chown 0:999 $usbDevice
+   wsl -d docker-desktop -u root -- chmod 0660 $usbDevice
+   ```
+
+   `usbipd list` zeigt die Windows-BUS-ID. Bus- und Gerätenummer des
+   Linux-Knotens können sich nach Abziehen oder Neustart ändern. Keinesfalls
+   pauschal den ganzen USB-Bus freigeben oder den Agent privilegiert starten.
 4. In `.env` setzen:
 
    ```dotenv
@@ -157,9 +171,9 @@ und PrinterFleet niemals direkten Gerätezugriff.
    öffentliche Fleet-ID als `PRINTHUB_IPP_PRINTER_ID` verwenden und das
    IPP-Gateway neu starten.
 
-Nach einem USB-Neuanschluss kann sich `/dev/bus/usb/BBB/DDD` ändern. In diesem
-Fall nur `PRINT_AGENT_USB_DEVICE` korrigieren und `print-agent` neu erstellen.
-Niemals den gesamten USB-Bus mit `privileged: true` freigeben.
+Nach einem USB-Neuanschluss den aktuellen `/dev/bus/usb/BBB/DDD`-Knoten und
+dessen Rechte immer erneut prüfen. Hat sich der Pfad geändert, zusätzlich
+`PRINT_AGENT_USB_DEVICE` korrigieren und `print-agent` neu erstellen.
 
 ## 7. IPP bei CUPS oder Windows hinzufügen
 
