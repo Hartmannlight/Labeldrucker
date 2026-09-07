@@ -1,0 +1,4 @@
+<service-group>
+  <name>Old duplicate</name>
+  <service><type>_ipp._tcp</type><port>8631</port></service>
+</service-group>

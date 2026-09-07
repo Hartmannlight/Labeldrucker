@@ -8,6 +8,7 @@ class FakeAgentClient:
     def __init__(self) -> None:
         self.available = True
         self.width_mm = 50
+        self.label_length_dots = None
 
     def inspect(self, base_url):
         if not self.available:
@@ -45,7 +46,18 @@ class FakeAgentClient:
                     }
                 }
             },
-            "device": {"profile": {"resolution_dpi": 300}},
+            "device": {
+                "profile": {"resolution_dpi": 300},
+                "observation": (
+                    {
+                        "resolution_dpi": 300,
+                        "settings": {"label_length": self.label_length_dots},
+                        "observed_at": "2026-09-07T10:00:00Z",
+                    }
+                    if self.label_length_dots is not None
+                    else None
+                ),
+            },
         }
 
 
@@ -91,6 +103,47 @@ def test_discovery_and_registration_are_fleet_owned_and_durable(tmp_path):
     restarted.initialize()
     saved_agent = restarted.get_agent("edge-berlin-1")
     assert saved_agent["printers"][0]["registered_id"] == "shipping-zebra"
+
+
+def test_device_label_length_is_an_honest_partial_media_measurement(tmp_path):
+    repository = FleetRepository(tmp_path / "fleet.sqlite3")
+    repository.initialize()
+    client = FakeAgentClient()
+    client.label_length_dots = 400  # 33.87 mm at 300 dpi, not declared 30 mm.
+    discovery = AgentDiscoveryService(repository, client)
+    discovery.discover(["http://edge:8080"])
+    printer = discovery.register(
+        agent_id="edge-berlin-1",
+        device_id="usb-zebra",
+        public_id="shipping-zebra",
+    )
+
+    assert printer["media"]["measurement"] == {
+        "state": "partial",
+        "width_mm": None,
+        "height_mm": 33.87,
+        "source": "device_configuration",
+        "observed_at": "2026-09-07T10:00:00Z",
+    }
+    assert printer["media"]["mismatch"]["detected"] is True
+    assert printer["media"]["mismatch"]["fields"] == ["height_mm"]
+    assert printer["capabilities"]["media_measurement"] == "partial"
+
+
+def test_missing_device_length_is_reported_as_unknown_not_zero(tmp_path):
+    repository = FleetRepository(tmp_path / "fleet.sqlite3")
+    repository.initialize()
+    client = FakeAgentClient()
+    discovery = AgentDiscoveryService(repository, client)
+    discovery.discover(["http://edge:8080"])
+    printer = discovery.register(
+        agent_id="edge-berlin-1",
+        device_id="usb-zebra",
+        public_id="shipping-zebra",
+    )
+
+    assert printer["media"]["measurement"]["state"] == "unknown"
+    assert printer["media"]["measurement"]["height_mm"] is None
 
 
 def test_offline_agent_remains_registered_and_is_marked_unavailable(tmp_path):

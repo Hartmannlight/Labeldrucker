@@ -5,6 +5,10 @@ laufenden PrintHub. Alle Komponenten werden aus diesem Repository orchestriert.
 Die unter `components/` eingebundenen Git-Submodule bleiben eigenständige
 Repositories, werden beim Checkout aber auf exakt geprüfte Versionen gesetzt.
 
+Für einen Raspberry Pi mit USB-Drucker gibt es den kürzeren Pull-only-Weg in
+[PI_QUICKSTART.md](PI_QUICKSTART.md). Er richtet USB-Bulk, udev, die einzige
+DNS-SD-Ankündigung und die ARM64-Images gemeinsam ein.
+
 ## 1. Den passenden Betriebsfall wählen
 
 | Ziel | Compose-Dateien | Zusätzliche Hardwarekonfiguration |
@@ -66,6 +70,7 @@ ignoriert. Für einen normalen lokalen Start müssen keine Werte geändert werde
 | `PRINTHUB_IPP_HOSTNAME` | `localhost` | IPP-Clients einen anderen DNS-Namen verwenden |
 | `PRINTHUB_IPP_PRINTER_ID` | `virtual-zebra` | IPP an einen registrierten echten Drucker senden soll |
 | `PRINTHUB_IPP_MISMATCH_POLICY` | `hold` | abweichende Seiten ausdrücklich automatisch skaliert werden sollen |
+| `PRINTHUB_MAX_LABELS_PER_JOB` | `25` | die maximale Zahl `Seiten × Kopien` pro Auftrag geändert werden soll |
 | `PRINTER_FLEET_AGENT_URLS` | leer | externe PrintAgents ohne mDNS fest eingetragen werden |
 
 Nur Host-Ports werden geändert. Die Container-Ports und internen Dienstnamen

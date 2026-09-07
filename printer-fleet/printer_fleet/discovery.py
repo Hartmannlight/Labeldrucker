@@ -132,11 +132,41 @@ class AgentDiscoveryService:
             "authority": {"source": "print_agent", "state": "loaded"},
             "agent_state": media_state,
         }
+        settings = observation.get("settings") or {}
+        measured_length_dots = settings.get("label_length")
+        if isinstance(measured_length_dots, int) and measured_length_dots > 0:
+            measured_height = measured_length_dots * 25.4 / int(dpi)
+            tolerance = max(
+                0.0,
+                float(os.getenv("PRINTER_FLEET_MEDIA_MISMATCH_TOLERANCE_MM", "1.0")),
+            )
+            difference = abs(measured_height - float(definition["height_mm"]))
+            media["measurement"] = {
+                "state": "partial",
+                "width_mm": None,
+                "height_mm": round(measured_height, 2),
+                "source": "device_configuration",
+                "observed_at": observation.get("observed_at"),
+            }
+            media["mismatch"] = {
+                "detected": difference > tolerance,
+                "fields": ["height_mm"] if difference > tolerance else [],
+                "tolerance_mm": tolerance,
+            }
+        else:
+            media["measurement"] = {
+                "state": "unknown",
+                "width_mm": None,
+                "height_mm": None,
+                "source": "device_configuration",
+                "reason": "label_length_not_reported",
+            }
         alignment = {"dpi": int(dpi), "offset_x_mm": 0, "offset_y_mm": 0}
         capabilities = {
             "supports_status": True,
             "supports_graphics": True,
             "supports_cut": bool(profile.get("cutter", False)),
+            "media_measurement": media["measurement"]["state"],
         }
         return media, alignment, capabilities
 
@@ -172,7 +202,7 @@ class AgentDiscoveryService:
             "capabilities": capabilities,
             "enabled": True,
         }
-        created = self.repository.put_printer(printer)
+        self.repository.put_printer(printer)
         return self.repository.record_printer_observation(
             public_id,
             media=media,

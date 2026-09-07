@@ -137,6 +137,14 @@ def main(arguments: list[str]) -> None:
     print(f"INFO: PrintHub job {result.get('id')} is {status}", file=sys.stderr)
     if status == "held":
         print("ATTR: job-state-reasons=job-hold-until-specified", file=sys.stderr)
+        if result.get("hold_reason") == "label_limit_exceeded":
+            requested = int(result.get("requested_labels") or 0)
+            maximum = int(result.get("max_labels") or 0)
+            print(
+                f"ATTR: job-state-message=PrintHub label limit exceeded: "
+                f"{requested} requested, maximum {maximum}",
+                file=sys.stderr,
+            )
     if pages:
         print(f"ATTR: job-impressions={pages}", file=sys.stderr)
 

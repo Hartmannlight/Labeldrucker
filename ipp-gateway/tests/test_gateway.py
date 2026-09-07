@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import base64
+import contextlib
+import io
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -123,6 +125,35 @@ class GatewayTests(unittest.TestCase):
             '*cupsFilter2: "application/vnd.cups-pdf application/pdf 0 -"', ppd
         )
 
+    def test_ppd_refresh_changes_only_when_loaded_media_changes(self) -> None:
+        printer = {
+            "name": "Workshop",
+            "vendor": "Zebra",
+            "model": "GK420t",
+            "media": {"loaded": {"width_mm": 60, "height_mm": 30}},
+            "alignment": {"dpi": 203},
+        }
+        with unittest.mock.patch.object(Path, "write_text"), unittest.mock.patch.object(
+            Path, "replace"
+        ):
+            first, changed = entrypoint.write_ppd_if_changed(
+                Path("printer.ppd"), printer, None
+            )
+            same, unchanged = entrypoint.write_ppd_if_changed(
+                Path("printer.ppd"), printer, first
+            )
+            printer["media"]["loaded"]["height_mm"] = 40
+            updated, media_changed = entrypoint.write_ppd_if_changed(
+                Path("printer.ppd"), printer, first
+            )
+
+        self.assertTrue(changed)
+        self.assertFalse(unchanged)
+        self.assertEqual(first, same)
+        self.assertTrue(media_changed)
+        self.assertNotEqual(first, updated)
+        self.assertIn("60 x 40 mm", updated)
+
     def test_chrome_acceptance_fixture_declares_one_exact_label_page(self) -> None:
         fixture = (ROOT / "tests" / "fixtures" / "chrome-label-50x25.html").read_text(
             encoding="utf-8"
@@ -131,6 +162,28 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("width: 50mm", fixture)
         self.assertIn("height: 25mm", fixture)
         self.assertNotIn("<script", fixture.lower())
+
+    def test_ipp_reports_label_limit_hold_without_overriding_it(self) -> None:
+        fixture = ROOT / "tests" / "fixtures" / "label-50mm.pdf"
+        response = {
+            "id": "job-1",
+            "status": "held",
+            "hold_reason": "label_limit_exceeded",
+            "requested_labels": 100,
+            "max_labels": 25,
+            "page_count": 100,
+        }
+        output = io.StringIO()
+        with (
+            patch.object(submit_job, "api_request", return_value=response) as request,
+            patch.dict(os.environ, {"CONTENT_TYPE": "application/pdf"}, clear=True),
+            contextlib.redirect_stderr(output),
+        ):
+            submit_job.main(["submit_job.py", str(fixture)])
+
+        self.assertFalse(request.call_args.kwargs["payload"].get("override_label_limit"))
+        self.assertIn("job-state-reasons=job-hold-until-specified", output.getvalue())
+        self.assertIn("100 requested, maximum 25", output.getvalue())
 
     def test_chrome_photo_fixture_is_exact_self_contained_landscape_page(self) -> None:
         fixture = (

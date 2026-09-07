@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -214,6 +215,77 @@ def build_ipp_command(
     ]
 
 
+def write_ppd_if_changed(
+    ppd_path: Path, printer: dict[str, Any], previous: str | None
+) -> tuple[str, bool]:
+    current = build_ppd(printer)
+    if current == previous:
+        return current, False
+    temporary = ppd_path.with_suffix(".ppd.tmp")
+    temporary.write_text(current, encoding="ascii")
+    temporary.replace(ppd_path)
+    return current, True
+
+
+def stop_child(child: subprocess.Popen[bytes], timeout: float = 10) -> None:
+    if child.poll() is not None:
+        return
+    child.terminate()
+    try:
+        child.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        child.kill()
+        child.wait(timeout=timeout)
+
+
+def supervise_ipp(
+    command: list[str],
+    *,
+    api_url: str,
+    printer_id: str,
+    ppd_path: Path,
+    initial_ppd: str,
+) -> None:
+    refresh_seconds = max(2, int(os.getenv("PRINTHUB_IPP_REFRESH_SECONDS", "15")))
+    current_ppd = initial_ppd
+    stopping = False
+    child: subprocess.Popen[bytes] | None = None
+
+    def request_stop(_signum: int, _frame: object) -> None:
+        nonlocal stopping
+        stopping = True
+
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
+    try:
+        while not stopping:
+            child = subprocess.Popen(command)
+            while not stopping and child.poll() is None:
+                time.sleep(refresh_seconds)
+                try:
+                    printer = fetch_printer(api_url, printer_id, attempts=1)
+                    updated_ppd, changed = write_ppd_if_changed(
+                        ppd_path, printer, current_ppd
+                    )
+                except (OSError, RuntimeError, ValueError) as exc:
+                    print(f"IPP capability refresh deferred: {exc}", file=sys.stderr)
+                    continue
+                if changed:
+                    current_ppd = updated_ppd
+                    print("Loaded media changed; republishing IPP capabilities", file=sys.stderr)
+                    stop_child(child)
+                    break
+            if not stopping and child.poll() is not None:
+                print(
+                    f"IPP server exited with {child.returncode}; restarting",
+                    file=sys.stderr,
+                )
+                time.sleep(1)
+    finally:
+        if child is not None:
+            stop_child(child)
+
+
 def main() -> None:
     api_url = os.getenv("PRINTHUB_API_URL", "http://printhub:8000")
     printer_id = os.getenv("PRINTHUB_IPP_PRINTER_ID", "virtual-zebra")
@@ -226,7 +298,7 @@ def main() -> None:
     tls_dir.mkdir(parents=True, exist_ok=True)
     tls_dir.chmod(0o700)
     ppd_path = runtime_dir / "printer.ppd"
-    ppd_path.write_text(build_ppd(printer), encoding="ascii")
+    initial_ppd, _ = write_ppd_if_changed(ppd_path, printer, None)
 
     prepare_runtime_privileges(runtime_dir, spool_dir, tls_dir, ppd_path)
 
@@ -235,7 +307,7 @@ def main() -> None:
         raise RuntimeError("ippeveprinter is not installed")
     port = os.getenv("PRINTHUB_IPP_PORT", "8631")
     hostname = os.getenv("PRINTHUB_IPP_HOSTNAME", socket.gethostname())
-    service_name = os.getenv("PRINTHUB_IPP_NAME", f"PrintHub - {printer.get('name', printer_id)}")
+    service_name = os.getenv("PRINTHUB_IPP_NAME", "PrintHub Label Printer")
     start_container_proxy(port)
     command = build_ipp_command(
         executable,
@@ -246,7 +318,13 @@ def main() -> None:
         port=port,
         service_name=service_name,
     )
-    os.execv(executable, command)
+    supervise_ipp(
+        command,
+        api_url=api_url,
+        printer_id=printer_id,
+        ppd_path=ppd_path,
+        initial_ppd=initial_ppd,
+    )
 
 
 if __name__ == "__main__":

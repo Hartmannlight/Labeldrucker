@@ -64,6 +64,11 @@ export class FleetClient {
   discoverAgents(urls) {
     return this.request('/v1/agents/discover', { method: 'POST', body: JSON.stringify({ urls }) })
   }
+  registerAgentPrinter(agentId, deviceId, publicId, name) {
+    return this.request(`/v1/agents/${encodeURIComponent(agentId)}/printers/${encodeURIComponent(deviceId)}/register`, {
+      method: 'POST', body: JSON.stringify({ public_id: publicId, name: name || null }),
+    })
+  }
   auditRecords() { return this.request('/v1/audit-records?limit=100') }
 }
 

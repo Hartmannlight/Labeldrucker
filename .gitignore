@@ -1,5 +1,7 @@
 .env
 deploy/.env.production
+deploy/quickstart.env
+deploy/state/
 deploy/secrets/*
 !deploy/secrets/*.example
 !deploy/secrets/*.example.json

@@ -48,7 +48,7 @@ jobs:
           npm --prefix fleet-console test
           node --check fleet-console/app.js
           python3 scripts/security_gate.py --self-test
-          python3 -m py_compile scripts/build_compatibility_manifest.py scripts/container_smoke.py scripts/release_component.py scripts/validate_hardware_acceptance.py scripts/validate_release_env.py
+          python3 -m py_compile scripts/build_compatibility_manifest.py scripts/container_smoke.py scripts/pi_quickstart.py scripts/release_component.py scripts/validate_hardware_acceptance.py scripts/validate_release_env.py
       - name: Rehearse PostgreSQL backup and restore
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -60,7 +60,9 @@ jobs:
           restored_counts="$(docker exec "$POSTGRES_CONTAINER" psql --username=printer_fleet --dbname=printer_fleet_restore --tuples-only --no-align --command="SELECT 'audit_records=' || COUNT(*) FROM audit_records UNION ALL SELECT 'deliveries=' || COUNT(*) FROM deliveries UNION ALL SELECT 'delivery_events=' || COUNT(*) FROM delivery_events UNION ALL SELECT 'printers=' || COUNT(*) FROM printers ORDER BY 1")"
           test "$source_counts" = "$restored_counts"
       - name: Validate source Compose
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose --env-file deploy/quickstart.images.env --env-file deploy/quickstart.env.example -f deploy/compose.quickstart.yaml --profile usb-agent --profile ipp config --quiet
   containers:
     needs: test
     uses: ./.github/workflows/container-gate.yml

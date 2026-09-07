@@ -27,6 +27,7 @@ services:
     environment:
       PRINTER_FLEET_DATABASE_URL_FILE: /run/secrets/printer_fleet_database_url
       PRINTER_FLEET_MDNS_ENABLED: ${PRINTER_FLEET_MDNS_ENABLED:-1}
+      PRINTER_FLEET_MEDIA_MISMATCH_TOLERANCE_MM: ${PRINTER_FLEET_MEDIA_MISMATCH_TOLERANCE_MM:-1.0}
       PRINTER_FLEET_DELIVERY_WORKER_ENABLED: "0"
       PRINTER_FLEET_CREDENTIALS_FILE: /run/secrets/printer_fleet_credentials
     secrets: [printer_fleet_credentials, printer_fleet_database_url]
@@ -70,6 +71,7 @@ services:
     environment:
       PRINTHUB_FLEET_API_URL: http://printer-fleet:8000
       PRINTHUB_FLEET_API_TOKEN_FILE: /run/secrets/printhub_fleet_token
+      PRINTHUB_MAX_LABELS_PER_JOB: ${PRINTHUB_MAX_LABELS_PER_JOB:-25}
       ZPLGRID_TEMPLATES_DIR: /data/templates
       ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
       ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs

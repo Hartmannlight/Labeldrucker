@@ -38,3 +38,16 @@ test('direct network printer documents normalize RAW defaults', () => {
 test('serial bridges require an explicit valid port', () => {
   assert.throws(() => directPrinterDocument({ id: 'bridge', name: '', site: 'west', protocol: 'serial_over_tcp', host: 'bridge.local', port: '', width: '50', height: '25', dpi: '203' }), /Port must be/)
 })
+
+test('agent printer registration encodes identities and uses explicit public id', async () => {
+  let request
+  const client = new FleetClient('secret', async (url, options) => {
+    request = { url, options }
+    return new Response(JSON.stringify({ id: 'shipping-zebra' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  })
+
+  await client.registerAgentPrinter('edge/one', 'usb zebra', 'shipping-zebra', 'Shipping')
+
+  assert.equal(request.url, '/api/v1/agents/edge%2Fone/printers/usb%20zebra/register')
+  assert.deepEqual(JSON.parse(request.options.body), { public_id: 'shipping-zebra', name: 'Shipping' })
+})

@@ -116,6 +116,8 @@ function addPrinterPanel() {
 
 function printerCard(printer) {
   const paused = Boolean(printer.control?.paused)
+  const mediaMismatch = printer.media?.mismatch?.detected === true
+  const measuredHeight = printer.media?.measurement?.height_mm
   const status = element('pre', { className: 'status', text: 'Status not queried.' })
   const actions = element('div', { className: 'actions' }, [
     element('button', { text: 'Read status', onclick: async () => {
@@ -130,7 +132,8 @@ function printerCard(printer) {
       } catch (error) { setNotice('error', errorMessage(error)) }
     } }),
   ])
-  for (const [action, label] of [['print-configuration', 'Print configuration'], ['print-network-configuration', 'Print network config'], ['calibrate-media', 'Calibrate media']]) {
+  const maintenanceActions = printer.driver === 'zpl' ? [['print-configuration', 'Print configuration'], ['print-network-configuration', 'Print network config'], ['calibrate-media', 'Calibrate media']] : []
+  for (const [action, label] of maintenanceActions) {
     actions.append(element('button', { className: 'danger', text: label, onclick: async () => {
       if (!window.confirm(`${label} on ${printer.name || printer.id}? This operation may move label stock.`)) return
       try { await client.maintainPrinter(printer.id, action); setNotice('success', `${label} accepted by the device transport.`) } catch (error) { setNotice('error', errorMessage(error)) }
@@ -143,7 +146,8 @@ function printerCard(printer) {
   } }))
   return element('article', { className: 'card' }, [
     element('div', { className: 'card-title' }, [element('div', {}, [element('h2', { text: printer.name || printer.id }), element('code', { text: printer.id })]), element('span', { className: paused ? 'badge warn' : 'badge', text: paused ? 'Paused' : 'Active' })]),
-    element('dl', {}, [definition('Site', printer.site_id || 'default'), definition('Driver', printer.driver), definition('Media', printer.media?.loaded ? `${printer.media.loaded.width_mm} × ${printer.media.loaded.height_mm} mm` : null), definition('Resolution', printer.alignment?.dpi ? `${printer.alignment.dpi} dpi` : null)]),
+    element('dl', {}, [definition('Site', printer.site_id || 'default'), definition('Driver', printer.driver), definition('Media', printer.media?.loaded ? `${printer.media.loaded.width_mm} × ${printer.media.loaded.height_mm} mm` : null), definition('Measured height', measuredHeight ? `${measuredHeight} mm` : printer.media?.measurement?.state || null), definition('Resolution', printer.alignment?.dpi ? `${printer.alignment.dpi} dpi` : null)]),
+    ...(mediaMismatch ? [element('div', { className: 'notice error', text: `Loaded media may not match the configured height. Device reports ${measuredHeight} mm; configured is ${printer.media.loaded.height_mm} mm. Calibrate the printer and refresh its device configuration before printing.` })] : []),
     element('label', {}, [element('span', { text: 'Display name' }), nameInput]), actions, status,
   ])
 }
@@ -160,12 +164,48 @@ async function deliveryPage() {
   return root
 }
 
+function agentDeviceCard(agent, device) {
+  if (device.registered_id) {
+    return element('article', { className: 'card' }, [
+      element('strong', { text: device.display_name || device.id }),
+      element('span', { className: 'badge', text: `Registered as ${device.registered_id}` }),
+    ])
+  }
+  const publicId = element('input', { value: String(device.id || 'usb-printer').replace(/[^a-zA-Z0-9_-]+/g, '-').toLowerCase() })
+  const name = element('input', { value: device.display_name || device.model || device.id })
+  return element('article', { className: 'card' }, [
+    element('strong', { text: device.display_name || device.id }),
+    element('span', { text: `${device.vendor || 'Unknown'} ${device.model || ''} · ${device.driver || 'unknown driver'}` }),
+    element('label', {}, [element('span', { text: 'Stable printer ID' }), publicId]),
+    element('label', {}, [element('span', { text: 'Display name' }), name]),
+    element('button', { className: 'primary', text: 'Register printer', onclick: async () => {
+      try {
+        await client.registerAgentPrinter(agent.id, device.id, publicId.value.trim(), name.value.trim())
+        setNotice('success', `${device.id} registered. Continue with media and connection checks on Printers.`)
+        await render()
+      } catch (error) { setNotice('error', errorMessage(error)) }
+    } }),
+  ])
+}
+
+function agentCard(agent) {
+  const devices = Array.isArray(agent.printers) ? agent.printers : []
+  return element('article', { className: 'panel' }, [
+    element('div', { className: 'card-title' }, [
+      element('h2', { text: agent.id || agent.agent_id }),
+      element('span', { className: agent.available ? 'badge' : 'badge warn', text: agent.available ? 'Detected' : 'Unavailable' }),
+    ]),
+    element('p', { text: agent.available ? 'Connection to the PrintAgent works. Register each physical device once.' : agent.last_error || 'Agent is unavailable.' }),
+    element('div', { className: 'grid' }, devices.length ? devices.map(device => agentDeviceCard(agent, device)) : [element('div', { className: 'empty', text: 'No USB printers reported.' })]),
+  ])
+}
+
 async function agentsPage() {
   const urls = element('input', { placeholder: 'http://print-agent.example:8080' })
   const root = element('main', {}, [element('header', { className: 'page-heading' }, [element('span', { className: 'eyebrow', text: 'Edge connectivity' }), element('h1', { text: 'PrintAgents' }), element('p', { text: 'Agents are optional and used only when Fleet cannot reach a device transport directly.' })]), element('form', { className: 'inline-form', onsubmit: async (event) => { event.preventDefault(); try { await client.discoverAgents(urls.value.split(',').map(value => value.trim()).filter(Boolean)); setNotice('success', 'Agent discovery completed.') } catch (error) { setNotice('error', errorMessage(error)) } } }, [urls, element('button', { type: 'submit', text: 'Discover' })]), element('div', { className: 'loading', text: 'Loading agents…' })])
   try {
     const agents = await client.agents()
-    root.lastChild.replaceWith(element('div', { className: 'grid' }, agents.length ? agents.map(agent => element('article', { className: 'card' }, [element('h2', { text: agent.agent_id || agent.id }), element('pre', { text: JSON.stringify(agent, null, 2) })])) : [element('div', { className: 'empty', text: 'No agents discovered.' })]))
+    root.lastChild.replaceWith(element('div', { className: 'grid' }, agents.length ? agents.map(agentCard) : [element('div', { className: 'empty', text: 'No agents discovered.' })]))
   } catch (error) { root.lastChild.replaceWith(element('div', { className: 'empty error', text: errorMessage(error) })) }
   return root
 }
