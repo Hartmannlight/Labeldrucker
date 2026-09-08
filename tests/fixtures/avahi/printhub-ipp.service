@@ -1,4 +1,0 @@
-<service-group>
-  <name>Managed file is replaced safely</name>
-  <service><type>_ipp._tcp</type><port>8631</port></service>
-</service-group>

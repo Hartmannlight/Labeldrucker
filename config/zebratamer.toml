@@ -1,0 +1,21 @@
+listen = "0.0.0.0:8080"
+data_dir = "/var/lib/zpl-agent"
+storage_mode = "full"
+webui_enabled = true
+read_token_file = "/run/printhub-secrets/zebratamer-token"
+print_token_file = "/run/printhub-secrets/zebratamer-token"
+admin_token_file = "/run/printhub-secrets/zebratamer-token"
+mdns_enabled = false
+poll_interval_secs = 30
+capability_poll_interval_secs = 3600
+host_boot_loss_labels = 2
+printer_reconnect_loss_labels = 0
+calibration_loss_labels = 0
+reconnect_debounce_secs = 5
+max_job_bytes = 8388608
+max_active_jobs_per_printer = 1000
+hardware_counters = "prefer"
+
+# Drucker werden nach dem ersten Start über http://localhost:8082/ui/ angelegt.
+# Diese leere Seed-Datei wird nur verwendet, solange im Datenvolume noch keine
+# persistente printers.json existiert.

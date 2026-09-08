@@ -1,0 +1,24 @@
+listen = "0.0.0.0:8080"
+data_dir = "/var/lib/zpl-agent"
+agent_id = "replace-with-a-stable-site-id"
+read_token_file = "/run/printhub-secrets/zebratamer-token"
+print_token_file = "/run/printhub-secrets/zebratamer-token"
+admin_token_file = "/run/printhub-secrets/zebratamer-token"
+webui_enabled = false
+mdns_enabled = false
+
+[[printers]]
+id = "usb-zebra"
+display_name = "USB Zebra"
+device = ""
+transport = "usb_bulk"
+driver = "zpl"
+usb_vendor_id = 0
+usb_product_id = 0
+usb_serial = "replace-with-the-exact-usb-serial"
+
+[printers.device_profile]
+resolution_dpi = 203
+max_width_dots = 448
+max_length_dots = 7917
+thermal_transfer = false

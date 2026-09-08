@@ -14,62 +14,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cups-to-raw-tcp:
+  standalone-demo:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
+      COMPOSE_FILE: compose.yaml:compose.demo.yaml
+      COMPOSE_PROFILES: demo
       PRINTHUB_IPP_HOSTNAME: printhub-ipp.integration.test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-      - name: Build and start the pinned source platform
-        run: docker compose up --build --detach --wait --wait-timeout 240
-      - name: Verify advertised driverless IPP capabilities
+      - name: Initialize standalone and demo sources
+        run: git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk components/LabelArchitect components/ZebraTamer components/ZPL-II-Printer-Emulator
+      - name: Build and start the Fleet-free demo
+        run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: Configure media and one IPP share through PrintHub
+        run: |
+          admin_token="$(docker compose run --rm --no-deps bootstrap cat /secrets/printhub-admin-token)"
+          curl --fail --silent --show-error --request PUT \
+            --header "Authorization: Bearer $admin_token" \
+            --header 'Content-Type: application/json' \
+            --data '{"display_name":"CI 50x25","product_number":null,"manufacturer":null,"description":null,"width_mm":50,"height_mm":25,"gap_mm":2,"corner_radius_mm":null,"black_mark_width_mm":null,"black_mark_height_mm":null,"core_diameter_mm":null,"outer_diameter_mm":null,"shape":"rectangle","tracking":"gap","print_technology":"direct_thermal","color":{"name":"White","hex":"#ffffff","description":null},"material":null,"surface":null,"transparent":null,"thermal_coating":null,"thickness_micrometers":null,"adhesive":null,"liner":null,"ribbon":null,"preferred_settings":{},"labels_available_at_load":100,"nominal_full_roll_labels":100,"low_warning_threshold":10,"custom":{}}' \
+            http://127.0.0.1:8001/v1/printer-services/default/printers/virtual-zebra/media
+          curl --fail --silent --show-error --request PUT \
+            --header "Authorization: Bearer $admin_token" \
+            --header 'Content-Type: application/json' \
+            --data '{"printer_id":"virtual-zebra","display_name":"CI Zebra","enabled":true}' \
+            http://127.0.0.1:8001/v1/ipp-shares/ci-zebra
+          sleep 6
+      - name: Verify dynamic driverless IPP capabilities
         run: >-
           docker compose exec -T ipp-gateway
           ipptool -t ipp://127.0.0.1:8631/ipp/print
           /usr/share/cups/ipptool/get-printer-attributes.test
-      - name: Verify IPP through the published host port
+      - name: Submit a matching document through IPP
         run: |
-          gateway_image="$(docker compose images -q ipp-gateway)"
-          docker run --rm --network host --entrypoint ipptool "$gateway_image" \
-            -t ipp://127.0.0.1:8631/ipp/print \
-            /usr/share/cups/ipptool/get-printer-attributes.test
-      - name: Submit a label-sized PDF through IPP
-        run: |
-          docker compose cp ipp-gateway/tests/print-job.test ipp-gateway:/tmp/print-job.test
-          docker compose cp ipp-gateway/tests/fixtures/label-50mm.pdf ipp-gateway:/tmp/label-50mm.pdf
-          docker compose exec -T ipp-gateway ipptool -t -f /tmp/label-50mm.pdf ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
-          curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs |
-            jq --exit-status '.[0] | .source_kind == "document" and (.status == "queued" or .status == "transport_accepted") and (.downstream_jobs | length) == 1 and .downstream_jobs[0].state == .downstream_job_state'
-      - name: Hold and explicitly release an A4-to-label mismatch
-        run: |
-          docker compose cp ipp-gateway/tests/fixtures/a4.pdf ipp-gateway:/tmp/a4.pdf
-          docker compose exec -T ipp-gateway ipptool -t -f /tmp/a4.pdf ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
-          job_id="$(curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs | jq --raw-output '.[0].id')"
-          curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs/"$job_id" |
-            jq --exit-status '.status == "held" and .bytes_sent == null and (.warning | contains("210") and contains("297") and contains("50"))'
-          curl --fail --silent --show-error --request POST \
-            --header 'Content-Type: application/json' \
-            --data '{"scaling":"fit"}' \
-            http://127.0.0.1:8001/v1/print-jobs/"$job_id"/release |
-            jq --exit-status '.status == "queued" and .bytes_sent == 0 and .downstream_job_state == "queued"'
-      - name: Verify Fleet delivered jobs to the RAW-9100 emulator
-        run: |
+          docker compose cp components/PrintHub-ZPL-ll/ipp-gateway/tests/print-job.test ipp-gateway:/tmp/print-job.test
+          docker compose cp components/PrintHub-ZPL-ll/ipp-gateway/tests/fixtures/label-50x25.ps ipp-gateway:/tmp/label-50x25.ps
+          docker compose exec -T ipp-gateway ipptool -t -f /tmp/label-50x25.ps ipp://127.0.0.1:8631/ipp/print /tmp/print-job.test
           deadline=$((SECONDS + 30))
           while (( SECONDS < deadline )); do
-            if curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq --exit-status 'length >= 2' >/dev/null; then
-              jobs="$(curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs)"
-              if jq --exit-status '.[0:2] | length == 2 and all(.[]; .status == "transport_accepted" and .downstream_job_state == "transport_accepted" and .bytes_sent > 0 and (.downstream_jobs | length) == 1 and .downstream_jobs[0].state == "transport_accepted")' <<<"$jobs" >/dev/null; then
-                exit 0
-              fi
+            if curl --fail --silent --show-error http://127.0.0.1:8001/v1/print-jobs |
+              jq --exit-status '.[0] | .source_kind == "document" and .status == "transport_accepted" and .bytes_sent > 0' >/dev/null; then
+              exit 0
             fi
             sleep 1
           done
-          echo "Expected two transport-accepted PrintHub jobs in the virtual Zebra" >&2
           exit 1
+      - name: Verify one physical output and Fleet-free services
+        run: |
+          test "$(curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq '[.[] | select(.status == "rendered")] | length')" -eq 1
+          docker compose config | grep -Eiq 'printer[_-]?fleet|fleet[_-]?console' && exit 1 || true
+          docker compose ps --services --status running | grep -qx printhub
+          docker compose ps --services --status running | grep -qx zebratamer
+          docker compose ps --services --status running | grep -qx studio
+          docker compose ps --services --status running | grep -qx ipp-gateway
       - name: Show container state on failure
         if: failure()
         run: docker compose ps --all

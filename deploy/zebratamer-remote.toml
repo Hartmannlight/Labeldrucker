@@ -1,0 +1,13 @@
+listen = "0.0.0.0:8080"
+data_dir = "/var/lib/zpl-agent"
+storage_mode = "full"
+webui_enabled = true
+read_token_file = "/run/secrets/zebratamer-token"
+print_token_file = "/run/secrets/zebratamer-token"
+admin_token_file = "/run/secrets/zebratamer-token"
+mdns_enabled = true
+max_job_bytes = 8388608
+max_active_jobs_per_printer = 1000
+
+# Printers can be added in the standalone UI after first start. This file is a
+# seed only; the persistent data directory becomes authoritative.

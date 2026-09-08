@@ -1,4 +1,0 @@
-admin_token = "also-keep-me"
-
-[[printers]]
-id = "existing-zebra"

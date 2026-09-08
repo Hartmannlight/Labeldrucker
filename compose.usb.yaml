@@ -1,0 +1,44 @@
+services:
+  zebratamer-usb:
+    image: ${ZEBRATAMER_IMAGE:-ghcr.io/hartmannlight/zebratamer:latest}
+    profiles: [usb]
+    build:
+      context: ./components/ZebraTamer
+      dockerfile: Dockerfile
+      args:
+        ZPL_AGENT_GIT_COMMIT: ${ZPL_AGENT_GIT_COMMIT:-development}
+    command: ["--config", "/etc/zpl-agent/config.toml"]
+    user: "999:999"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    devices:
+      - "${ZEBRATAMER_USB_DEVICE:?set ZEBRATAMER_USB_DEVICE to a stable Linux device path}:${ZEBRATAMER_USB_DEVICE}:rwm"
+    volumes:
+      - zebratamer_usb_data:/var/lib/zpl-agent
+      - printhub_secrets:/run/printhub-secrets:ro
+      - ${ZEBRATAMER_USB_CONFIG_PATH:-./config/zebratamer.usb.toml}:/etc/zpl-agent/config.toml:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/zpl-agent", "--healthcheck", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+    networks: [backend]
+
+  printhub:
+    environment:
+      PRINTHUB_ADDITIONAL_PRINT_SERVICES: >-
+        [{"connection_id":"usb-local","url":"http://zebratamer-usb:8080","token_file":"/run/printhub-secrets/zebratamer-token"}]
+    depends_on:
+      zebratamer-usb:
+        condition: service_healthy
+
+volumes:
+  zebratamer_usb_data:

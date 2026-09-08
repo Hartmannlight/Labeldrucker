@@ -29,15 +29,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component: [printer-fleet, printhub-ipp, printer-fleet-console]
+        component: [zebratamer, printhub, printhub-studio, printhub-ipp]
         arch: [amd64, arm64]
         include:
-          - component: printer-fleet
-            image: ghcr.io/hartmannlight/printer-fleet
+          - component: zebratamer
+            image: ghcr.io/hartmannlight/zebratamer
+          - component: printhub
+            image: ghcr.io/hartmannlight/printhub
+          - component: printhub-studio
+            image: ghcr.io/hartmannlight/printhub-studio
           - component: printhub-ipp
             image: ghcr.io/hartmannlight/printhub-ipp
-          - component: printer-fleet-console
-            image: ghcr.io/hartmannlight/printer-fleet-console
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,7 +60,7 @@ jobs:
           COMPONENT: ${{ matrix.component }}
           IMAGE: ${{ matrix.image }}
           ARCH: ${{ matrix.arch }}
-        run: python3 scripts/release_component.py platform
+        run: python3 pipeline/release_component.py platform
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ steps.publish.outputs.image }}
@@ -88,12 +90,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - component: printer-fleet
-            image: ghcr.io/hartmannlight/printer-fleet
+          - component: zebratamer
+            image: ghcr.io/hartmannlight/zebratamer
+          - component: printhub
+            image: ghcr.io/hartmannlight/printhub
+          - component: printhub-studio
+            image: ghcr.io/hartmannlight/printhub-studio
           - component: printhub-ipp
             image: ghcr.io/hartmannlight/printhub-ipp
-          - component: printer-fleet-console
-            image: ghcr.io/hartmannlight/printer-fleet-console
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,7 +119,7 @@ jobs:
         env:
           COMPONENT: ${{ matrix.component }}
           IMAGE: ${{ matrix.image }}
-        run: python3 scripts/release_component.py merge
+        run: python3 pipeline/release_component.py merge
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ steps.index.outputs.image }}
@@ -126,9 +130,40 @@ jobs:
           COMPONENT: ${{ matrix.component }}
           IMAGE: ${{ matrix.image }}
           DIGEST: ${{ steps.index.outputs.digest }}
-        run: python3 scripts/release_component.py promote
+        run: python3 pipeline/release_component.py promote
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.component }}-release-digest
           path: release-digest.txt
           retention-days: 90
+
+  package:
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: '*-candidate-*'
+          path: release/images
+      - name: Assemble tested package
+        run: |
+          mkdir -p release/product/config release/product/deploy release/product/docs/acceptance release/product/tools
+          cp compose.yaml compose.demo.yaml compose.usb.yaml .env.example release/product/
+          cp deploy/candidate-images.env release/product/.env.images
+          cp config/zebratamer.toml config/zebratamer.demo.toml config/print-agent.toml.example release/product/config/
+          cp deploy/zebratamer-remote.compose.yaml deploy/zebratamer-remote.toml release/product/deploy/
+          cp tools/backup_product.py tools/migrate_fleet.py release/product/tools/
+          cp README.md release/product/
+          cp docs/ARCHITECTURE.md docs/DEVELOPMENT.md docs/INSTALLATION.md docs/OPERATIONS.md docs/REFACTORING_ARBEITSPAKETE.md docs/RELEASE.md release/product/docs/
+          cp docs/acceptance/REFACTORING_2026-09-08.md docs/acceptance/PI3A_USB_2026-09-08.md release/product/docs/acceptance/
+          git rev-parse HEAD > release/product/root-revision.txt
+          (cd release && find images -name image.tar -print0 | sort -z | xargs -0 sha256sum > product/candidate-images.sha256)
+          (cd release && sha256sum -c product/candidate-images.sha256)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: printhub-product-candidate
+          path: release/
+          retention-days: 30

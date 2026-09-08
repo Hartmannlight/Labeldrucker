@@ -1,0 +1,21 @@
+services:
+  zebratamer:
+    image: ${ZEBRATAMER_IMAGE:-ghcr.io/hartmannlight/zebratamer:latest}
+    command: ["--config", "/etc/zpl-agent/config.toml"]
+    user: "999:999"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp:rw,noexec,nosuid,size=16m]
+    ports: ["8080:8080"]
+    volumes:
+      - zebratamer_data:/var/lib/zpl-agent
+      - ./zebratamer-remote.toml:/etc/zpl-agent/config.toml:ro
+      - ./secrets:/run/secrets:ro
+    # Character-device example: /dev/usb/lp0:/dev/usb/lp0:rwm.
+    # libusb example: /dev/bus/usb/001/002 at the same container path;
+    # ZebraTamer then verifies the configured vendor/product/serial identity.
+    restart: unless-stopped
+
+volumes:
+  zebratamer_data:

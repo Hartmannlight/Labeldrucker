@@ -1,0 +1,68 @@
+services:
+  virtual-zebra:
+    image: ${VIRTUAL_ZEBRA_IMAGE:-candidate:virtual-zebra}
+    profiles: [demo]
+    build:
+      context: ./components/ZPL-II-Printer-Emulator
+      dockerfile: Dockerfile
+    environment:
+      ZPL_EMULATOR_HOST: 0.0.0.0
+      ZPL_EMULATOR_TCP_HOST: 0.0.0.0
+      ZPL_EMULATOR_LABEL_WIDTH_IN: ${VIRTUAL_ZEBRA_LABEL_WIDTH_IN:-1.9685}
+      ZPL_EMULATOR_LABEL_HEIGHT_IN: ${VIRTUAL_ZEBRA_LABEL_HEIGHT_IN:-0.9843}
+      ZPL_EMULATOR_DPMM: "8"
+      ZPL_EMULATOR_MAX_JOBS: "50"
+    ports:
+      - "${VIRTUAL_ZEBRA_WEB_BIND:-127.0.0.1}:${VIRTUAL_ZEBRA_WEB_PORT:-9191}:9191"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9191/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+    networks: [backend, renderer-egress]
+
+  raster-test:
+    image: ${RASTER_TEST_IMAGE:-candidate:raster-test}
+    profiles: [demo]
+    build:
+      context: ./components/PrintHub-ZPL-ll/simulators/raster-print-service
+    environment:
+      RASTER_TEST_TOKEN_FILE: /run/printhub-secrets/raster-token
+    volumes:
+      - raster_test_data:/data
+      - printhub_secrets:/run/printhub-secrets:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  zebratamer:
+    volumes:
+      - zebratamer_data:/var/lib/zpl-agent
+      - printhub_secrets:/run/printhub-secrets:ro
+      - ./config/zebratamer.demo.toml:/etc/zpl-agent/config.toml:ro
+    depends_on:
+      virtual-zebra:
+        condition: service_healthy
+
+  printhub:
+    environment:
+      ZPLGRID_DEFAULT_PRINTER_ID: virtual-zebra
+      ZPLGRID_ENABLE_LABELARY_API: "1"
+      ZPLGRID_ENABLE_LABELARY_PREVIEW: "1"
+      ZPLGRID_ENABLE_LABELARY_TEMPLATES: "1"
+      PRINTHUB_ADDITIONAL_PRINT_SERVICES: >-
+        [{"connection_id":"raster-test","url":"http://raster-test:8080","token_file":"/run/printhub-secrets/raster-token"}]
+    depends_on:
+      raster-test:
+        condition: service_healthy
+
+volumes:
+  raster_test_data:

@@ -1,9 +1,0 @@
-*
-!index.html
-!app.js
-!api.js
-!styles.css
-!nginx.runtime.conf
-!default.conf.template
-!docker-entrypoint.d/
-!docker-entrypoint.d/99-fleet-console-config.sh
