@@ -64,7 +64,15 @@ jobs:
           exit 1
       - name: Verify one physical output and Fleet-free services
         run: |
-          test "$(curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq '[.[] | select(.status == "rendered")] | length')" -eq 1
+          deadline=$((SECONDS + 30))
+          while (( SECONDS < deadline )); do
+            if test "$(curl --fail --silent --show-error http://127.0.0.1:9191/api/jobs | jq '[.[] | select(.status == "rendered")] | length')" -eq 1; then
+              output_ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "${output_ready:-0}" -eq 1
           docker compose config | grep -Eiq 'printer[_-]?fleet|fleet[_-]?console' && exit 1 || true
           docker compose ps --services --status running | grep -qx printhub
           docker compose ps --services --status running | grep -qx zebratamer
