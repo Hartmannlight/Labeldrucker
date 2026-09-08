@@ -43,6 +43,27 @@ def wait_http(url: str) -> None:
             time.sleep(1)
 
 
+def wait_container_http(container: str, url: str) -> None:
+    deadline = time.monotonic() + 90
+    probe = (
+        "import urllib.request; "
+        f"response = urllib.request.urlopen({url!r}, timeout=2); "
+        "assert response.status == 200"
+    )
+    while True:
+        result = subprocess.run(
+            ["docker", "exec", container, "python", "-c", probe],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode == 0:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"container health endpoint did not become ready: {url}")
+        time.sleep(1)
+
+
 def main() -> None:
     component, image = sys.argv[1:3]
     ports = {
@@ -71,12 +92,17 @@ def main() -> None:
             "-e",
             "PRINTHUB_API_URL=http://host.docker.internal:18080",
         ]
-    args += ["-p", f"127.0.0.1::{port}", image]
+    if component != "printhub-ipp":
+        args += ["-p", f"127.0.0.1::{port}"]
+    args.append(image)
     container = run(*args)
     try:
-        binding = run("docker", "port", container, f"{port}/tcp").splitlines()[0]
-        host, host_port = binding.rsplit(":", 1)
-        wait_http(f"http://{host}:{host_port}{path}")
+        if component == "printhub-ipp":
+            wait_container_http(container, f"http://127.0.0.1:{port}{path}")
+        else:
+            binding = run("docker", "port", container, f"{port}/tcp").splitlines()[0]
+            host, host_port = binding.rsplit(":", 1)
+            wait_http(f"http://{host}:{host_port}{path}")
         uid_status = run("docker", "exec", container, "cat", "/proc/1/status")
         uid = next(
             line.split()[1] for line in uid_status.splitlines() if line.startswith("Uid:")
