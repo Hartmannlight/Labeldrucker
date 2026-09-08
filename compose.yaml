@@ -144,6 +144,11 @@ services:
       timeout: 3s
       retries: 12
       start_period: 15s
+    extra_hosts:
+      # ippeveprinter resolves its advertised name when opening the listener.
+      # Keep that listener on loopback; entrypoint.py proxies it to the container NIC.
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=127.0.0.1"
+      - "${PRINTHUB_IPP_HOSTNAME:-localhost}=::1"
     restart: unless-stopped
     networks: [backend]
 
