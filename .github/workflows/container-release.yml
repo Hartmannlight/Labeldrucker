@@ -1,22 +1,12 @@
 name: Container Release
-
-on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: root-container-release
   cancel-in-progress: false
-
 jobs:
   validate:
     uses: ./.github/workflows/ci.yml
-
   publish-platform:
     needs: validate
     runs-on: ubuntu-24.04
@@ -29,55 +19,60 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component: [zebratamer, printhub, printhub-studio, printhub-ipp]
-        arch: [amd64, arm64]
+        component:
+        - zebratamer
+        - printhub
+        - printhub-studio
+        - printhub-ipp
+        arch:
+        - amd64
+        - arm64
         include:
-          - component: zebratamer
-            image: ghcr.io/hartmannlight/zebratamer
-          - component: printhub
-            image: ghcr.io/hartmannlight/printhub
-          - component: printhub-studio
-            image: ghcr.io/hartmannlight/printhub-studio
-          - component: printhub-ipp
-            image: ghcr.io/hartmannlight/printhub-ipp
+        - component: zebratamer
+          image: ghcr.io/hartmannlight/zebratamer
+        - component: printhub
+          image: ghcr.io/hartmannlight/printhub
+        - component: printhub-studio
+          image: ghcr.io/hartmannlight/printhub-studio
+        - component: printhub-ipp
+          image: ghcr.io/hartmannlight/printhub-ipp
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: ${{ matrix.component }}-candidate-${{ matrix.arch }}
-          path: candidate
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish tested platform archive
-        id: publish
-        env:
-          COMPONENT: ${{ matrix.component }}
-          IMAGE: ${{ matrix.image }}
-          ARCH: ${{ matrix.arch }}
-        run: python3 pipeline/release_component.py platform
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-name: ${{ steps.publish.outputs.image }}
-          subject-digest: ${{ steps.publish.outputs.digest }}
-          push-to-registry: true
-      - uses: actions/attest@60c80190bb1a4fb35e5724ede753db5656412b68 # v4.0.0
-        with:
-          subject-name: ${{ steps.publish.outputs.image }}
-          subject-digest: ${{ steps.publish.outputs.digest }}
-          sbom-path: candidate/sbom.spdx.json
-          push-to-registry: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.component }}-platform-digest-${{ matrix.arch }}
-          path: metadata/
-          retention-days: 14
-
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: ${{ matrix.component }}-candidate-${{ matrix.arch }}
+        path: candidate
+    - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish tested platform archive
+      id: publish
+      env:
+        COMPONENT: ${{ matrix.component }}
+        IMAGE: ${{ matrix.image }}
+        ARCH: ${{ matrix.arch }}
+      run: python3 pipeline/release_component.py platform
+    - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+      with:
+        subject-name: ${{ steps.publish.outputs.image }}
+        subject-digest: ${{ steps.publish.outputs.digest }}
+        push-to-registry: true
+    - uses: actions/attest@60c80190bb1a4fb35e5724ede753db5656412b68
+      with:
+        subject-name: ${{ steps.publish.outputs.image }}
+        subject-digest: ${{ steps.publish.outputs.digest }}
+        sbom-path: candidate/sbom.spdx.json
+        push-to-registry: true
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: ${{ matrix.component }}-platform-digest-${{ matrix.arch }}
+        path: metadata/
+        retention-days: 14
   publish-index:
     needs: publish-platform
     runs-on: ubuntu-24.04
@@ -90,80 +85,86 @@ jobs:
     strategy:
       matrix:
         include:
-          - component: zebratamer
-            image: ghcr.io/hartmannlight/zebratamer
-          - component: printhub
-            image: ghcr.io/hartmannlight/printhub
-          - component: printhub-studio
-            image: ghcr.io/hartmannlight/printhub-studio
-          - component: printhub-ipp
-            image: ghcr.io/hartmannlight/printhub-ipp
+        - component: zebratamer
+          image: ghcr.io/hartmannlight/zebratamer
+        - component: printhub
+          image: ghcr.io/hartmannlight/printhub
+        - component: printhub-studio
+          image: ghcr.io/hartmannlight/printhub-studio
+        - component: printhub-ipp
+          image: ghcr.io/hartmannlight/printhub-ipp
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: ${{ matrix.component }}-platform-digest-*
-          merge-multiple: true
-          path: metadata
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create immutable multiarch index
-        id: index
-        env:
-          COMPONENT: ${{ matrix.component }}
-          IMAGE: ${{ matrix.image }}
-        run: python3 pipeline/release_component.py merge
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-name: ${{ steps.index.outputs.image }}
-          subject-digest: ${{ steps.index.outputs.digest }}
-          push-to-registry: true
-      - name: Promote only the validated digest
-        env:
-          COMPONENT: ${{ matrix.component }}
-          IMAGE: ${{ matrix.image }}
-          DIGEST: ${{ steps.index.outputs.digest }}
-        run: python3 pipeline/release_component.py promote
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.component }}-release-digest
-          path: release-digest.txt
-          retention-days: 90
-
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        pattern: ${{ matrix.component }}-platform-digest-*
+        merge-multiple: true
+        path: metadata
+    - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+    - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create immutable multiarch index
+      id: index
+      env:
+        COMPONENT: ${{ matrix.component }}
+        IMAGE: ${{ matrix.image }}
+      run: python3 pipeline/release_component.py merge
+    - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+      with:
+        subject-name: ${{ steps.index.outputs.image }}
+        subject-digest: ${{ steps.index.outputs.digest }}
+        push-to-registry: true
+    - name: Promote only the validated digest
+      env:
+        COMPONENT: ${{ matrix.component }}
+        IMAGE: ${{ matrix.image }}
+        DIGEST: ${{ steps.index.outputs.digest }}
+      run: python3 pipeline/release_component.py promote
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: ${{ matrix.component }}-release-digest
+        path: release-digest.txt
+        retention-days: 90
   package:
     needs: validate
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: '*-candidate-*'
-          path: release/images
-      - name: Assemble tested package
-        run: |
-          mkdir -p release/product/config release/product/deploy release/product/docs/acceptance release/product/tools
-          cp compose.yaml compose.demo.yaml compose.usb.yaml .env.example release/product/
-          cp deploy/candidate-images.env release/product/.env.images
-          cp config/zebratamer.toml config/zebratamer.demo.toml config/print-agent.toml.example release/product/config/
-          cp deploy/zebratamer-remote.compose.yaml deploy/zebratamer-remote.toml release/product/deploy/
-          cp tools/backup_product.py tools/migrate_fleet.py release/product/tools/
-          cp README.md release/product/
-          cp docs/ARCHITECTURE.md docs/DEVELOPMENT.md docs/INSTALLATION.md docs/OPERATIONS.md docs/REFACTORING_ARBEITSPAKETE.md docs/RELEASE.md release/product/docs/
-          cp docs/acceptance/REFACTORING_2026-09-08.md docs/acceptance/PI3A_USB_2026-09-08.md release/product/docs/acceptance/
-          git rev-parse HEAD > release/product/root-revision.txt
-          (cd release && find images -name image.tar -print0 | sort -z | xargs -0 sha256sum > product/candidate-images.sha256)
-          (cd release && sha256sum -c product/candidate-images.sha256)
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: printhub-product-candidate
-          path: release/
-          retention-days: 30
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        pattern: '*-candidate-*'
+        path: release/images
+    - name: Assemble tested package
+      run: |
+        mkdir -p release/product/config release/product/deploy release/product/docs/acceptance release/product/tools
+        cp compose.yaml compose.demo.yaml compose.usb.yaml .env.example release/product/
+        cp deploy/candidate-images.env release/product/.env.images
+        cp config/zebratamer.toml config/zebratamer.demo.toml config/print-agent.toml.example release/product/config/
+        cp deploy/zebratamer-remote.compose.yaml deploy/zebratamer-remote.toml release/product/deploy/
+        cp tools/backup_product.py tools/migrate_fleet.py release/product/tools/
+        cp README.md release/product/
+        cp docs/ARCHITECTURE.md docs/DEVELOPMENT.md docs/INSTALLATION.md docs/OPERATIONS.md docs/REFACTORING_ARBEITSPAKETE.md docs/RELEASE.md release/product/docs/
+        cp docs/acceptance/REFACTORING_2026-09-08.md docs/acceptance/PI3A_USB_2026-09-08.md release/product/docs/acceptance/
+        git rev-parse HEAD > release/product/root-revision.txt
+        (cd release && find images -name image.tar -print0 | sort -z | xargs -0 sha256sum > product/candidate-images.sha256)
+        (cd release && sha256sum -c product/candidate-images.sha256)
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: printhub-product-candidate
+        path: release/
+        retention-days: 30
+'on':
+  push:
+    branches:
+    - main
+    tags:
+    - v*
+  workflow_dispatch: null

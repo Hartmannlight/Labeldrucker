@@ -1,64 +1,81 @@
 name: CI
-
-on:
-  pull_request:
-  workflow_call:
-  workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Initialize standalone product components
-        run: git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk components/LabelArchitect components/ZebraTamer
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6.0.0
-        with:
-          python-version: '3.13'
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.3.0
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            components/LabelArchitect/package-lock.json
-            components/printhub-sdk/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libusb-1.0-0-dev pkg-config
-          python -m pip install poetry==2.4.1 pytest
-          cd components/PrintHub-ZPL-ll
-          poetry install
-      - name: Test ZebraTamer
-        working-directory: components/ZebraTamer
-        run: cargo fmt -- --check && cargo test --locked
-      - name: Test PrintHub and IPP
-        working-directory: components/PrintHub-ZPL-ll
-        run: poetry run pytest && poetry run python scripts/export_openapi.py && git diff --exit-code openapi.json
-      - name: Test published PrintHub SDK
-        working-directory: components/printhub-sdk
-        run: npm ci && npm test && npm run check:generated && npm run typecheck && npm run build
-      - name: Test Studio
-        working-directory: components/LabelArchitect
-        run: npm ci && npm test && npm run build
-      - name: Test product tools
-        working-directory: components/PrintHub-ZPL-ll
-        run: PYTHONPATH=../.. poetry run python -m pytest ../../tools/test_product_tools.py
-      - name: Validate product definitions
-        run: |
-          docker compose config --quiet
-          docker compose -f compose.yaml -f compose.demo.yaml --profile demo config --quiet
-          ZEBRATAMER_USB_DEVICE=/dev/null docker compose -f compose.yaml -f compose.usb.yaml --profile usb config --quiet
-          python -m py_compile pipeline/*.py tools/*.py
-          python pipeline/security_gate.py --self-test
-
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize standalone product components
+      run: git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk components/LabelArchitect
+        components/ZebraTamer
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.13'
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: |
+          components/LabelArchitect/package-lock.json
+          components/printhub-sdk/package-lock.json
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install test dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes libusb-1.0-0-dev pkg-config
+        python -m pip install poetry==2.4.1 pytest
+        cd components/PrintHub-ZPL-ll
+        poetry install
+    - name: Test ZebraTamer
+      working-directory: components/ZebraTamer
+      run: cargo fmt -- --check && cargo test --locked
+    - name: Test PrintHub and IPP
+      working-directory: components/PrintHub-ZPL-ll
+      run: poetry run pytest && poetry run python scripts/export_openapi.py && git diff --exit-code openapi.json
+    - name: Test published PrintHub SDK
+      working-directory: components/printhub-sdk
+      run: npm ci && npm test && npm run check:generated && npm run typecheck && npm run build
+    - name: Test Studio
+      working-directory: components/LabelArchitect
+      run: npm ci && npm test && npm run build
+    - name: Test product tools
+      working-directory: components/PrintHub-ZPL-ll
+      run: PYTHONPATH=../.. poetry run python -m pytest ../../tools/test_product_tools.py
+    - name: Validate product definitions
+      run: |
+        docker compose config --quiet
+        docker compose -f compose.yaml -f compose.demo.yaml --profile demo config --quiet
+        ZEBRATAMER_USB_DEVICE=/dev/null docker compose -f compose.yaml -f compose.usb.yaml --profile usb config --quiet
+        python -m py_compile pipeline/*.py tools/*.py
+        python pipeline/security_gate.py --self-test
   containers:
     needs: test
     uses: ./.github/workflows/container-gate.yml
+  maintenance-gate:
+    name: ci-gate
+    if: always()
+    needs:
+    - test
+    - containers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - name: Require every check
+      env:
+        RESULTS: ${{ toJSON(needs) }}
+      run: |
+        python3 - <<'PY'
+        import json, os
+        results = json.loads(os.environ['RESULTS'])
+        failed = {name: value['result'] for name, value in results.items() if value['result'] not in ('success',)}
+        if failed:
+            raise SystemExit(str(failed))
+        PY
+'on':
+  pull_request: null
+  workflow_call: null
+  workflow_dispatch: null

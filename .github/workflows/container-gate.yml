@@ -1,11 +1,6 @@
 name: Candidate Containers
-
-on:
-  workflow_call:
-
 permissions:
   contents: read
-
 jobs:
   candidate:
     name: ${{ matrix.component }}-${{ matrix.arch }}
@@ -15,49 +10,79 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {component: zebratamer, context: components/ZebraTamer, dockerfile: components/ZebraTamer/Dockerfile, arch: amd64, runner: ubuntu-24.04}
-          - {component: zebratamer, context: components/ZebraTamer, dockerfile: components/ZebraTamer/Dockerfile, arch: arm64, runner: ubuntu-24.04-arm}
-          - {component: printhub, context: components/PrintHub-ZPL-ll, dockerfile: components/PrintHub-ZPL-ll/Dockerfile, arch: amd64, runner: ubuntu-24.04}
-          - {component: printhub, context: components/PrintHub-ZPL-ll, dockerfile: components/PrintHub-ZPL-ll/Dockerfile, arch: arm64, runner: ubuntu-24.04-arm}
-          - {component: printhub-studio, context: components, dockerfile: components/LabelArchitect/Dockerfile, arch: amd64, runner: ubuntu-24.04}
-          - {component: printhub-studio, context: components, dockerfile: components/LabelArchitect/Dockerfile, arch: arm64, runner: ubuntu-24.04-arm}
-          - {component: printhub-ipp, context: components/PrintHub-ZPL-ll/ipp-gateway, dockerfile: components/PrintHub-ZPL-ll/ipp-gateway/Dockerfile, arch: amd64, runner: ubuntu-24.04}
-          - {component: printhub-ipp, context: components/PrintHub-ZPL-ll/ipp-gateway, dockerfile: components/PrintHub-ZPL-ll/ipp-gateway/Dockerfile, arch: arm64, runner: ubuntu-24.04-arm}
+        - component: zebratamer
+          context: components/ZebraTamer
+          dockerfile: components/ZebraTamer/Dockerfile
+          arch: amd64
+          runner: ubuntu-24.04
+        - component: zebratamer
+          context: components/ZebraTamer
+          dockerfile: components/ZebraTamer/Dockerfile
+          arch: arm64
+          runner: ubuntu-24.04-arm
+        - component: printhub
+          context: components/PrintHub-ZPL-ll
+          dockerfile: components/PrintHub-ZPL-ll/Dockerfile
+          arch: amd64
+          runner: ubuntu-24.04
+        - component: printhub
+          context: components/PrintHub-ZPL-ll
+          dockerfile: components/PrintHub-ZPL-ll/Dockerfile
+          arch: arm64
+          runner: ubuntu-24.04-arm
+        - component: printhub-studio
+          context: components
+          dockerfile: components/LabelArchitect/Dockerfile
+          arch: amd64
+          runner: ubuntu-24.04
+        - component: printhub-studio
+          context: components
+          dockerfile: components/LabelArchitect/Dockerfile
+          arch: arm64
+          runner: ubuntu-24.04-arm
+        - component: printhub-ipp
+          context: components/PrintHub-ZPL-ll/ipp-gateway
+          dockerfile: components/PrintHub-ZPL-ll/ipp-gateway/Dockerfile
+          arch: amd64
+          runner: ubuntu-24.04
+        - component: printhub-ipp
+          context: components/PrintHub-ZPL-ll/ipp-gateway
+          dockerfile: components/PrintHub-ZPL-ll/ipp-gateway/Dockerfile
+          arch: arm64
+          runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Initialize required sources
-        run: git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk components/LabelArchitect components/ZebraTamer
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Require native architecture
-        run: test "$(uname -m)" = "${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}"
-      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/${{ matrix.arch }}
-          load: true
-          push: false
-          provenance: false
-          pull: true
-          tags: candidate:${{ matrix.component }}
-      - name: Runtime smoke test
-        run: python pipeline/container_smoke.py "${{ matrix.component }}" "candidate:${{ matrix.component }}"
-      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
-        with:
-          version: v0.74.0
-          cache: true
-      - name: Scan and package exact candidate
-        run: |
-          mkdir -p artifacts
-          trivy image --scanners vuln,secret --format json --output artifacts/scan.json "candidate:${{ matrix.component }}"
-          python pipeline/security_gate.py artifacts/scan.json
-          trivy image --format spdx-json --output artifacts/sbom.spdx.json "candidate:${{ matrix.component }}"
-          docker save "candidate:${{ matrix.component }}" -o artifacts/image.tar
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.component }}-candidate-${{ matrix.arch }}
-          path: artifacts/
-          retention-days: 3
-          compression-level: 0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize required sources
+      run: git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk components/LabelArchitect
+        components/ZebraTamer
+    - name: Require native architecture
+      run: test "$(uname -m)" = "${{ matrix.arch == 'arm64' && 'aarch64' || 'x86_64' }}"
+    - uses: Hartmannlight/pipeline-toolkit/actions/build@abb469f033ee28e00ba1061a47dddfc7d961129a
+      with:
+        context: ${{ matrix.context }}
+        file: ${{ matrix.dockerfile }}
+        image: candidate:${{ matrix.component }}
+        platform: linux/${{ matrix.arch }}
+    - name: Runtime smoke test
+      run: python pipeline/container_smoke.py "${{ matrix.component }}" "candidate:${{ matrix.component }}"
+    - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567
+      with:
+        version: v0.74.0
+        cache: true
+    - name: Scan and package exact candidate
+      run: |
+        mkdir -p artifacts
+        trivy image --scanners vuln,secret --format json --output artifacts/scan.json "candidate:${{ matrix.component }}"
+        python pipeline/security_gate.py artifacts/scan.json
+        trivy image --format spdx-json --output artifacts/sbom.spdx.json "candidate:${{ matrix.component }}"
+        docker save "candidate:${{ matrix.component }}" -o artifacts/image.tar
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: ${{ matrix.component }}-candidate-${{ matrix.arch }}
+        path: artifacts/
+        retention-days: 3
+        compression-level: 0
+'on':
+  workflow_call: null
