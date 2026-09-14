@@ -55,12 +55,16 @@ jobs:
   containers:
     needs: test
     uses: ./.github/workflows/container-gate.yml
+  integration:
+    needs: test
+    uses: ./.github/workflows/platform-integration.yml
   maintenance-gate:
     name: ci-gate
     if: always()
     needs:
     - test
     - containers
+    - integration
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

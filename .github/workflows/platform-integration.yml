@@ -1,16 +1,14 @@
 name: Platform Integration
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: platform-integration-${{ github.ref }}
+  group: platform-integration-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
