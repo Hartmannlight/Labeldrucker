@@ -22,7 +22,7 @@ jobs:
         cache-dependency-path: |
           components/LabelArchitect/package-lock.json
           components/printhub-sdk/package-lock.json
-    - uses: dtolnay/rust-toolchain@stable
+    - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
     - name: Install test dependencies
       run: |
         sudo apt-get update
