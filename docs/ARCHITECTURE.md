@@ -11,9 +11,9 @@ browser / public API / IPP client
                  |
        print-service protocol v2
           /                    \
-   ZebraTamer          raster-only service
- Zebra state + queue    future Niimbot driver
- USB / serial / TCP            Bluetooth
+   ZebraTamer             NIIMBOT service
+ Zebra state + queue     B1 protocol + SQLite queue
+ USB / serial / TCP      USB serial / Bluetooth LE
 ```
 
 PrintHub persists the exact artifact before crossing the service boundary. It
@@ -38,3 +38,17 @@ PrintHub's persistent share registry and manages multiple stable TCP ports.
 The default container network is internal. Only PrintHub receives the separate
 renderer-egress network for optional Labelary calls. Admin tokens and service
 tokens are separate; neither is compiled into Studio.
+
+Studio's optional Image designer owns a versioned bitmap design (millimetre
+coordinates, text, embedded PNG/JPEG, rectangles). It renders directly on a
+browser canvas at the selected printer's DPI and sends PNG to the existing
+PrintHub raster-job API. This path does not compile or render ZPL. Designs can
+be exported/imported as JSON; the last draft is also saved in browser storage.
+These designs are separate from the server's ZPL template library.
+
+The B1 service lives in `services/niimbot`. Transport, binary framing and job
+persistence are separated. A single worker and an OS process lock serialize
+device access. SQLite stores the whole immutable job before HTTP acceptance;
+restart recovery marks interrupted transfers `outcome_unknown`. Device page
+counters and progress confirm completion. Catalog readiness stays unknown
+between jobs; configured label dimensions are not represented as RFID evidence.

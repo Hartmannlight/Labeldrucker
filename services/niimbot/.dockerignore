@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!pyproject.toml
+!niimbot_service/
+!niimbot_service/*.py
+**/__pycache__/
+**/*.pyc

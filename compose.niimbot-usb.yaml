@@ -1,0 +1,38 @@
+# Optional Linux USB driver. Set NIIMBOT_USB_DEVICE to a stable /dev/serial/by-id path.
+services:
+  niimbot:
+    build: ./services/niimbot
+    environment:
+      NIIMBOT_TOKEN_FILE: /run/printhub-secrets/niimbot-token
+      NIIMBOT_SERVICE_ID: ${NIIMBOT_SERVICE_ID:-niimbot-b1-service}
+      NIIMBOT_TRANSPORT: serial
+      NIIMBOT_ADDRESS: /dev/niimbot
+      NIIMBOT_WIDTH_MM: ${NIIMBOT_WIDTH_MM:-40}
+      NIIMBOT_HEIGHT_MM: ${NIIMBOT_HEIGHT_MM:-30}
+      NIIMBOT_DENSITY: ${NIIMBOT_DENSITY:-3}
+      NIIMBOT_LABEL_TYPE: ${NIIMBOT_LABEL_TYPE:-1}
+    devices:
+      - ${NIIMBOT_USB_DEVICE:?Set NIIMBOT_USB_DEVICE to the B1 serial device}:/dev/niimbot
+    group_add:
+      - "${NIIMBOT_DEVICE_GID:-20}"
+    volumes:
+      - niimbot_data:/data
+      - printhub_secrets:/run/printhub-secrets:ro
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: [backend]
+  printhub:
+    environment:
+      PRINTHUB_ADDITIONAL_PRINT_SERVICES: '[{"connection_id":"niimbot","url":"http://niimbot:8080","token_file":"/run/printhub-secrets/niimbot-token"}]'
+    depends_on:
+      niimbot:
+        condition: service_healthy
+
+volumes:
+  niimbot_data:

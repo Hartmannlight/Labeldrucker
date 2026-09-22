@@ -1,0 +1,5 @@
+*.egg-info/
+niimbot-data/
+dist/
+build/
+pytest-cache-files-*/
