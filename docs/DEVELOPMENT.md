@@ -29,10 +29,14 @@ service exposes stable identity, printer catalog, accepted MIME types, durable
 idempotent jobs and honest states. Vendor configuration belongs behind optional
 capabilities and must return a clear unsupported response elsewhere.
 
-A Niimbot service should accept the neutral raster envelope and own Bluetooth,
-packet framing, pairing and hardware observations. PrintHub will render a
-filled template through the configured renderer before dispatch. Do not add
-Niimbot commands, Bluetooth or invented Zebra-style configuration to ZebraTamer.
+The implemented B1 service in `services/niimbot` accepts the neutral raster
+envelope and owns USB/BLE, framing and hardware observations. Run its independent
+tests with `python -m pip install './services/niimbot[test]'` then
+`python -m pytest services/niimbot/tests`. See [NIIMBOT setup](NIIMBOT.md).
+With both PrintHub and the NIIMBOT package installed in the test environment,
+`python -m pytest tools/test_niimbot_pipeline.py` checks the PNG-to-device-queue
+path and job reconciliation without hardware or a ZPL renderer.
+Do not add Niimbot commands or invented Zebra-style configuration to ZebraTamer.
 
 Run the shared schema fixtures against both ZebraTamer and the raster-only test
 service. Add lost-response, offline, slow and unknown-outcome cases before

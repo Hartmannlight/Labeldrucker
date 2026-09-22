@@ -8,5 +8,7 @@ tmp/
 .test-tmp-*/
 .pytest_cache/
 .venv/
+.venv-niimbot/
+niimbot-data/
 __pycache__/
 *.py[cod]

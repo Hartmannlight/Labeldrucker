@@ -7,10 +7,13 @@ This repository assembles a standalone label-printing product:
 - **ZebraTamer** is the Zebra driver and durable physical queue for USB,
   character-device and Ethernet/RAW-9100 printers.
 - **IPP Gateway** exposes selected PrintHub printers to operating systems.
+- **NIIMBOT service** optionally drives a B1 via USB serial or Bluetooth LE.
+- **Image designer** creates bitmap labels from text, PNG/JPEG images and shapes,
+  with local monochrome preview and direct raster printing, without ZPL/Labelary.
 
 Thingdex is an optional API client. It is not required to install, build, start
-or use the product. A future Bluetooth/Niimbot service can implement the same
-raster print-service contract without adding Niimbot behavior to ZebraTamer.
+or use the product. NIIMBOT uses the same raster print-service contract without
+adding vendor behavior to ZebraTamer. See [B1 setup](docs/NIIMBOT.md).
 
 ## Start
 

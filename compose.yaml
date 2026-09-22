@@ -9,7 +9,7 @@ services:
       - -c
       - |
         umask 077
-        for name in zebratamer-token printhub-admin-token raster-token; do
+        for name in zebratamer-token printhub-admin-token raster-token niimbot-token; do
           target="/secrets/$$name"
           if [ ! -s "$$target" ]; then
             head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$$target"
