@@ -3,9 +3,14 @@
 ## Standard server or PC
 
 1. Install Docker Engine and Compose v2.
-2. Initialize the product submodules shown in the root README.
-3. Run `docker compose up -d`.
-4. Open `http://localhost:8088` and select **Printers**.
+2. Copy the repository's Compose and `config/` files, and copy `.env.example`
+   to `.env`. Published images need no submodules or local build. Initialize
+   submodules only for development or an intentional local build.
+3. Resolve the setup questions below, fill in `.env`, then run
+   `docker compose config --quiet` and `docker compose up -d` (include the USB
+   overlay below when needed).
+4. Open `http://localhost:8088` locally, or the configured server address and
+   Studio port from a LAN client, and select **Printers**.
 5. Obtain the generated admin token with the command in the root README. It is
    stored only in browser session storage after entry.
 6. Add an Ethernet Zebra with a stable IP/DNS name and port `9100`.
@@ -15,12 +20,92 @@ The local ZebraTamer service is connected automatically on first start. Its
 printer list starts empty and later UI edits survive restarts. The TOML file is
 only a first-start seed.
 
+## Setup questions for installers and agents
+
+Before the first server installation, ask the user about any unanswered choices
+in this table. Reuse answers already provided; inspect the host for technical
+facts such as available devices, ports and group IDs. Ask the remaining questions
+together, record the choices in `.env` and the relevant configuration, then
+apply them in one setup pass. Do not silently interpret the local defaults as
+the user's desired server configuration.
+
+| Ask the user | Configuration or action |
+| --- | --- |
+| Local access only, or which LAN address and web ports? | Set `PRINTHUB_STUDIO_BIND/PORT`, `ZEBRATAMER_BIND/PORT` and, if direct API access is wanted, `PRINTHUB_API_BIND/PORT`. Studio proxies its API requests, so direct API publication is not required for Studio. |
+| Which printer, connected by Ethernet, USB or a remote print service? | Register the printer/service. For Ethernet obtain its address and RAW port (normally 9100). For USB identify the actual host device, configure the USB overlay and device permissions. |
+| What DPI and loaded label width/height does each printer use? | Configure the printer and media in Studio; do not infer label stock from the model alone. |
+| Should Ubuntu or other clients print through IPP, and is automatic discovery wanted? | Set `PRINTHUB_IPP_BIND` and a client-resolvable `PRINTHUB_IPP_HOSTNAME`; create the share in Studio. Test the direct URI and discovery separately. |
+| May Labelary generate saved library thumbnails from template layouts and sample data? | Set `ZPLGRID_ENABLE_LABELARY_TEMPLATES` independently. Offer this even if previews with real data are declined. |
+| May Labelary render previews containing entered data? | Set `ZPLGRID_ENABLE_LABELARY_API` for Studio PNG previews; separately set `ZPLGRID_ENABLE_LABELARY_PREVIEW` if API draft previews are used. See the exact distinction below. |
+| Will ZPL templates be printed as rendered images or to raster-only printers? | Explain that this printing path also sends resolved label content to Labelary, independently of the preview switches. Native Zebra ZPL and local PDF/image printing avoid that renderer. |
+| Use generated credentials, or is there an existing credential requirement? | Default to the generated, separate PrintHub admin and ZebraTamer service tokens. For custom credentials, validate each service's requirements before applying them; short PINs are not suitable. Do not silently replace or unify existing tokens. |
+
+Read generated credentials locally when needed (do not commit them or include
+them in an installation report):
+
+```bash
+docker compose run --rm --no-deps bootstrap cat /secrets/printhub-admin-token
+docker compose run --rm --no-deps bootstrap cat /secrets/zebratamer-token
+```
+
+After startup, check `docker compose ps`, open Studio and any requested
+ZebraTamer UI from an actual client, verify the printer/media and create the
+requested IPP shares. Healthy containers alone do not prove LAN reachability.
+If a published port is unreachable, inspect the effective Compose configuration,
+Docker port mappings and host listeners before changing firewall rules. The
+default internal Docker network needs particular attention when diagnosing
+host-port publication on the target Docker version. Do not equate "reachable
+from this LAN" with a request to create new firewall restrictions.
+
+Confirm the requested saved and interactive previews separately with harmless
+sample data. For IPP, test the direct URI first. Container mDNS may not reach
+the LAN; if automatic discovery was requested, configure and verify the host's
+Avahi advertisement for the actual share address, port and `/ipp/print` path.
+Record any remaining host setup explicitly instead of reporting the installation
+complete merely because Compose started.
+
 ## Labelary
 
+The preview switches are already independent. All default to `0` for an
+unattended start; an installer must ask about the two data-use cases above.
+`ZPLGRID_ENABLE_LABELARY_API` is **not a master switch**.
+
+| Variable | What setting it to `1` enables | Content sent to Labelary |
+| --- | --- | --- |
+| `ZPLGRID_ENABLE_LABELARY_TEMPLATES` | Generate and store the library thumbnail when creating or updating a template | Layout and `sample_data`, with resolved macros |
+| `ZPLGRID_ENABLE_LABELARY_API` | PNG render endpoint (`POST /v1/renders/png`), used by Studio Quick print and designer previews | Layout and the variables supplied for the preview, potentially real entered data |
+| `ZPLGRID_ENABLE_LABELARY_PREVIEW` | Preview requested with `return_preview=true` when creating an API draft | Layout and resolved draft variables |
+
+For **saved template thumbnails only**, use:
+
+```dotenv
+ZPLGRID_ENABLE_LABELARY_TEMPLATES=1
+ZPLGRID_ENABLE_LABELARY_API=0
+ZPLGRID_ENABLE_LABELARY_PREVIEW=0
+```
+
+This keeps the template library illustrated without enabling previews of filled
+forms. Use non-sensitive sample data: sample values and literal text in a
+template can still contain private information. Viewing a stored thumbnail
+serves the saved image rather than making another Labelary request.
+
+If previews with entered data are also wanted, enable
+`ZPLGRID_ENABLE_LABELARY_API=1`; enable `ZPLGRID_ENABLE_LABELARY_PREVIEW=1`
+as well when API clients request draft previews. To disable generation of saved
+thumbnails independently, set only `ZPLGRID_ENABLE_LABELARY_TEMPLATES=0`.
+Changing the switch alone does not remove already stored images; saving a
+template while thumbnail generation is disabled removes that template's image.
+
+Apply changed `.env` values with `docker compose up -d printhub` (with the same
+overlays/profiles used for installation); a simple restart does not reload the
+container environment. Existing templates without an image need to be opened
+and saved again after enabling thumbnails. A renderer failure can prevent that
+save; check the error rather than assuming a thumbnail was generated.
+
 Native Zebra template output and local PDF/image rasterization do not require
-Labelary. A raster-only target needs template-to-image rendering; enable it in
-`.env` with `ZPLGRID_ENABLE_LABELARY_API=1` and the corresponding preview and
-template flags. This sends ZPL content to the configured external renderer.
+Labelary. Template-to-raster **printing** uses Labelary independently of these
+three preview switches, including when all are `0`; they are not a global
+external-rendering prohibition. A raster-only target needs this conversion.
 For a Zebra that advertises both formats, **Print format → Rendered image** in
 Quick print applies the same whole-label raster path deliberately; **Automatic**
 continues to prefer native ZPL. A forced format that the selected service does

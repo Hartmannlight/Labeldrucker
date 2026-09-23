@@ -21,6 +21,14 @@ Requirements: Docker Engine with Compose v2. The published AMD64/ARM64 images
 are the defaults, so a normal installation needs only this repository's Compose
 and configuration files.
 
+For a new server, first copy `.env.example` to `.env` and follow the
+[setup questions](docs/INSTALLATION.md#setup-questions-for-installers-and-agents).
+An installation agent must ask about missing choices before configuring the
+server, including **stored template previews and previews with entered data
+separately**. Labelary remains opt-in; do not silently skip that question.
+`docker compose up -d` starts the services, but does not configure LAN access,
+USB device permissions, printers, label stock or operating-system print shares.
+
 ```bash
 docker compose up -d
 ```
