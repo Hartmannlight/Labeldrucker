@@ -3,28 +3,49 @@
 ## Standard server or PC
 
 1. Install Docker Engine and Compose v2.
-2. Copy the repository's Compose and `config/` files, and copy `.env.example`
-   to `.env`. Published images need no submodules or local build. Initialize
-   submodules only for development or an intentional local build.
-3. Resolve the setup questions below, fill in `.env`, then run
-   `docker compose config --quiet` and `docker compose up -d` (include the USB
-   overlay below when needed).
-4. Open `http://localhost:8088` locally, or the configured server address and
-   Studio port from a LAN client, and select **Printers**.
-5. Obtain the generated admin token with the command in the root README. It is
-   stored only in browser session storage after entry.
-6. Add an Ethernet Zebra with a stable IP/DNS name and port `9100`.
-7. Set the actual DPI and loaded label dimensions before printing.
+2. Copy the repository's Compose and `config/` files. Published images need no
+   submodules or local build. Initialize submodules only for development or an
+   intentional local build.
+3. From the repository directory, run the guided one-time setup container:
+
+   ```bash
+   docker compose --profile setup run --rm --no-deps setup
+   ```
+
+   It writes `.env` and `config/printhub-install.json` after a final summary.
+   It asks about LAN access, Ethernet or direct Linux USB printers, actual DPI,
+   label dimensions, IPP, three independent Labelary preview switches, and an
+   optional OpenRouter API key and model. You can skip printers and add them in
+   Studio later. The setup container has no network and no Docker socket.
+4. Run `docker compose config --quiet` and `docker compose up -d`. Use the USB
+   overlay command below if you configured a directly attached Linux USB
+   printer. The `config-apply` service waits for PrintHub and creates missing
+   printers, loaded media and IPP shares from the installation manifest.
+5. Check `docker compose ps -a` and `docker compose logs config-apply`. Then
+   open Studio at the configured address, check the printer's real connection,
+   media and IPP URI, and perform a harmless test print. A healthy service does
+   not prove that a physical label was printed.
+6. Obtain the generated admin token with the command in the root README when
+   you need to manage printers in Studio. It is stored only in browser session
+   storage after entry.
+
+Setup can be rerun. Existing printer configurations, loaded rolls and IPP
+shares are kept; new entries from the manifest are added. To apply a changed
+manifest to an already running stack, run `docker compose run --rm config-apply`
+with the same Compose files and profiles as the running stack. Change existing
+printer settings in Studio. Keep `.env` and the installation manifest out of
+version control; both are ignored by Git. `.env` contains the OpenRouter key.
 
 The local ZebraTamer service is connected automatically on first start. Its
-printer list starts empty and later UI edits survive restarts. The TOML file is
-only a first-start seed.
+printer list starts empty until the setup applier or Studio adds a printer.
+Later UI edits survive restarts. The TOML file is only a first-start seed.
 
 ## Setup questions for installers and agents
 
-Before the first server installation, ask the user about any unanswered choices
-in this table. Reuse answers already provided; inspect the host for technical
-facts such as available devices, ports and group IDs. Ask the remaining questions
+The wizard handles the common choices. For advanced or manual installation,
+ask about unanswered choices in this table. Reuse answers already provided;
+inspect the host for technical facts such as available devices, ports and group
+IDs. Ask the remaining questions
 together, record the choices in `.env` and the relevant configuration, then
 apply them in one setup pass. Do not silently interpret the local defaults as
 the user's desired server configuration.
