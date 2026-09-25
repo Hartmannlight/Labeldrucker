@@ -142,8 +142,8 @@ services:
     ports:
       - "${PRINTHUB_STUDIO_BIND:-127.0.0.1}:${PRINTHUB_STUDIO_PORT:-8088}:80"
     depends_on:
-      printhub:
-        condition: service_healthy
+      config-apply:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 10s
@@ -175,8 +175,8 @@ services:
       - ipp_gateway_spool:/var/spool/printhub-ipp
       - ipp_gateway_tls:/var/lib/printhub-ipp/tls
     depends_on:
-      printhub:
-        condition: service_healthy
+      config-apply:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8799/healthz', timeout=2)"]
       interval: 10s
