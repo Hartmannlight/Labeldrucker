@@ -21,17 +21,22 @@ Requirements: Docker Engine with Compose v2. The published AMD64/ARM64 images
 are the defaults, so a normal installation needs only this repository's Compose
 and configuration files.
 
-For a new server, first copy `.env.example` to `.env` and follow the
-[setup questions](docs/INSTALLATION.md#setup-questions-for-installers-and-agents).
-An installation agent must ask about missing choices before configuring the
-server, including **stored template previews and previews with entered data
-separately**. Labelary remains opt-in; do not silently skip that question.
-`docker compose up -d` starts the services, but does not configure LAN access,
-USB device permissions, printers, label stock or operating-system print shares.
+Run the one-time setup container from the repository directory. It guides you
+through LAN access, printers, label stock, IPP, preview settings and an optional
+OpenRouter model. It writes `.env` and a local installation manifest. It needs
+no running services or Docker socket.
 
 ```bash
+docker compose --profile setup run --rm --no-deps setup
 docker compose up -d
 ```
+
+The short-lived `config-apply` service registers the chosen printers, media and
+IPP shares after PrintHub is healthy. For a printer attached to a Linux host by
+USB, use the [USB startup command](docs/INSTALLATION.md#docker-on-a-64-bit-raspberry-pi-with-usb-zebra)
+instead of the second command. The device must be present and accessible to
+the container user. The full [installation guide](docs/INSTALLATION.md) covers
+manual and advanced settings.
 
 Initialize the four product submodules only when building or developing the
 images locally:
@@ -41,9 +46,9 @@ git submodule update --init components/PrintHub-ZPL-ll components/printhub-sdk c
 docker compose build
 ```
 
-Open [http://localhost:8088](http://localhost:8088). The empty first start is
-intentional: go to **Printers**, enter the PrintHub admin token, and add an
-Ethernet Zebra or connect another print service. Read the generated token with:
+Open [http://localhost:8088](http://localhost:8088) or the address chosen in
+setup. The printer list starts with any printers entered in the wizard; more can
+be added in **Printers**. Read the generated PrintHub admin token with:
 
 ```bash
 docker compose run --rm --no-deps bootstrap cat /secrets/printhub-admin-token
@@ -65,6 +70,7 @@ does not pretend to be a real Niimbot driver.
 ## Documentation
 
 - [Installation and printer setup](docs/INSTALLATION.md)
+- [Template library and AI assistant](docs/TEMPLATE_ASSISTANT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Operations, backup and migration](docs/OPERATIONS.md)
 - [Release candidate installation](docs/RELEASE.md)

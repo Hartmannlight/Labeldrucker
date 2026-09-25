@@ -1,5 +1,7 @@
 .env
 config/print-agent.toml
+config/printhub-install.json
+config/zebratamer.usb.toml
 deploy/secrets/
 artifacts/
 test-tmp/

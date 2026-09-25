@@ -1,6 +1,23 @@
 name: ${COMPOSE_PROJECT_NAME:-printhub}
 
 services:
+  setup:
+    image: python:3.13-alpine
+    profiles: [setup]
+    command: ["python", "/app/wizard.py"]
+    stdin_open: true
+    tty: true
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - ./setup:/app:ro
+      - ./:/workspace
+    restart: "no"
+
   bootstrap:
     image: alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
     command:
@@ -67,6 +84,9 @@ services:
       ZPLGRID_ENABLE_LABELARY_API: ${ZPLGRID_ENABLE_LABELARY_API:-0}
       ZPLGRID_ENABLE_LABELARY_PREVIEW: ${ZPLGRID_ENABLE_LABELARY_PREVIEW:-0}
       ZPLGRID_ENABLE_LABELARY_TEMPLATES: ${ZPLGRID_ENABLE_LABELARY_TEMPLATES:-0}
+      PRINTHUB_AI_API_KEY: ${PRINTHUB_AI_API_KEY:-}
+      PRINTHUB_AI_MODEL: ${PRINTHUB_AI_MODEL:-~openai/gpt-sol-latest}
+      PRINTHUB_AI_BASE_URL: ${PRINTHUB_AI_BASE_URL:-https://openrouter.ai/api/v1}
       ZPLGRID_TIMEZONE: ${TZ:-Europe/Berlin}
       PRINTHUB_MAX_LABELS_PER_JOB: ${PRINTHUB_MAX_LABELS_PER_JOB:-25}
       PRINTHUB_BACKGROUND_JOBS: "1"
@@ -89,6 +109,25 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks: [backend, renderer-egress]
+
+  config-apply:
+    image: python:3.13-alpine
+    command: ["python", "/app/apply.py"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - ./setup:/app:ro
+      - ./config:/config:ro
+      - printhub_secrets:/run/printhub-secrets:ro
+      - printhub_data:/data
+    depends_on:
+      printhub:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
 
   studio:
     image: ${PRINTHUB_STUDIO_IMAGE:-ghcr.io/hartmannlight/printhub-studio:latest}
