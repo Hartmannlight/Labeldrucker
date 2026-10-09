@@ -1,5 +1,11 @@
 # Refactoring acceptance — 2026-09-08
 
+> Historical simulator report for the revisions tested on this date. The
+> separate [Pi USB report](PI3A_USB_2026-09-08.md) records hardware evidence for
+> one topology. The open-check list below describes this run, not a current
+> certification status. See the [current architecture](../../README.md) and
+> [documentation review](../DOCUMENTATION_REVIEW.md).
+
 Status: simulator-tested implementation candidate. Physical-device, real-LAN
 and released ARM64 acceptance remain open because no printer, Pi or clean LAN
 client was available during implementation. The obsolete root `ipp-gateway/`

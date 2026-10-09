@@ -68,16 +68,28 @@ physischen Drucker nicht in mehreren Instanzen konfigurieren.
 
 ## Linux mit Docker Compose und USB
 
-Die neuen Studio-/PrintHub-Änderungen lokal bauen; vorhandene veröffentlichte
-Images enthalten diese Erweiterung noch nicht. Beispiel unter Linux:
+Der NIIMBOT-Dienst wird vom USB-Zusatz lokal aus `services/niimbot` gebaut;
+er gehört nicht zu den vier veröffentlichten Images der Root-Release-Matrix.
+PrintHub und Studio können veröffentlichte Images verwenden, sofern sie den
+Bild-Designer und die Raster-API aus diesem Quellstand enthalten. `latest` ist
+ein beweglicher Tag; eine pauschale Aussage, dass veröffentlichte Images die
+Funktion noch nicht enthalten, ist kein verlässlicher Versionsnachweis.
+Für reproduzierbare Installationen passende Image-Digests verwenden.
+Beispiel unter Linux mit veröffentlichten Kern-Images:
 
 ```bash
 export NIIMBOT_USB_DEVICE=/dev/serial/by-id/DEIN-B1-GERAET
 export NIIMBOT_DEVICE_GID=$(stat -Lc '%g' "$NIIMBOT_USB_DEVICE")
 export NIIMBOT_WIDTH_MM=40
 export NIIMBOT_HEIGHT_MM=30
-docker compose -f compose.yaml -f compose.niimbot-usb.yaml up -d --build
+docker compose -f compose.yaml -f compose.niimbot-usb.yaml build niimbot
+docker compose -f compose.yaml -f compose.niimbot-usb.yaml up -d --no-build
 ```
+
+Wer PrintHub und Studio ebenfalls aus dem gepinnten Quellstand bauen möchte,
+muss zuerst die vier Produkt-Submodule initialisieren; siehe
+[Entwicklung](DEVELOPMENT.md). Ein ungezieltes `up --build` versucht auch diese
+Kern-Images zu bauen und scheitert bei leeren Submodulen.
 
 Der Zusatz erzeugt ein separates Token, hängt den B1 ausschließlich an den
 NIIMBOT-Dienst und registriert diesen automatisch bei PrintHub. Bestehende

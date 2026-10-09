@@ -2,6 +2,11 @@
 
 Stand: 2026-09-08
 
+> Historischer Abschlussbericht zum damals geprüften Arbeitsstand. Die unten
+> genannten Ergebnisse und offenen Prüfungen beziehen sich auf diese Revisionen.
+> Die aktuelle Übersicht steht in der [README](../../README.md), spätere
+> Dokumentationsbefunde im [Review](../DOCUMENTATION_REVIEW.md).
+
 Dieser Bericht ordnet jedes Arbeitspaket aus
 `docs/REFACTORING_ARBEITSPAKETE.md` dem tatsächlich vorhandenen Ergebnis zu.
 Er unterscheidet zwischen **implementiert**, **lokal abgenommen** und

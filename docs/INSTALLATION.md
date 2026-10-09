@@ -2,8 +2,10 @@
 
 ## Standard server or PC
 
-1. Install Docker Engine and Compose v2.
-2. Copy the repository's Compose and `config/` files. Published images need no
+1. Install Docker Engine and a current Compose plugin (`docker compose`, v2 or
+   newer). The user starting the stack must be able to access the Docker daemon.
+2. Clone this repository, or copy `compose.yaml`, `.env.example`, `config/` and
+   `setup/` together. Published images need no
    submodules or local build. Initialize submodules only for development or an
    intentional local build.
 3. From the repository directory, run the guided one-time setup container:
@@ -19,7 +21,8 @@
    Studio later. The setup container has no network and no Docker socket.
 4. Run `docker compose config --quiet` and `docker compose up -d`. Use the USB
    overlay command below if you configured a directly attached Linux USB
-   printer. The `config-apply` service waits for PrintHub and creates missing
+   printer. For a real Ethernet Zebra, also apply the outbound-network overlay
+   below. The `config-apply` service waits for PrintHub and creates missing
    printers, loaded media and IPP shares from the installation manifest.
 5. Check `docker compose ps -a` and `docker compose logs config-apply`. Then
    open Studio at the configured address, check the printer's real connection,
@@ -39,6 +42,61 @@ version control; both are ignored by Git. `.env` contains the OpenRouter key.
 The local ZebraTamer service is connected automatically on first start. Its
 printer list starts empty until the setup applier or Studio adds a printer.
 Later UI edits survive restarts. The TOML file is only a first-start seed.
+
+## Hardware-free demo
+
+Follow the [README demo build/start commands](../README.md#start-without-a-physical-printer).
+The two simulator images default to local `candidate:*` tags, unlike the
+published core images. Build them from the pinned submodules unless you have
+explicitly supplied matching simulator images.
+
+`config/zebratamer.demo.toml` seeds `virtual-zebra` at 203 dpi with a 400 × 200
+dot limit. Configure loaded media in Studio (50 × 25 mm matches the defaults),
+or use an installation manifest to load it. There is no default IPP share;
+create one explicitly in Studio if OS printing is wanted. The TCP endpoint is
+`virtual-zebra:9100` inside Compose and is not published to the host. The
+emulator web UI is at `http://localhost:9191`.
+
+The overlay sets all three PrintHub Labelary switches to `1` explicitly,
+overriding `.env`. To change this, apply another Compose overlay after
+`compose.demo.yaml`; changing `.env` alone has no effect on these values.
+The emulator's own Labelary rendering is independent of those switches.
+Emulator history is in memory and disappears on restart.
+
+## Ethernet Zebra and outbound networking
+
+The base Compose file attaches ZebraTamer only to `backend`, which has
+`internal: true`. It can reach other services on that network, including the
+virtual Zebra, but has no normal outbound route to a LAN printer. The wizard's
+TCP host/port settings do not change this network configuration. Docker
+documents internal networks as externally isolated; see the
+[Compose network reference](https://docs.docker.com/reference/compose-file/networks/#internal).
+
+For a real Ethernet printer, save this as a local `compose.lan.yaml` alongside
+`compose.yaml`:
+
+```yaml
+services:
+  zebratamer:
+    networks: [backend, printer-egress]
+
+networks:
+  printer-egress:
+```
+
+Then start with both files:
+
+```bash
+docker compose -f compose.yaml -f compose.lan.yaml config --quiet
+docker compose -f compose.yaml -f compose.lan.yaml up -d
+```
+
+This adds an outbound Docker bridge without changing the localhost bindings.
+Configure the actual reachable LAN IP and TCP port (normally 9100), and verify
+device communication separately from service health. Keep this overlay in
+every subsequent Compose command for that installation. A native remote
+ZebraTamer may be registered instead; PrintHub's existing outbound network can
+reach it when host routing permits.
 
 ## Setup questions for installers and agents
 
@@ -87,13 +145,14 @@ complete merely because Compose started.
 
 ## Labelary
 
-The preview switches are already independent. All default to `0` for an
-unattended start; an installer must ask about the two data-use cases above.
+The preview switches are independent. In the base Compose file and
+`.env.example`, all default to `0`; the demo overlay forces all three to `1`.
+An installer must ask about the two data-use cases above.
 `ZPLGRID_ENABLE_LABELARY_API` is **not a master switch**.
 
 | Variable | What setting it to `1` enables | Content sent to Labelary |
 | --- | --- | --- |
-| `ZPLGRID_ENABLE_LABELARY_TEMPLATES` | Generate and store the library thumbnail when creating or updating a template | Layout and `sample_data`, with resolved macros |
+| `ZPLGRID_ENABLE_LABELARY_TEMPLATES` | Library thumbnails on save/regeneration and the AI draft's one-time thumbnail | Layout and fictional/sample values, with resolved macros |
 | `ZPLGRID_ENABLE_LABELARY_API` | PNG render endpoint (`POST /v1/renders/png`), used by Studio Quick print and designer previews | Layout and the variables supplied for the preview, potentially real entered data |
 | `ZPLGRID_ENABLE_LABELARY_PREVIEW` | Preview requested with `return_preview=true` when creating an API draft | Layout and resolved draft variables |
 
@@ -119,9 +178,11 @@ template while thumbnail generation is disabled removes that template's image.
 
 Apply changed `.env` values with `docker compose up -d printhub` (with the same
 overlays/profiles used for installation); a simple restart does not reload the
-container environment. Existing templates without an image need to be opened
-and saved again after enabling thumbnails. A renderer failure can prevent that
-save; check the error rather than assuming a thumbnail was generated.
+container environment. After enabling thumbnails, use **Regenerate thumbnails**
+for the currently filtered library (up to 50 templates per request), or open and
+save individual templates. Rendering failure does not prevent a valid template
+from saving: the response carries `preview_warning`, and Studio reports the
+unavailable image. A failed regeneration keeps the existing thumbnail intact.
 
 Native Zebra template output and local PDF/image rasterization do not require
 Labelary. Template-to-raster **printing** uses Labelary independently of these
@@ -139,7 +200,8 @@ ZebraTamer natively under systemd. Do not install the complete Docker stack on
 that Pi. Download the ARM64 native bundle from the ZebraTamer release, verify
 its SHA-256 file, unpack it, and review `config.toml`. Configure a stable
 `agent_id`, the exact printer ID, `transport = "char_device"`, and
-`char_device = "/dev/usb/lp0"`. Then install:
+`device = "/dev/usb/lp0"`. `char_device` is the transport name, not a TOML
+configuration key. Then install:
 
 ```bash
 chmod +x install-local.sh

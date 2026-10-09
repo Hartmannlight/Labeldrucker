@@ -36,16 +36,21 @@ fails.
 ## AI draft workflow
 
 Set an OpenRouter key as `PRINTHUB_AI_API_KEY` on the PrintHub service. The
-default model is `~openai/gpt-sol-latest`; `PRINTHUB_AI_MODEL` can select another
-OpenRouter model that supports structured JSON output. The key stays server-side.
-The generation endpoint requires the
-PrintHub admin token. No API key is required for browsing, editing or printing
+code and `.env.example` default to `~openai/gpt-sol-latest`; the setup wizard
+asks for an explicit model when AI is enabled. `PRINTHUB_AI_MODEL` can select
+an OpenRouter model that supports structured JSON output. A `latest` alias can
+change its underlying model; pin a model ID when repeatable behavior matters.
+The key stays server-side. The generation endpoint requires the PrintHub admin
+token. No API key is required for browsing, editing or printing
 templates.
 
 In Studio, open **AI template assistant**, describe the label, choose its size
-and generate a draft. Studio shows a one-time thumbnail with fictional example
-values even when live preview is off. Designer keeps this image as a clearly
-marked snapshot; later edits are not shown in it while live preview is off.
+and generate a draft. When `ZPLGRID_ENABLE_LABELARY_TEMPLATES=1`, Studio can show
+a one-time thumbnail with fictional example values even when live preview is
+off. With stored-template previews disabled, or if Labelary rendering fails,
+the validated draft is still returned without that image. Designer keeps an
+available image as a clearly marked snapshot; later edits are not shown in it
+while live preview is off.
 The server supplies the model with the zplgrid layout
 contract and validates the returned template by compiling it with fictional
 sample values. It does not print or save the draft. Open it in Designer, inspect
