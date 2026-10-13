@@ -1,0 +1,42 @@
+{
+  "id": "kabel-demo-75x50",
+  "name": "Kabel-Demo 75 x 50 mm",
+  "description": "Zentriertes Kabel-F\u00e4hnchen mit Mittellinie. Einmal ausf\u00fcllen und beide Kabelenden mit einem Klick drucken. Manuelle Zeilenumbr\u00fcche bleiben erhalten.",
+  "usage_context": "50 mm entlang des Kabels, Faltung \u00fcber 75 mm. Standard: 6 mm Kabeldurchmesser und 2 mm Textabstand.",
+  "tags": [
+    "kabel",
+    "cable",
+    "flag",
+    "text"
+  ],
+  "variables": [
+    {
+      "name": "from",
+      "label": "Von",
+      "type": "textarea",
+      "rows": 3,
+      "mode": "required",
+      "placeholder": "Switch und Port, bei Bedarf in mehreren Zeilen"
+    },
+    {
+      "name": "to",
+      "label": "Zu",
+      "type": "textarea",
+      "rows": 3,
+      "mode": "required",
+      "placeholder": "Server, Port und Bond, bei Bedarf in mehreren Zeilen"
+    }
+  ],
+  "preview_target": {
+    "width_mm": 75,
+    "height_mm": 50,
+    "dpi": 203,
+    "origin_x_mm": 0,
+    "origin_y_mm": 0
+  },
+  "favorite": true,
+  "print_defaults": {
+    "from": "SW-DEMO [1]",
+    "to": "SRV-DEMO [2]\nB0"
+  }
+}

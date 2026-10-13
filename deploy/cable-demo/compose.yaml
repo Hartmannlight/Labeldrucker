@@ -1,0 +1,135 @@
+name: cable-demo
+
+services:
+  bootstrap:
+    image: alpine:3.22
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        for name in zebratamer-token printhub-admin-token; do
+          target="/secrets/$$name"
+          if [ ! -s "$$target" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$$target"
+          fi
+        done
+        chmod 0444 /secrets/*
+    volumes:
+      - secrets:/secrets
+    restart: "no"
+    networks: [backend]
+
+  virtual-zebra:
+    image: cable-demo:virtual-zebra
+    build:
+      context: ../../components/ZPL-II-Printer-Emulator
+      dockerfile: Dockerfile
+    environment:
+      ZPL_EMULATOR_HOST: 0.0.0.0
+      ZPL_EMULATOR_TCP_HOST: 0.0.0.0
+      ZPL_EMULATOR_LABEL_WIDTH_IN: "2.9527559055"
+      ZPL_EMULATOR_LABEL_HEIGHT_IN: "1.9685039370"
+      ZPL_EMULATOR_DPMM: "8"
+      ZPL_EMULATOR_MAX_JOBS: "50"
+      ZPL_EMULATOR_LABELARY_URL: https://api.labelary.com
+    ports: ["127.0.0.1:8191:9191"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9191/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [backend, renderer-egress]
+
+  zebratamer:
+    image: ghcr.io/hartmannlight/zebratamer:latest
+    command: ["--config", "/etc/zpl-agent/config.toml"]
+    user: "999:999"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+    volumes:
+      - zebra-data:/var/lib/zpl-agent
+      - secrets:/run/printhub-secrets:ro
+      - ./zebratamer.toml:/etc/zpl-agent/config.toml:ro
+    depends_on:
+      bootstrap: { condition: service_completed_successfully }
+      virtual-zebra: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/zpl-agent", "--healthcheck", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [backend]
+
+  printhub:
+    image: cable-demo:printhub
+    build:
+      context: ../../components/PrintHub-ZPL-ll
+      dockerfile: Dockerfile
+    environment:
+      ZPLGRID_TEMPLATES_DIR: /data/templates
+      ZPLGRID_BUNDLED_TEMPLATES_DIR: /demo/templates
+      ZPLGRID_PRINT_DRAFTS_DIR: /data/drafts
+      ZPLGRID_PRINT_DRAFT_TTL_MINUTES: "10080"
+      ZPLGRID_PRINT_JOBS_DIR: /data/print-jobs
+      ZPLGRID_COUNTERS_PATH: /data/counters.json
+      ZPLGRID_DEFAULT_PRINTER_ID: virtual-zebra
+      ZPLGRID_ENABLE_LABELARY_API: "1"
+      ZPLGRID_ENABLE_LABELARY_PREVIEW: "1"
+      ZPLGRID_ENABLE_LABELARY_TEMPLATES: "1"
+      LABELARY_BASE_URL: https://api.labelary.com
+      PRINTHUB_BACKGROUND_JOBS: "1"
+      PRINTHUB_PRINT_SERVICE_URL: http://zebratamer:8080
+      PRINTHUB_PRINT_SERVICE_TOKEN_FILE: /run/printhub-secrets/zebratamer-token
+      PRINTHUB_ADMIN_TOKEN_FILE: /run/printhub-secrets/printhub-admin-token
+      ZPLGRID_TIMEZONE: Europe/Berlin
+    volumes:
+      - hub-data:/data
+      - secrets:/run/printhub-secrets:ro
+      - ./:/demo:ro
+      - ./output:/demo-output
+    ports: ["127.0.0.1:8181:8000"]
+    depends_on:
+      zebratamer: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [backend, renderer-egress]
+
+  studio:
+    image: cable-demo:studio
+    build:
+      context: ../../components
+      dockerfile: LabelArchitect/Dockerfile
+    environment:
+      APP_BACKEND_API_BASE: /api
+      APP_RENDER_API_BASE: /api
+      APP_API_UPSTREAM: http://printhub:8000
+      APP_LABEL_SIZE_PRESETS: 75x50,50x75
+    ports: ["127.0.0.1:8188:80"]
+    depends_on:
+      printhub: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [backend, frontend]
+
+networks:
+  backend: { internal: true }
+  renderer-egress: {}
+  frontend: {}
+
+volumes:
+  secrets: {}
+  zebra-data: {}
+  hub-data: {}

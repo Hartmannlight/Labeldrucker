@@ -56,6 +56,7 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.demo.yaml --profile demo config --quiet
+          docker compose --env-file deploy/cable-demo/demo.env -f deploy/cable-demo/compose.yaml config --quiet
           NIIMBOT_USB_DEVICE=/dev/null docker compose -f compose.yaml -f compose.niimbot-usb.yaml config --quiet
           ZEBRATAMER_USB_DEVICE=/dev/null docker compose -f compose.yaml -f compose.usb.yaml --profile usb config --quiet
           python -m py_compile pipeline/*.py tools/*.py
