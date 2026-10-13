@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "name": "Kabel-Demo 75 x 50 mm",
+  "defaults": {
+    "leaf_padding_mm": [
+      1.5,
+      1.5,
+      1.5,
+      1.5
+    ],
+    "render": {
+      "emit_ci28": true,
+      "missing_variables": "error"
+    }
+  },
+  "extensions": {
+    "cable_flag": {
+      "diameter_mm": 6,
+      "text_padding_mm": 2,
+      "wrap_axis": "long"
+    }
+  },
+  "layout": {
+    "kind": "split",
+    "alias": "cable-wrap",
+    "direction": "v",
+    "ratio": 0.5,
+    "gutter_mm": 18.84955592153876,
+    "divider": {
+      "visible": true,
+      "thickness_mm": 0.2
+    },
+    "children": [
+      {
+        "kind": "leaf",
+        "alias": "front",
+        "rotation_deg": 90,
+        "padding_mm": [
+          2,
+          1.5,
+          1.5,
+          1.5
+        ],
+        "elements": [
+          {
+            "type": "text",
+            "text": "VON: {from}\nZU: {to}",
+            "font_height_mm": 4.2,
+            "fit": "shrink_to_fit",
+            "wrap": "none",
+            "max_lines": 16,
+            "align_h": "center",
+            "align_v": "center"
+          }
+        ]
+      },
+      {
+        "kind": "leaf",
+        "alias": "back",
+        "rotation_deg": -90,
+        "padding_mm": [
+          2,
+          1.5,
+          1.5,
+          1.5
+        ],
+        "elements": [
+          {
+            "type": "text",
+            "text": "VON: {from}\nZU: {to}",
+            "font_height_mm": 4.2,
+            "fit": "shrink_to_fit",
+            "wrap": "none",
+            "max_lines": 16,
+            "align_h": "center",
+            "align_v": "center"
+          }
+        ]
+      }
+    ]
+  },
+  "labels": [
+    {
+      "name": "Ende A"
+    },
+    {
+      "name": "Ende B",
+      "bindings": {
+        "from": "to",
+        "to": "from"
+      }
+    }
+  ]
+}

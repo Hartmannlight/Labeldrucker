@@ -76,6 +76,13 @@ jobs:
           docker compose ps --services --status running | grep -qx zebratamer
           docker compose ps --services --status running | grep -qx studio
           docker compose ps --services --status running | grep -qx ipp-gateway
+      - name: Verify paired templates and a burst of virtual labels
+        env:
+          CABLE_DEMO_API: http://127.0.0.1:8001
+          CABLE_DEMO_EMULATOR: http://127.0.0.1:9191
+          CABLE_DEMO_WIDTH_MM: '50'
+          CABLE_DEMO_HEIGHT_MM: '25'
+        run: python3 deploy/cable-demo/verify_burst.py
       - name: Show container state on failure
         if: failure()
         run: docker compose ps --all
