@@ -7,9 +7,24 @@ The named volumes `printhub_data`, `zebratamer_data`, `ipp_gateway_spool`,
 logical jobs, immutable artifacts, service identity, physical queue state, IPP
 identity/spool data and credentials. Do not copy a live queue piecemeal.
 
+Volume names above are Compose keys; actual Docker names normally have the
+project-name prefix, for example `labeldrucker_printhub_data`. Include optional
+`zebratamer_usb_data`, `niimbot_data` and `raster_test_data` whenever those
+services are deployed. Each remote/native print service has its own data and
+credentials to back up on its host. The virtual Zebra has no persistent job
+volume; its recent-output history is lost on restart.
+
+Also save `.env`, `config/` (including the ignored installation manifest and
+local TOML files), custom Compose overlays and any image-pin env file. The
+backup tool archives only the directories explicitly passed to `--source`;
+it does not discover Docker volumes, stop services or collect configuration.
+
 For a consistent backup, stop job intake, let active transfers settle, run
-`docker compose stop studio ipp-gateway printhub zebratamer`, copy each volume
-to host directories, and archive those directories with:
+`docker compose stop` with the same files, profiles and env files as the active
+installation. This also stops local optional print-service workers. Stop any
+remote workers separately after their transfers settle. Copy each volume to
+host directories, preserving ownership/permissions for the later volume copy,
+and archive those directories with:
 
 ```bash
 python tools/backup_product.py create printhub-backup.tar.gz \
@@ -20,6 +35,10 @@ python tools/backup_product.py create printhub-backup.tar.gz \
   --source secrets=backup-input/secrets
 ```
 
+Add another `--source NAME=PATH` for each optional volume and a directory
+containing the saved installation configuration. This command consumes the
+prepared host copies; it is not itself a Docker-volume export command.
+
 The archive contains a versioned manifest and SHA-256 for every file. Treat it
 as a secret. Restore verifies every checksum and refuses a non-empty target:
 
@@ -28,7 +47,10 @@ python tools/backup_product.py restore printhub-backup.tar.gz restored
 ```
 
 Copy the verified `restored/data/NAME` trees into empty replacement volumes,
-then start ZebraTamer, PrintHub, IPP and Studio in that order. Never restore an
+then start the complete stack with its original Compose files, profiles and
+env files. Compose orders services by their declared dependencies. Restore
+optional and remote print-service data/credentials as part of the same cutover.
+Never restore an
 old active queue blindly after the new system has accepted jobs; reconcile and
 hold all ambiguous deliveries first.
 

@@ -2,6 +2,10 @@
 
 Stand: 2026-09-08. Status: Umsetzungsplan; kein Arbeitspaket ist durch die Erstellung dieses Dokuments erledigt.
 
+> Historischer Umbauplan, keine Beschreibung des aktuellen Laufzeitsystems.
+> Aktuelle Projekte und Kommunikationswege: [README](../README.md).
+> Spätere Dokumentations- und Implementierungsbefunde: [Review](DOCUMENTATION_REVIEW.md).
+
 Dieses Dokument ist die eigenständige Arbeitsgrundlage für den Umbau des Labeldrucker-Projekts. Es beschreibt Produktziel, verbindliche Verantwortlichkeiten, technische Verträge, Abhängigkeiten und Abnahme. Vorwissen aus einem Chat ist nicht erforderlich. Die Arbeitspakete umfassen die Umsetzung bis zu einem installierbaren und benutzbaren Produkt, einschließlich Datenübernahme, Images, Einrichtung, IPP und Entfernung von PrinterFleet.
 
 ## 1. Anlass und Produktziel
